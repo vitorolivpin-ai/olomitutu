@@ -1,0 +1,35 @@
+{
+  "name": "ile-oloroke-ase",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "html5-qrcode": "^2.3.8",
+    "lucide-react": "^1.57.0",
+    "next": "16.4.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

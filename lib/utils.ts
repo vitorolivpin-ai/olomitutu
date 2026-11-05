@@ -1,0 +1,14 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function uid(prefix = "id") {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function nowIso() {
+  return new Date().toISOString();
+}

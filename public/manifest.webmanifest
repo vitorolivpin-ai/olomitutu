@@ -1,0 +1,18 @@
+{
+  "name": "ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ",
+  "short_name": "ILÉ OLÓRÒKÈ",
+  "description": "Gestão e organização do barracão",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A2F6E",
+  "theme_color": "#0A2F6E",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
