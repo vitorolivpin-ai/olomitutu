@@ -47,18 +47,21 @@ export default function ChatPage() {
     );
   }
 
-  if (currentUser?.role === "cliente" && currentUser.client_id !== client.id) {
+  // Constante local: o TS não estreita `client` dentro de closures
+  const currentClient: Client = client;
+
+  if (currentUser?.role === "cliente" && currentUser.client_id !== currentClient.id) {
     return <EmptyState title="Acesso negado" />;
   }
 
-  const messages = state.messages.filter((m) => m.client_id === client.id);
+  const messages = state.messages.filter((m) => m.client_id === currentClient.id);
   const canNotes = canAccess(currentUser?.role, "internal_notes");
   const isStaff = currentUser?.role !== "cliente";
 
   function startVideoCall() {
-    const url = videoCallRoomUrl(client.id);
+    const url = videoCallRoomUrl(currentClient.id);
     sendMessage({
-      client_id: client.id,
+      client_id: currentClient.id,
       kind: "call",
       call_url: url,
       body: "Chamada de vídeo iniciada — toque para entrar.",
@@ -74,16 +77,16 @@ export default function ChatPage() {
     ) {
       return;
     }
-    hideStaffChat(client.id);
+    hideStaffChat(currentClient.id);
     router.push("/conversas");
   }
 
   return (
     <ChatRoom
-      title={client.full_name}
+      title={currentClient.full_name}
       subtitle="online"
       backHref="/conversas"
-      avatarName={client.full_name}
+      avatarName={currentClient.full_name}
       avatarSrc={null}
       messages={messages}
       isMine={(msg) =>
@@ -92,16 +95,16 @@ export default function ChatPage() {
       }
       onSendText={(body) => {
         if (internal && canNotes) {
-          addInternalNote(client.id, body);
+          addInternalNote(currentClient.id, body);
           setInternal(false);
           return;
         }
-        sendMessage({ client_id: client.id, body });
+        sendMessage({ client_id: currentClient.id, body });
       }}
       onSendAudio={(payload) => {
         if (internal) return;
         sendMessage({
-          client_id: client.id,
+          client_id: currentClient.id,
           kind: "audio",
           audio_data_url: payload.dataUrl,
           audio_duration_sec: payload.durationSec,
@@ -110,7 +113,7 @@ export default function ChatPage() {
       onSendVideo={(payload) => {
         if (internal) return;
         sendMessage({
-          client_id: client.id,
+          client_id: currentClient.id,
           kind: "video",
           video_data_url: payload.dataUrl,
         });

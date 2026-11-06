@@ -80,10 +80,11 @@ export async function showLocalChatNotification(input: {
     body: input.body,
     icon: brand.icon,
     badge: brand.badge,
+    // `image` existe no Chrome; tipagem DOM padrão ainda não inclui
     image: brand.image,
     tag: input.tag ?? "chat",
     data: { url: input.url },
-  });
+  } as NotificationOptions);
 }
 
 function urlBase64ToUint8Array(base64String: string) {
