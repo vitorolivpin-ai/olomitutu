@@ -34,7 +34,7 @@ export default function ClienteNotificacoesPage() {
         <p className="text-sm font-medium text-gold-deep">App do Cliente</p>
         <h1 className="font-display text-3xl text-navy">Notificações</h1>
         <p className="text-sm text-navy/60">
-          Mensagens do Pai, horários liberados e novidades da biblioteca.
+          Mensagens do Pai e horários liberados.
         </p>
       </div>
 

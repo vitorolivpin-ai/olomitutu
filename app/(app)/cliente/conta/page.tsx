@@ -2,38 +2,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  BookOpen,
-  CalendarDays,
-  LayoutDashboard,
-  MessageCircle,
-  Package,
-  UserRound,
-  Wallet,
-} from "lucide-react";
+import { Bell, CalendarDays, MessageCircle, UserRound } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
-import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
-import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
+import { isFilhoDeSanto } from "@/lib/filho";
 import { unreadCountForRole } from "@/lib/notifications";
 
 const appLinks = [
-  { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
-  { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/cliente/educacao", label: "Educação", icon: BookOpen },
-  { href: "/cliente/loja", label: "Loja", icon: Package },
-  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
+  { href: "/cliente", label: "Início", icon: CalendarDays },
+  { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
-  {
-    href: "/cliente/financeiro-chat",
-    label: "Chat com o Financeiro",
-    icon: Wallet,
-  },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
 ] as const;
@@ -42,7 +24,7 @@ export default function ClienteContaPage() {
   const { currentUser, state, logout } = useAppStore();
   const router = useRouter();
 
-  if (currentUser?.role !== "cliente") {
+  if (currentUser?.role !== "cliente" || isFilhoDeSanto(currentUser)) {
     return <EmptyState title="Área exclusiva do cliente" />;
   }
 
@@ -85,24 +67,6 @@ export default function ClienteContaPage() {
             </Link>
           );
         })}
-
-        <button
-          type="button"
-          onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-navy/70 transition hover:bg-navy/5"
-        >
-          <WhatsAppIcon className="h-5 w-5 text-gold-deep" />
-          <span>{CLIENT_WHATSAPP.duvidas.label}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-navy/70 transition hover:bg-navy/5"
-        >
-          <WhatsAppIcon className="h-5 w-5 shrink-0 text-gold-deep" />
-          <span className="leading-snug">{CLIENT_WHATSAPP.grupo.label}</span>
-        </button>
       </nav>
 
       <Button

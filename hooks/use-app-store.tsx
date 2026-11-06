@@ -31,6 +31,7 @@ import type {
   AppNotification,
   AppState,
   Appointment,
+  AppointmentGuestFicha,
   AppointmentStatus,
   AjodunMembership,
   Client,
@@ -165,6 +166,14 @@ type AppStore = {
     duration_minutes?: number;
     amount?: number;
   }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
+  /** Marcação pública sem conta — ficha só o Pai vê. */
+  bookGuestAppointment: (input: {
+    scheduled_at: string;
+    ficha: AppointmentGuestFicha;
+    amount?: number;
+  }) =>
+    | { ok: true; appointment: Appointment; ficha_code: string }
+    | { ok: false; error: string };
   updateAppointmentStatus: (id: string, status: AppointmentStatus) => Appointment | null;
   cancelAppointment: (id: string) => Appointment | null;
   patchAppointment: (id: string, patch: Partial<Appointment>) => Appointment | null;
@@ -1547,6 +1556,99 @@ export function AppStoreProvider({
           notifications: [notification, ...prev.notifications],
         };
       });
+      return result;
+    },
+    [commit],
+  );
+
+  const bookGuestAppointment: AppStore["bookGuestAppointment"] = useCallback(
+    (input) => {
+      const name = input.ficha.full_name.trim();
+      const phone = input.ficha.phone.trim();
+      if (name.length < 3) {
+        return { ok: false, error: "Informe seu nome completo." };
+      }
+      if (phone.length < 8) {
+        return { ok: false, error: "Informe um telefone válido." };
+      }
+
+      let result: ReturnType<AppStore["bookGuestAppointment"]> = {
+        ok: false,
+        error: "Falha ao marcar.",
+      };
+
+      commit((prev) => {
+        const published = (prev.publishedSlots ?? []).some(
+          (s) => s.scheduled_at === input.scheduled_at,
+        );
+        if (!published) {
+          result = {
+            ok: false,
+            error: "Este horário não está mais disponível.",
+          };
+          return prev;
+        }
+        if (isSlotOccupied(input.scheduled_at, prev.appointments)) {
+          result = { ok: false, error: "Este horário acabou de ser preenchido." };
+          return prev;
+        }
+
+        const stamp = nowIso();
+        const slot = prev.publishedSlots.find((s) => s.scheduled_at === input.scheduled_at);
+        const clientId = uid("cli");
+        const aptId = uid("apt");
+        const fichaCode = `FC-${aptId.slice(-8).toUpperCase()}`;
+        const guestClient: Client = {
+          id: clientId,
+          full_name: name,
+          phone,
+          email: input.ficha.email?.trim() || undefined,
+          birth_date: input.ficha.birth_date || undefined,
+          registration_complete: true,
+          is_guest: true,
+          notes: "Marcação pública (sem conta)",
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        const appointment: Appointment = {
+          id: aptId,
+          client_id: clientId,
+          scheduled_at: input.scheduled_at,
+          duration_minutes: slot?.duration_minutes ?? 60,
+          status: "SOLICITADO",
+          amount: input.amount ?? 150,
+          ficha_code: fichaCode,
+          guest_ficha: {
+            full_name: name,
+            phone,
+            email: input.ficha.email?.trim() || undefined,
+            birth_date: input.ficha.birth_date || undefined,
+            observation: input.ficha.observation?.trim() || undefined,
+          },
+          pai_only_ficha: true,
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        const notification: AppNotification = {
+          id: uid("ntf"),
+          title: "Nova ficha na agenda",
+          body: `Horário ${new Date(input.scheduled_at).toLocaleString("pt-BR")} · código ${fichaCode}. Abra a ficha (só você vê os dados).`,
+          type: "agenda",
+          audience: ["pai_de_santo"],
+          related_id: aptId,
+          read: false,
+          href: `/atendimentos/${aptId}`,
+          created_at: stamp,
+        };
+        result = { ok: true, appointment, ficha_code: fichaCode };
+        return {
+          ...prev,
+          clients: [guestClient, ...prev.clients],
+          appointments: [appointment, ...prev.appointments],
+          notifications: [notification, ...prev.notifications],
+        };
+      });
+
       return result;
     },
     [commit],
@@ -3141,6 +3243,7 @@ export function AppStoreProvider({
     removeClient,
     saveClientRegistration,
     createAppointment,
+    bookGuestAppointment,
     updateAppointmentStatus,
     cancelAppointment,
     patchAppointment,

@@ -1,25 +1,24 @@
 import { HubLanding } from "@/components/hub/hub-landing";
 
 /**
- * Hub: emblema + menu.
- * Cada entrada abre o login só daquela área (e-mail + senha).
+ * Hub: emblema + atalhos públicos visíveis + menu (público e restrito).
  */
 export default function HubPage() {
   return (
     <HubLanding
       entries={[
         {
-          id: "casa",
-          label: "App da Casa",
-          hint: "Login do Pai de Santo",
-          href: "/entrar/pai_de_santo",
+          id: "marcar",
+          label: "Marcar horário",
+          hint: "Sem criar conta · Pix · ficha só o Pai vê",
+          href: "/marcar",
           section: "geral",
         },
         {
-          id: "cliente",
-          label: "App do Cliente",
-          hint: "Login do cliente",
-          href: "/entrar/cliente",
+          id: "biblioteca",
+          label: "Biblioteca",
+          hint: "Cantigas, vídeos e PDFs — sem login",
+          href: "/acervo",
           section: "geral",
         },
         {
@@ -28,6 +27,20 @@ export default function HubPage() {
           hint: "Produtos e Pix — sem login",
           href: "/vitrine",
           section: "geral",
+        },
+        {
+          id: "historia",
+          label: "Quem somos",
+          hint: "História da casa",
+          href: "/historia",
+          section: "geral",
+        },
+        {
+          id: "casa",
+          label: "App da Casa",
+          hint: "Login do Pai de Santo",
+          href: "/entrar/pai_de_santo",
+          section: "restrito",
         },
         {
           id: "admin",
@@ -51,9 +64,9 @@ export default function HubPage() {
           section: "restrito",
         },
         {
-          id: "biblioteca",
-          label: "Biblioteca",
-          hint: "Login restrito",
+          id: "biblioteca_equipe",
+          label: "Biblioteca (equipe)",
+          hint: "Publicar materiais",
           href: "/entrar/biblioteca",
           section: "restrito",
         },

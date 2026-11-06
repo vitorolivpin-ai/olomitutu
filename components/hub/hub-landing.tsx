@@ -1,4 +1,11 @@
-import { BookOpen, Menu, ShoppingBag, X } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  Library,
+  Menu,
+  ShoppingBag,
+  X,
+} from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 
 export type HubEntry = {
@@ -14,9 +21,7 @@ type Props = {
 };
 
 /**
- * Hub: emblema + atalhos.
- * Menu usa <details> nativo (abre sem depender de React onClick).
- * Quem somos e entradas usam navegação real (href).
+ * Hub: emblema + atalhos públicos bem visíveis + menu para o restante.
  */
 export function HubLanding({ entries }: Props) {
   const gerais = entries.filter((e) => e.section !== "restrito");
@@ -38,39 +43,64 @@ export function HubLanding({ entries }: Props) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-start justify-center gap-6 pb-4 pt-6 sm:gap-8">
+        {/* Atalhos públicos — sempre à vista, sem abrir menu */}
+        <div className="flex flex-wrap items-start justify-center gap-5 pb-2 pt-6 sm:gap-7">
           <a
-            href="/historia"
-            className="group flex w-[4.75rem] flex-col items-center gap-2 sm:w-20"
+            href="/marcar"
+            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gold/25 text-navy shadow-soft ring-1 ring-gold/40 transition group-hover:bg-gold/40 sm:h-16 sm:w-16">
+              <CalendarDays className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            </span>
+            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+              Marcar
+              <span className="mt-0.5 block font-normal text-navy/55">horário</span>
+            </span>
+          </a>
+
+          <a
+            href="/acervo"
+            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
-              <BookOpen className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+              <Library className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] leading-tight text-navy/70 sm:text-xs">
-              Quem somos
+            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+              Biblioteca
             </span>
           </a>
 
           <a
             href="/vitrine"
-            className="group flex w-[4.75rem] flex-col items-center gap-2 sm:w-20"
+            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
               <ShoppingBag className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] leading-tight text-navy/70 sm:text-xs">
+            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
               Loja
             </span>
           </a>
 
-          {/* details/summary = abre no browser sem JS de React */}
-          <details className="group relative w-[4.75rem] sm:w-20">
+          <a
+            href="/historia"
+            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
+              <BookOpen className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            </span>
+            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+              Quem somos
+            </span>
+          </a>
+
+          <details className="group relative w-[5.25rem] sm:w-24">
             <summary className="flex cursor-pointer list-none flex-col items-center gap-2 [&::-webkit-details-marker]:hidden">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-navy text-cream shadow-soft transition group-open:bg-cream group-open:text-navy sm:h-16 sm:w-16">
                 <Menu className="h-6 w-6 group-open:hidden sm:h-7 sm:w-7" strokeWidth={1.75} />
                 <X className="hidden h-6 w-6 group-open:block sm:h-7 sm:w-7" strokeWidth={1.75} />
               </span>
-              <span className="text-center text-[11px] leading-tight text-navy/70 sm:text-xs">
+              <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
                 Menu
               </span>
             </summary>
@@ -78,13 +108,13 @@ export function HubLanding({ entries }: Props) {
             <div className="absolute bottom-[calc(100%+0.75rem)] left-1/2 z-50 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-navy/10 bg-navy text-cream shadow-soft">
               <div className="border-b border-white/10 px-4 py-3">
                 <p className="font-display text-sm tracking-wide text-gold">Menu</p>
-                <p className="text-xs text-cream/50">Escolha por onde entrar</p>
+                <p className="text-xs text-cream/50">Aberto ao público e áreas da casa</p>
               </div>
 
               <nav className="max-h-[min(60vh,28rem)] space-y-4 overflow-y-auto px-2 py-3">
                 <div>
                   <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cream/40">
-                    Geral
+                    Público
                   </p>
                   <ul className="space-y-0.5">
                     {gerais.map((entry) => (

@@ -26,7 +26,10 @@ export default function ClientsPage() {
   const clients =
     currentUser?.role === "cliente"
       ? state.clients.filter((c) => c.id === currentUser.client_id)
-      : state.clients;
+      : currentUser?.role === "pai_de_santo"
+        ? state.clients
+        : // Marcação pública: ficha/guest só o Pai vê na lista
+          state.clients.filter((c) => !c.is_guest);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();

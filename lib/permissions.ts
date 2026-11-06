@@ -71,8 +71,8 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
   estoque: ["stock", "notifications"],
   /** App dedicado da biblioteca (vídeos, cantigas, PDFs) */
   biblioteca: ["library", "notifications", "house_content"],
-  /** Cliente: Quem somos + cadastro + chat + horários + loja + biblioteca */
-  cliente: ["dashboard", "chat", "notifications", "agenda", "shop", "library"],
+  /** Cliente: só marcação (agenda) + chat com o Pai */
+  cliente: ["dashboard", "chat", "notifications", "agenda"],
 };
 
 /** Quem pode publicar / apagar materiais da biblioteca */

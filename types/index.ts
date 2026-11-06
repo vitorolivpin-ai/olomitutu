@@ -180,8 +180,19 @@ export interface Client {
   birth_date?: string;
   registration_complete?: boolean;
   notes?: string;
+  /** Marcação pública sem conta — ficha só o Pai vê. */
+  is_guest?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Dados da ficha preenchida no agendamento aberto (sem login). */
+export interface AppointmentGuestFicha {
+  full_name: string;
+  phone: string;
+  email?: string;
+  birth_date?: string;
+  observation?: string;
 }
 
 export interface Availability {
@@ -218,6 +229,12 @@ export interface Appointment {
   notes?: string;
   /** ID do evento no Google Calendar (sync App → Google). */
   google_event_id?: string;
+  /** Código único da ficha (ex.: FC-A1B2C3D4). */
+  ficha_code?: string;
+  /** Preenchida na marcação pública — visível só para o Pai de Santo. */
+  guest_ficha?: AppointmentGuestFicha;
+  /** true = agendamento aberto; ficha restrita ao Pai. */
+  pai_only_ficha?: boolean;
   created_at: string;
   updated_at: string;
 }

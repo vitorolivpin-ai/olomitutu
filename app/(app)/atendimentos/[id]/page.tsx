@@ -7,6 +7,10 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import {
+  appointmentPublicLabel,
+  canSeeAppointmentFicha,
+} from "@/lib/appointment-ficha";
 import { formatCurrency, formatDateTime, formatDuration, formatTime } from "@/lib/format";
 
 export default function AppointmentDetailPage() {
@@ -23,18 +27,23 @@ export default function AppointmentDetailPage() {
   const apt = state.appointments.find((a) => a.id === params.id);
   const client = state.clients.find((c) => c.id === apt?.client_id);
 
-  if (!apt || !client) return <EmptyState title="Atendimento não encontrado" />;
+  if (!apt) return <EmptyState title="Atendimento não encontrado" />;
 
-  if (currentUser?.role === "cliente" && currentUser.client_id !== apt.client_id) {
+  if (currentUser?.role === "cliente") {
     return <EmptyState title="Acesso negado" />;
   }
+
+  const canSeeFicha = canSeeAppointmentFicha(currentUser?.role, apt);
+  const title = appointmentPublicLabel(apt, client?.full_name, currentUser);
+  const ficha = apt.guest_ficha;
 
   const duration =
     apt.started_at && apt.ended_at
       ? formatDuration(new Date(apt.ended_at).getTime() - new Date(apt.started_at).getTime())
       : null;
 
-  const staff = currentUser?.role !== "cliente";
+  const isPai = currentUser?.role === "pai_de_santo";
+  const staff = Boolean(currentUser);
 
   return (
     <div className="animate-rise space-y-5">
@@ -42,9 +51,65 @@ export default function AppointmentDetailPage() {
         <Link href="/agenda" className="text-sm text-navy/55 hover:text-navy">
           ← Agenda
         </Link>
-        <h1 className="font-display text-3xl text-navy">{client.full_name}</h1>
+        <h1 className="font-display text-3xl text-navy">{title}</h1>
         <p className="text-sm text-navy/60">{formatDateTime(apt.scheduled_at)}</p>
+        {apt.ficha_code ? (
+          <p className="mt-1 text-xs font-medium text-gold-deep">Código {apt.ficha_code}</p>
+        ) : null}
       </div>
+
+      {apt.pai_only_ficha && !canSeeFicha ? (
+        <Card className="border-l-4 border-l-gold">
+          <CardTitle>Ficha restrita</CardTitle>
+          <p className="mt-2 text-sm text-navy/70">
+            Os dados pessoais desta marcação só o Pai de Santo pode ver. Você vê apenas o
+            horário e o status.
+          </p>
+        </Card>
+      ) : null}
+
+      {canSeeFicha && ficha ? (
+        <Card className="border-l-4 border-l-navy">
+          <CardTitle>Ficha do agendamento</CardTitle>
+          <p className="mt-1 text-xs text-navy/45">Visível somente para o Pai de Santo</p>
+          <dl className="mt-4 space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-navy/55">Nome</dt>
+              <dd className="font-medium text-right">{ficha.full_name}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-navy/55">Telefone</dt>
+              <dd className="font-medium text-right">{ficha.phone}</dd>
+            </div>
+            {ficha.email ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-navy/55">E-mail</dt>
+                <dd className="font-medium text-right">{ficha.email}</dd>
+              </div>
+            ) : null}
+            {ficha.birth_date ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-navy/55">Nascimento</dt>
+                <dd className="font-medium text-right">{ficha.birth_date}</dd>
+              </div>
+            ) : null}
+            {ficha.observation ? (
+              <div>
+                <dt className="text-navy/55">Observação</dt>
+                <dd className="mt-1 whitespace-pre-wrap text-navy/80">{ficha.observation}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </Card>
+      ) : null}
+
+      {canSeeFicha && !ficha && client ? (
+        <Card>
+          <CardTitle>Cliente</CardTitle>
+          <p className="mt-2 text-sm text-navy/70">{client.full_name}</p>
+          <p className="text-sm text-navy/55">{client.phone}</p>
+        </Card>
+      ) : null}
 
       <Card>
         <div className="flex items-center justify-between gap-3">
@@ -76,10 +141,12 @@ export default function AppointmentDetailPage() {
         ) : null}
       </Card>
 
-      {staff ? (
+      {staff && (isPai || !apt.pai_only_ficha) ? (
         <div className="grid gap-2 sm:grid-cols-2">
           {apt.status === "SOLICITADO" ? (
-            <Button onClick={() => updateAppointmentStatus(apt.id, "CONFIRMADO")}>Confirmar</Button>
+            <Button onClick={() => updateAppointmentStatus(apt.id, "CONFIRMADO")}>
+              Confirmar
+            </Button>
           ) : null}
           {["CONFIRMADO", "SOLICITADO"].includes(apt.status) ? (
             <Button variant="gold" onClick={() => startAppointment(apt.id)}>
@@ -96,23 +163,16 @@ export default function AppointmentDetailPage() {
               <Button variant="secondary" onClick={() => cancelAppointment(apt.id)}>
                 Cancelar (libera horário)
               </Button>
-              <Button variant="danger" onClick={() => updateAppointmentStatus(apt.id, "NAO_COMPARECEU")}>
+              <Button
+                variant="danger"
+                onClick={() => updateAppointmentStatus(apt.id, "NAO_COMPARECEU")}
+              >
                 Não compareceu
               </Button>
             </>
           ) : null}
         </div>
       ) : null}
-
-      {!staff && ["SOLICITADO", "CONFIRMADO"].includes(apt.status) ? (
-        <Button variant="danger" className="w-full" onClick={() => cancelAppointment(apt.id)}>
-          Cancelar consulta (libera horário para outros)
-        </Button>
-      ) : null}
-
-      <Link href={staff ? `/conversas/${client.id}` : "/cliente/mensagens"}>
-        <Button variant="secondary" className="w-full">Abrir conversa</Button>
-      </Link>
     </div>
   );
 }

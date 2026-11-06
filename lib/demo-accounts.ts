@@ -14,7 +14,7 @@ export const DEMO_ACCOUNTS: Record<
   cliente: {
     email: "cliente@ileoloroke.demo",
     label: "App do Cliente",
-    hint: "Cliente de jogo. Filho de Santo demo: filho@ileoloroke.demo",
+    hint: "Marcação aberta em /marcar (sem conta)",
   },
   administrador: {
     email: "admin@ileoloroke.demo",

@@ -13,6 +13,7 @@ import {
   pushAppointmentToGoogle,
   removeAppointmentFromGoogle,
 } from "@/lib/google/appointment-sync";
+import { appointmentPublicLabel } from "@/lib/appointment-ficha";
 import { formatDateTime } from "@/lib/format";
 import { buildSlotViews } from "@/lib/slots";
 
@@ -147,12 +148,20 @@ function AgendaPageInner() {
       <div className="grid gap-3">
         {list.map((apt) => {
           const client = state.clients.find((c) => c.id === apt.client_id);
+          const label = appointmentPublicLabel(apt, client?.full_name, currentUser);
+          const isPai = currentUser?.role === "pai_de_santo";
+          const guestLocked = Boolean(apt.pai_only_ficha) && !isPai;
           return (
             <Card key={apt.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-display text-xl text-navy">{client?.full_name}</p>
+                  <p className="font-display text-xl text-navy">{label}</p>
                   <p className="text-sm text-navy/60">{formatDateTime(apt.scheduled_at)}</p>
+                  {guestLocked ? (
+                    <p className="mt-1 text-xs text-navy/45">
+                      Ficha pessoal só o Pai de Santo abre
+                    </p>
+                  ) : null}
                   {apt.google_event_id ? (
                     <p className="mt-1 text-xs text-success">No Google Calendar</p>
                   ) : null}
@@ -161,14 +170,15 @@ function AgendaPageInner() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link href={`/atendimentos/${apt.id}`}>
-                  <Button size="sm">Abrir</Button>
+                  <Button size="sm">{guestLocked ? "Ver status" : "Abrir ficha"}</Button>
                 </Link>
-                {apt.status === "SOLICITADO" ? (
+                {apt.status === "SOLICITADO" && (isPai || !apt.pai_only_ficha) ? (
                   <Button size="sm" variant="gold" onClick={() => void onConfirm(apt.id)}>
                     Confirmar
                   </Button>
                 ) : null}
-                {["SOLICITADO", "CONFIRMADO"].includes(apt.status) ? (
+                {["SOLICITADO", "CONFIRMADO"].includes(apt.status) &&
+                (isPai || !apt.pai_only_ficha) ? (
                   <Button size="sm" variant="secondary" onClick={() => void onCancel(apt.id)}>
                     Cancelar
                   </Button>

@@ -103,26 +103,11 @@ const libraryAppLinks = [
 ];
 
 const clientLinks = [
-  { href: "/cliente", label: "Quem somos", icon: LayoutDashboard, external: false },
-  { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen, external: false },
-  { href: "/cliente/educacao", label: "Educação", icon: BookOpen, external: false },
-  { href: "/cliente/loja", label: "Loja", icon: Package, external: false },
-  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays, external: false },
+  { href: "/cliente", label: "Início", icon: LayoutDashboard, external: false },
+  { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays, external: false },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell, external: false },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound, external: false },
-  {
-    href: CLIENT_WHATSAPP.duvidas.href,
-    label: CLIENT_WHATSAPP.duvidas.label,
-    icon: WhatsAppIcon,
-    external: true,
-  },
-  {
-    href: CLIENT_WHATSAPP.grupo.href,
-    label: CLIENT_WHATSAPP.grupo.label,
-    icon: WhatsAppIcon,
-    external: true,
-  },
 ];
 
 const filhoLinks = [
