@@ -24,7 +24,7 @@ export default function ClienteLojaPage() {
     return <EmptyState title="Área exclusiva do cliente" />;
   }
 
-  function onBuy(productId: string) {
+  function onBuyAccount(productId: string) {
     setBuyError(null);
     setBuyOk(null);
     const result = requestShopPurchase(productId);
@@ -32,7 +32,9 @@ export default function ClienteLojaPage() {
       setBuyError(result.error);
       return;
     }
-    setBuyOk("Pedido enviado. Faça o Pix e aguarde o Financeiro liberar.");
+    setBuyOk(
+      "Pedido enviado. Após o Pix, o conteúdo é liberado na sua conta (até 3 dias úteis).",
+    );
   }
 
   return (
@@ -44,8 +46,8 @@ export default function ClienteLojaPage() {
         <p className="mt-2 text-sm font-medium text-gold-deep">Área do cliente</p>
         <h1 className="font-display text-3xl text-navy">Loja da casa</h1>
         <p className="text-sm text-navy/60">
-          Produtos físicos e conteúdos digitais. Itens com cadeado liberam após o
-          Pix confirmado pelo Financeiro.
+          Com a sua conta, PDF e cursos liberam aqui no app após o Financeiro
+          confirmar o Pix.
         </p>
       </div>
 
@@ -57,8 +59,8 @@ export default function ClienteLojaPage() {
           houseSettings={state.houseSettings}
           purchases={state.shopPurchases}
           clientId={currentUser.client_id}
-          canBuy
-          onBuy={onBuy}
+          canBuyAccount
+          onBuyAccount={onBuyAccount}
           buyError={buyError}
           buyOk={buyOk}
         />

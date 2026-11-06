@@ -29,8 +29,11 @@ export default function LojaLiberacoesPage() {
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => {
         const product = (state.shopProducts ?? []).find((x) => x.id === p.product_id);
-        const client = (state.clients ?? []).find((c) => c.id === p.client_id);
-        return { purchase: p, product, client };
+        const client = p.client_id
+          ? (state.clients ?? []).find((c) => c.id === p.client_id)
+          : null;
+        const byEmail = p.delivery === "email" || !p.client_id;
+        return { purchase: p, product, client, byEmail };
       });
   }, [state.shopPurchases, state.shopProducts, state.clients]);
 
@@ -48,7 +51,8 @@ export default function LojaLiberacoesPage() {
         </Link>
         <h1 className="mt-2 font-display text-3xl text-navy">Liberações da loja</h1>
         <p className="text-sm text-navy/60">
-          Confirme o Pix e libere PDF/curso. Pai e Financeiro podem liberar.
+          Conta: libera no app. Sem conta: envie o arquivo por e-mail usando a ficha
+          de NF.
         </p>
       </div>
 
@@ -56,21 +60,54 @@ export default function LojaLiberacoesPage() {
         <EmptyState title="Nenhuma compra aguardando liberação" />
       ) : (
         <div className="grid gap-3">
-          {pending.map(({ purchase, product, client }) => (
+          {pending.map(({ purchase, product, client, byEmail }) => (
             <Card key={purchase.id}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <CardTitle>{product?.name ?? "Produto"}</CardTitle>
                   <p className="mt-1 text-sm text-navy/65">
-                    {client?.full_name ?? "Cliente"} · R${" "}
-                    {(product?.price ?? 0).toFixed(2).replace(".", ",")}
+                    R$ {(product?.price ?? 0).toFixed(2).replace(".", ",")}
                   </p>
+                  <Badge tone={byEmail ? "info" : "gold"} className="mt-2">
+                    {byEmail ? "Envio por e-mail + NF" : "Liberar na conta"}
+                  </Badge>
+                  {byEmail && purchase.invoice ? (
+                    <div className="mt-3 space-y-1 rounded-lg bg-mist/70 px-3 py-2 text-sm text-navy/80">
+                      <p>
+                        <strong>Nome:</strong> {purchase.invoice.full_name}
+                      </p>
+                      <p>
+                        <strong>E-mail:</strong>{" "}
+                        {purchase.guest_email ?? purchase.invoice.email}
+                      </p>
+                      <p>
+                        <strong>CPF/CNPJ:</strong> {purchase.invoice.cpf_cnpj}
+                      </p>
+                      {purchase.invoice.phone ? (
+                        <p>
+                          <strong>Tel:</strong> {purchase.invoice.phone}
+                        </p>
+                      ) : null}
+                      {purchase.invoice.address ? (
+                        <p>
+                          <strong>Endereço:</strong> {purchase.invoice.address}
+                          {purchase.invoice.city ? `, ${purchase.invoice.city}` : ""}
+                          {purchase.invoice.state ? `/${purchase.invoice.state}` : ""}
+                          {purchase.invoice.zip ? ` · ${purchase.invoice.zip}` : ""}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-navy/50">
+                        Após Liberar, envie o PDF/curso e a NF para este e-mail.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-navy/65">
+                      Cliente: {client?.full_name ?? "—"}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-navy/45">
                     {formatDateTime(purchase.created_at)}
                   </p>
-                  <Badge tone="warning" className="mt-2">
-                    Aguardando
-                  </Badge>
                 </div>
                 {canManage ? (
                   <div className="flex shrink-0 gap-2">
@@ -78,7 +115,7 @@ export default function LojaLiberacoesPage() {
                       variant="gold"
                       onClick={() => releaseShopPurchase(purchase.id)}
                     >
-                      Liberar
+                      {byEmail ? "Marcar enviado" : "Liberar na conta"}
                     </Button>
                     <Button
                       variant="danger"
@@ -99,16 +136,23 @@ export default function LojaLiberacoesPage() {
           <h2 className="font-display text-xl text-navy">Histórico</h2>
           {rows
             .filter((r) => r.purchase.status !== "solicitado")
-            .map(({ purchase, product, client }) => (
+            .map(({ purchase, product, client, byEmail }) => (
               <Card key={purchase.id}>
                 <p className="font-semibold text-navy">
-                  {product?.name} · {client?.full_name}
+                  {product?.name} ·{" "}
+                  {byEmail
+                    ? purchase.guest_email ?? purchase.invoice?.email
+                    : client?.full_name}
                 </p>
                 <Badge
                   tone={purchase.status === "pago_liberado" ? "success" : "danger"}
                   className="mt-2"
                 >
-                  {purchase.status === "pago_liberado" ? "Liberado" : "Recusado"}
+                  {purchase.status === "pago_liberado"
+                    ? byEmail
+                      ? "Enviado / NF"
+                      : "Liberado na conta"
+                    : "Recusado"}
                 </Badge>
               </Card>
             ))}

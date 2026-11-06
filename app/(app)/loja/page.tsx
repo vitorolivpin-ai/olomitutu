@@ -54,16 +54,23 @@ export default function LojaStaffPage() {
       string,
       Array<{
         purchaseId: string;
-        clientName: string;
+        label: string;
+        delivery: "conta" | "email";
       }>
     >();
     for (const purchase of state.shopPurchases ?? []) {
       if (purchase.status !== "solicitado") continue;
-      const client = (state.clients ?? []).find((c) => c.id === purchase.client_id);
+      const client = purchase.client_id
+        ? (state.clients ?? []).find((c) => c.id === purchase.client_id)
+        : null;
+      const byEmail = purchase.delivery === "email" || !purchase.client_id;
       const list = map.get(purchase.product_id) ?? [];
       list.push({
         purchaseId: purchase.id,
-        clientName: client?.full_name ?? "Cliente",
+        delivery: byEmail ? "email" : "conta",
+        label: byEmail
+          ? `${purchase.invoice?.full_name ?? "Visitante"} · ${purchase.guest_email ?? purchase.invoice?.email ?? "e-mail"}`
+          : client?.full_name ?? "Cliente (conta)",
       });
       map.set(purchase.product_id, list);
     }
@@ -342,8 +349,11 @@ export default function LojaStaffPage() {
                             className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-mist/70 px-3 py-2"
                           >
                             <p className="text-sm text-navy">
-                              <span className="font-medium">{req.clientName}</span>
-                              <span className="text-navy/50"> · aguardando Pix</span>
+                              <span className="font-medium">{req.label}</span>
+                              <span className="text-navy/50">
+                                {" "}
+                                · {req.delivery === "email" ? "enviar por e-mail" : "liberar na conta"}
+                              </span>
                             </p>
                             <div className="flex gap-2">
                               <Button

@@ -50,6 +50,7 @@ import type {
   PhotoAlbum,
   Profile,
   PublishedSlot,
+  ShopInvoiceForm,
   ShopProduct,
   StockLot,
   StockMovement,
@@ -121,6 +122,11 @@ type AppStore = {
   requestShopPurchase: (productId: string) =>
     | { ok: true }
     | { ok: false; error: string };
+  /** Compra sem conta: ficha NF + envio do conteúdo por e-mail. */
+  requestShopPurchaseGuest: (
+    productId: string,
+    invoice: import("@/types").ShopInvoiceForm,
+  ) => { ok: true } | { ok: false; error: string };
   releaseShopPurchase: (purchaseId: string) =>
     | { ok: true }
     | { ok: false; error: string };
@@ -859,6 +865,7 @@ export function AppStoreProvider({
         id: isSupabaseConfigured() ? crypto.randomUUID() : uid("buy"),
         product_id: productId,
         client_id: clientId,
+        delivery: "conta" as const,
         status: "solicitado" as const,
         created_at: stamp,
         updated_at: stamp,
@@ -866,7 +873,7 @@ export function AppStoreProvider({
       const staffNote = {
         id: uid("ntf"),
         title: "Nova compra na loja",
-        body: `${currentUser.full_name} pediu: ${product.name} (R$ ${product.price.toFixed(2)}).`,
+        body: `${currentUser.full_name} pediu: ${product.name} (R$ ${product.price.toFixed(2)}) — liberar na conta.`,
         type: "financeiro" as const,
         audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
         related_id: purchase.id,
@@ -885,6 +892,7 @@ export function AppStoreProvider({
           id: purchase.id,
           product_id: productId,
           client_id: clientId,
+          delivery: "conta",
           status: "solicitado",
           created_at: stamp,
           updated_at: stamp,
@@ -893,6 +901,87 @@ export function AppStoreProvider({
       return { ok: true };
     },
     [commit, currentUser, state.shopProducts, state.shopPurchases],
+  );
+
+  const requestShopPurchaseGuest: AppStore["requestShopPurchaseGuest"] = useCallback(
+    (productId, invoice) => {
+      const product = (state.shopProducts ?? []).find((p) => p.id === productId);
+      if (!product || !product.available) {
+        return { ok: false, error: "Produto indisponível." };
+      }
+      const full_name = invoice.full_name.trim();
+      const email = invoice.email.trim().toLowerCase();
+      const cpf_cnpj = invoice.cpf_cnpj.trim();
+      if (full_name.length < 3) return { ok: false, error: "Informe o nome completo." };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { ok: false, error: "E-mail inválido para NF e envio." };
+      }
+      if (cpf_cnpj.replace(/\D/g, "").length < 11) {
+        return { ok: false, error: "Informe CPF ou CNPJ para a nota fiscal." };
+      }
+      const existing = (state.shopPurchases ?? []).find(
+        (p) =>
+          p.product_id === productId &&
+          p.guest_email === email &&
+          (p.status === "solicitado" || p.status === "pago_liberado"),
+      );
+      if (existing?.status === "solicitado") {
+        return { ok: false, error: "Já existe pedido com este e-mail — aguarde a liberação." };
+      }
+      const stamp = nowIso();
+      const invoiceClean: ShopInvoiceForm = {
+        full_name,
+        email,
+        cpf_cnpj,
+        phone: invoice.phone?.trim() || undefined,
+        address: invoice.address?.trim() || undefined,
+        city: invoice.city?.trim() || undefined,
+        state: invoice.state?.trim() || undefined,
+        zip: invoice.zip?.trim() || undefined,
+      };
+      const purchase = {
+        id: isSupabaseConfigured() ? crypto.randomUUID() : uid("buy"),
+        product_id: productId,
+        delivery: "email" as const,
+        guest_email: email,
+        invoice: invoiceClean,
+        status: "solicitado" as const,
+        created_at: stamp,
+        updated_at: stamp,
+      };
+      const staffNote = {
+        id: uid("ntf"),
+        title: "Compra sem conta (e-mail + NF)",
+        body: `${full_name} (${email}) pediu ${product.name} — enviar por e-mail após Pix/NF.`,
+        type: "financeiro" as const,
+        audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+        related_id: purchase.id,
+        read: false,
+        href: "/loja/liberacoes",
+        created_at: stamp,
+      };
+      commit((prev) => ({
+        ...prev,
+        shopPurchases: [purchase, ...(prev.shopPurchases ?? [])],
+        notifications: [staffNote, ...prev.notifications],
+      }));
+      if (isSupabaseConfigured() && isUuid(productId)) {
+        const supabase = createBrowserClient();
+        void supabase?.from("shop_purchases").insert({
+          id: purchase.id,
+          product_id: productId,
+          client_id: null,
+          delivery: "email",
+          guest_email: email,
+          invoice: invoiceClean,
+          status: "solicitado",
+          created_at: stamp,
+          updated_at: stamp,
+        });
+      }
+      return { ok: true };
+    },
+    [commit, state.shopProducts, state.shopPurchases],
   );
 
   const releaseShopPurchase: AppStore["releaseShopPurchase"] = useCallback(
@@ -912,17 +1001,33 @@ export function AppStoreProvider({
         ok = true;
         const stamp = nowIso();
         const product = (prev.shopProducts ?? []).find((p) => p.id === purchase.product_id);
-        const clientNote = {
-          id: uid("ntf"),
-          title: "Conteúdo liberado",
-          body: `${product?.name ?? "Produto"} está disponível na loja.`,
-          type: "financeiro" as const,
-          audience: ["cliente"] as UserRole[],
-          related_id: purchase.client_id,
-          read: false,
-          href: "/cliente/loja",
-          created_at: stamp,
-        };
+        const byEmail = purchase.delivery === "email" || !purchase.client_id;
+        const notes = [];
+        if (byEmail) {
+          notes.push({
+            id: uid("ntf"),
+            title: "Enviar conteúdo por e-mail",
+            body: `${product?.name ?? "Produto"} → ${purchase.guest_email ?? purchase.invoice?.email ?? "e-mail"}. Use a ficha NF do pedido.`,
+            type: "financeiro" as const,
+            audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+            related_id: purchase.id,
+            read: false,
+            href: "/loja/liberacoes",
+            created_at: stamp,
+          });
+        } else {
+          notes.push({
+            id: uid("ntf"),
+            title: "Conteúdo liberado na conta",
+            body: `${product?.name ?? "Produto"} já aparece na loja do cliente.`,
+            type: "financeiro" as const,
+            audience: ["cliente"] as UserRole[],
+            related_id: purchase.client_id,
+            read: false,
+            href: "/cliente/loja",
+            created_at: stamp,
+          });
+        }
         return {
           ...prev,
           shopPurchases: (prev.shopPurchases ?? []).map((p) =>
@@ -935,7 +1040,7 @@ export function AppStoreProvider({
                 }
               : p,
           ),
-          notifications: [clientNote, ...prev.notifications],
+          notifications: [...notes, ...prev.notifications],
         };
       });
       if (!ok) return { ok: false, error: "Pedido não encontrado ou já tratado." };
@@ -2783,6 +2888,7 @@ export function AppStoreProvider({
     updateProfile,
     updateHouseSettings,
     requestShopPurchase,
+    requestShopPurchaseGuest,
     releaseShopPurchase,
     rejectShopPurchase,
     login,

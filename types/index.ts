@@ -448,11 +448,28 @@ export interface ShopProduct {
   updated_at: string;
 }
 
+/** Ficha para nota fiscal / envio por e-mail (compra sem conta). */
+export interface ShopInvoiceForm {
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
 /** Pedido de compra na loja (PDF/curso bloqueado ou físico). */
 export interface ShopPurchase {
   id: string;
   product_id: string;
-  client_id: string;
+  /** Presente se o comprador tem conta de cliente. */
+  client_id?: string;
+  /** Conta = libera no app; email = envia após NF/ficha. */
+  delivery: "conta" | "email";
+  guest_email?: string;
+  invoice?: ShopInvoiceForm;
   status: ShopPurchaseStatus;
   created_at: string;
   updated_at: string;

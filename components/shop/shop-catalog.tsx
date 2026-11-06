@@ -1,19 +1,30 @@
 "use client";
 
+import { FormEvent, useState } from "react";
 import { Lock, ShoppingBag, FileText, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { Input, Label } from "@/components/ui/input";
 import { PixPanel } from "@/components/shop/pix-panel";
-import type { HouseSettings, ShopProduct, ShopPurchase } from "@/types";
+import type {
+  HouseSettings,
+  ShopInvoiceForm,
+  ShopProduct,
+  ShopPurchase,
+} from "@/types";
 
 type Props = {
   products: ShopProduct[];
   houseSettings?: HouseSettings | null;
   purchases?: ShopPurchase[];
   clientId?: string | null;
-  canBuy?: boolean;
-  onBuy?: (productId: string) => void;
+  /** Cliente logado: compra libera na conta */
+  canBuyAccount?: boolean;
+  onBuyAccount?: (productId: string) => void;
+  /** Visitante: ficha NF + envio por e-mail */
+  canBuyGuest?: boolean;
+  onBuyGuest?: (productId: string, invoice: ShopInvoiceForm) => void;
   buyError?: string | null;
   buyOk?: string | null;
 };
@@ -30,16 +41,39 @@ function kindLabel(kind: ShopProduct["kind"]) {
   return "Produto";
 }
 
+const emptyInvoice: ShopInvoiceForm = {
+  full_name: "",
+  email: "",
+  cpf_cnpj: "",
+  phone: "",
+  address: "",
+  city: "",
+  state: "",
+  zip: "",
+};
+
 export function ShopCatalog({
   products,
   houseSettings,
   purchases = [],
   clientId,
-  canBuy,
-  onBuy,
+  canBuyAccount,
+  onBuyAccount,
+  canBuyGuest,
+  onBuyGuest,
   buyError,
   buyOk,
 }: Props) {
+  const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<ShopInvoiceForm>(emptyInvoice);
+
+  function submitGuest(e: FormEvent, productId: string) {
+    e.preventDefault();
+    onBuyGuest?.(productId, invoice);
+    setInvoiceFor(null);
+    setInvoice(emptyInvoice);
+  }
+
   return (
     <div className="grid gap-3">
       {buyError ? (
@@ -59,10 +93,15 @@ export function ShopCatalog({
         const pending = purchases.some(
           (x) =>
             x.product_id === p.id &&
-            x.client_id === clientId &&
+            ((clientId && x.client_id === clientId) ||
+              (!clientId && x.delivery === "email")) &&
             x.status === "solicitado",
         );
         const locked = Boolean(p.requires_payment) && !unlocked;
+        const digital =
+          p.requires_payment || p.kind === "pdf" || p.kind === "curso";
+        const showForm = invoiceFor === p.id;
+
         return (
           <Card key={p.id} className="border-l-4 border-l-gold">
             <div className="flex items-start gap-3">
@@ -85,7 +124,7 @@ export function ShopCatalog({
                   <Badge tone="gold">{kindLabel(p.kind ?? "fisico")}</Badge>
                   {p.category ? <Badge>{p.category}</Badge> : null}
                   {locked ? <Badge tone="danger">Bloqueado</Badge> : null}
-                  {unlocked ? <Badge tone="success">Liberado</Badge> : null}
+                  {unlocked ? <Badge tone="success">Liberado na conta</Badge> : null}
                   {pending ? <Badge>Aguardando pagamento</Badge> : null}
                 </div>
                 {p.description ? (
@@ -93,9 +132,9 @@ export function ShopCatalog({
                 ) : null}
 
                 <p className="mt-2 text-xs leading-relaxed text-navy/55">
-                  {p.requires_payment || p.kind === "pdf" || p.kind === "curso"
-                    ? "Após o Pix, a liberação do conteúdo pode levar até 3 dias úteis (confirmação do Financeiro)."
-                    : "Pedidos e combinações com a casa podem levar até 3 dias úteis para confirmação."}
+                  {digital
+                    ? "Com conta: o conteúdo é liberado no App do Cliente. Sem conta: preencha a ficha de NF e o material é enviado por e-mail. Pode levar até 3 dias úteis após o Pix."
+                    : "Pedidos com a casa podem levar até 3 dias úteis para confirmação."}
                 </p>
 
                 {unlocked && p.file_url ? (
@@ -105,7 +144,7 @@ export function ShopCatalog({
                     rel="noopener noreferrer"
                     className="mt-3 inline-block text-sm font-semibold text-gold-deep underline"
                   >
-                    Abrir conteúdo
+                    Abrir conteúdo na conta
                   </a>
                 ) : null}
 
@@ -120,19 +159,128 @@ export function ShopCatalog({
                   </div>
                 )}
 
-                {canBuy && locked && !pending ? (
+                {canBuyAccount && locked && !pending ? (
                   <Button
                     variant="gold"
                     className="mt-3 w-full"
-                    onClick={() => onBuy?.(p.id)}
+                    onClick={() => onBuyAccount?.(p.id)}
                   >
-                    Quero comprar — avisar Financeiro
+                    Comprar — liberar na minha conta
                   </Button>
                 ) : null}
-                {!canBuy && locked ? (
-                  <p className="mt-3 text-xs text-navy/50">
-                    Entre no App do Cliente para solicitar a liberação após o Pix.
-                  </p>
+
+                {canBuyGuest && locked && !pending && !showForm ? (
+                  <Button
+                    variant="secondary"
+                    className="mt-2 w-full"
+                    onClick={() => {
+                      setInvoiceFor(p.id);
+                      setInvoice(emptyInvoice);
+                    }}
+                  >
+                    Sem conta — ficha NF e envio por e-mail
+                  </Button>
+                ) : null}
+
+                {canBuyGuest && locked && showForm ? (
+                  <form
+                    className="mt-3 space-y-2 rounded-xl border border-navy/10 bg-mist/50 p-3"
+                    onSubmit={(e) => submitGuest(e, p.id)}
+                  >
+                    <p className="text-sm font-semibold text-navy">
+                      Ficha para nota fiscal e envio por e-mail
+                    </p>
+                    <div>
+                      <Label>Nome completo</Label>
+                      <Input
+                        required
+                        value={invoice.full_name}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, full_name: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>E-mail (receberá o conteúdo e a NF)</Label>
+                      <Input
+                        type="email"
+                        required
+                        value={invoice.email}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, email: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>CPF ou CNPJ</Label>
+                      <Input
+                        required
+                        value={invoice.cpf_cnpj}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, cpf_cnpj: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Telefone (opcional)</Label>
+                      <Input
+                        value={invoice.phone ?? ""}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, phone: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Endereço (opcional)</Label>
+                      <Input
+                        value={invoice.address ?? ""}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, address: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Cidade</Label>
+                        <Input
+                          value={invoice.city ?? ""}
+                          onChange={(e) =>
+                            setInvoice((v) => ({ ...v, city: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>UF</Label>
+                        <Input
+                          value={invoice.state ?? ""}
+                          onChange={(e) =>
+                            setInvoice((v) => ({ ...v, state: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>CEP</Label>
+                      <Input
+                        value={invoice.zip ?? ""}
+                        onChange={(e) =>
+                          setInvoice((v) => ({ ...v, zip: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button type="submit" variant="gold" className="flex-1">
+                        Enviar pedido
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setInvoiceFor(null)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
                 ) : null}
               </div>
             </div>

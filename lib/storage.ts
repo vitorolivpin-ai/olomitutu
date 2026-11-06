@@ -52,7 +52,10 @@ export function loadSharedData(): SharedData {
         requires_payment: p.requires_payment ?? false,
         file_url: p.file_url,
       })),
-      shopPurchases: parsed.shopPurchases ?? seed.shopPurchases ?? [],
+      shopPurchases: (parsed.shopPurchases ?? seed.shopPurchases ?? []).map((p) => ({
+        ...p,
+        delivery: p.delivery ?? (p.client_id ? "conta" : "email"),
+      })),
       houseSettings: {
         ...(seed.houseSettings ?? {}),
         ...(parsed.houseSettings ?? {}),

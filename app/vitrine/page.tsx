@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BrandMark } from "@/components/brand/logo";
 import { ShopCatalog } from "@/components/shop/shop-catalog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import type { ShopInvoiceForm } from "@/types";
 
 /** Vitrine pública — qualquer pessoa, sem login. */
 export default function PublicLojaPage() {
-  const { state } = useAppStore();
+  const { state, requestShopPurchaseGuest } = useAppStore();
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [buyOk, setBuyOk] = useState<string | null>(null);
 
   const products = useMemo(
     () =>
@@ -19,6 +22,19 @@ export default function PublicLojaPage() {
         .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
     [state.shopProducts],
   );
+
+  function onBuyGuest(productId: string, invoice: ShopInvoiceForm) {
+    setBuyError(null);
+    setBuyOk(null);
+    const result = requestShopPurchaseGuest(productId, invoice);
+    if (!result.ok) {
+      setBuyError(result.error);
+      return;
+    }
+    setBuyOk(
+      `Pedido registrado. Faça o Pix e aguarde até 3 dias úteis — o conteúdo e a NF vão para ${invoice.email}.`,
+    );
+  }
 
   return (
     <div className="bg-app min-h-screen px-4 py-8">
@@ -30,7 +46,7 @@ export default function PublicLojaPage() {
           <p className="mt-3 text-sm font-medium text-gold-deep">ILÉ OLÓRÒKÈ ÀṢẸ</p>
           <h1 className="font-display text-3xl text-navy">Loja</h1>
           <p className="mt-1 text-sm text-navy/60">
-            Produtos, PDFs e cursos da casa. Pix na hora.
+            Produtos, PDFs e cursos. Sem conta: ficha de NF e envio por e-mail.
           </p>
         </div>
 
@@ -40,14 +56,18 @@ export default function PublicLojaPage() {
           <ShopCatalog
             products={products}
             houseSettings={state.houseSettings}
-            canBuy={false}
+            purchases={state.shopPurchases}
+            canBuyGuest
+            onBuyGuest={onBuyGuest}
+            buyError={buyError}
+            buyOk={buyOk}
           />
         )}
 
         <p className="text-center text-sm text-navy/55">
-          Já é cliente?{" "}
+          Já tem conta?{" "}
           <Link href="/entrar/cliente" className="text-navy underline">
-            Entre para comprar conteúdo bloqueado
+            Entre para liberar o conteúdo no app
           </Link>
         </p>
         <p className="text-center text-sm">
