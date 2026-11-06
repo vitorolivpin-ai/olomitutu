@@ -5,15 +5,22 @@ import { EmptyState, LoadingBlock } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/hooks/use-app-store";
+import {
+  personKindLabel,
+  roleFromPersonKind,
+} from "@/lib/approvals";
+import { areaTitle } from "@/lib/demo-accounts";
 import { roleLabel } from "@/lib/permissions";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { ApprovalStatus, UserRole } from "@/types";
+import type { ApprovalStatus, PersonKind, UserRole } from "@/types";
 
 type PendingRow = {
   id: string;
   full_name: string;
   email: string;
   requested_role: UserRole;
+  signup_area: UserRole | null;
+  person_kind: PersonKind | null;
   approval_status: ApprovalStatus;
   created_at: string;
 };
@@ -41,7 +48,9 @@ export default function CadastrosPendentesPage() {
     setError(null);
     const { data, error: qError } = await supabase
       .from("profiles")
-      .select("id, full_name, email, requested_role, approval_status, created_at")
+      .select(
+        "id, full_name, email, requested_role, signup_area, person_kind, approval_status, created_at",
+      )
       .eq("approval_status", "pending")
       .order("created_at", { ascending: true });
 
@@ -58,17 +67,22 @@ export default function CadastrosPendentesPage() {
     void load();
   }, [load]);
 
-  async function decide(id: string, decision: "approved" | "rejected", requested: UserRole) {
+  async function decide(row: PendingRow, decision: "approved" | "rejected") {
     const supabase = createBrowserClient();
     if (!supabase) return;
-    setBusyId(id);
+    setBusyId(row.id);
     setError(null);
+
+    const grantedRole =
+      row.person_kind != null
+        ? roleFromPersonKind(row.person_kind)
+        : row.requested_role;
 
     const payload =
       decision === "approved"
         ? {
             approval_status: "approved" as const,
-            role: requested,
+            role: grantedRole,
             updated_at: new Date().toISOString(),
           }
         : {
@@ -76,14 +90,17 @@ export default function CadastrosPendentesPage() {
             updated_at: new Date().toISOString(),
           };
 
-    const { error: upError } = await supabase.from("profiles").update(payload).eq("id", id);
+    const { error: upError } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", row.id);
     setBusyId(null);
 
     if (upError) {
       setError(upError.message);
       return;
     }
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
   }
 
   if (!currentUser) {
@@ -110,8 +127,8 @@ export default function CadastrosPendentesPage() {
       <div>
         <h1 className="font-display text-3xl text-navy">Cadastros pendentes</h1>
         <p className="mt-1 text-sm text-navy/60">
-          Aceite ou recuse quem pediu acesso às áreas da casa (Financeiro, Estoque,
-          Admin…).
+          Veja se a pessoa é Filho de Santo, Cliente ou Administrador e aceite ou
+          recuse.
         </p>
       </div>
 
@@ -126,35 +143,44 @@ export default function CadastrosPendentesPage() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {rows.map((row) => (
-            <Card key={row.id}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <CardTitle className="truncate">{row.full_name}</CardTitle>
-                  <p className="mt-1 text-sm text-navy/65">{row.email}</p>
-                  <p className="mt-1 text-sm font-medium text-gold-deep">
-                    Pediu: {roleLabel(row.requested_role)}
-                  </p>
+          {rows.map((row) => {
+            const area = row.signup_area ?? row.requested_role;
+            return (
+              <Card key={row.id}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <CardTitle className="truncate">{row.full_name}</CardTitle>
+                    <p className="mt-1 text-sm text-navy/65">{row.email}</p>
+                    <p className="mt-2 text-sm font-semibold text-gold-deep">
+                      Tipo: {personKindLabel(row.person_kind)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-navy/50">
+                      Cadastrou pela aba {areaTitle(area)}
+                      {row.person_kind
+                        ? ` · ao aceitar libera: ${roleLabel(roleFromPersonKind(row.person_kind))}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="gold"
+                      disabled={busyId === row.id}
+                      onClick={() => void decide(row, "approved")}
+                    >
+                      Aceitar
+                    </Button>
+                    <Button
+                      variant="danger"
+                      disabled={busyId === row.id}
+                      onClick={() => void decide(row, "rejected")}
+                    >
+                      Recusar
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="gold"
-                    disabled={busyId === row.id}
-                    onClick={() => void decide(row.id, "approved", row.requested_role)}
-                  >
-                    Aceitar
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busyId === row.id}
-                    onClick={() => void decide(row.id, "rejected", row.requested_role)}
-                  >
-                    Recusar
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

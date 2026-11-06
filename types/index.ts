@@ -59,6 +59,9 @@ export type MessageKind = "text" | "audio";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+/** Como a pessoa se identifica no cadastro das abas da casa. */
+export type PersonKind = "filho_de_santo" | "cliente" | "administrador";
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -70,6 +73,9 @@ export interface Profile {
   /** Área pedida no cadastro (pode diferir de role até aprovação). */
   requested_role?: UserRole;
   approval_status?: ApprovalStatus;
+  person_kind?: PersonKind;
+  /** Aba onde a pessoa se cadastrou (adm, estoque, financeiro…). */
+  signup_area?: UserRole;
   created_at: string;
   updated_at: string;
 }

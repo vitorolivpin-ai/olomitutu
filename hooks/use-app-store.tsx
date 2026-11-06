@@ -228,7 +228,7 @@ export function AppStoreProvider({
       const { data: row } = await supabase!
         .from("profiles")
         .select(
-          "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, created_at, updated_at",
+          "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, person_kind, signup_area, created_at, updated_at",
         )
         .eq("id", userId)
         .maybeSingle();

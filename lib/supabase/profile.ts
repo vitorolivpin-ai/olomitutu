@@ -10,6 +10,8 @@ export type ProfileRow = {
   avatar_url?: string | null;
   requested_role?: UserRole | null;
   approval_status?: Profile["approval_status"] | null;
+  person_kind?: Profile["person_kind"] | null;
+  signup_area?: UserRole | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -25,6 +27,8 @@ export function mapProfileRow(row: ProfileRow): Profile {
     avatar_url: row.avatar_url ?? undefined,
     requested_role: row.requested_role ?? undefined,
     approval_status: row.approval_status ?? undefined,
+    person_kind: row.person_kind ?? undefined,
+    signup_area: row.signup_area ?? undefined,
     created_at: row.created_at ?? new Date().toISOString(),
     updated_at: row.updated_at ?? new Date().toISOString(),
   };

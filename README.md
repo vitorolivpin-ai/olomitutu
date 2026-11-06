@@ -67,11 +67,10 @@ Em **Authentication → Emails / SMTP**:
 
 ### 5. Contas e papéis
 
-- **Cadastro por área:** em cada login (`/entrar/...`) há link **Cadastrar** → `/cadastrar/[área]`.
-- **Cliente:** liberado na hora (após confirmar e-mail, se exigido).
-- **Casa** (Financeiro, Estoque, Admin, Biblioteca, Pai de Santo): fica **pendente** até o **Pai de Santo** (ou Admin) aceitar em **Cadastros pendentes** (`/cadastros`).
-- Rode também a migration `013_profile_approval.sql`.
-- O primeiro Pai de Santo pode ser liberado no painel (Table Editor → `profiles`: `role = pai_de_santo`, `approval_status = approved`).
+- **Cadastro nas abas** Admin, Estoque, Financeiro e Biblioteca: nome, sobrenome, e-mail, senha e tipo (**Filho de Santo / Cliente / Administrador**).
+- Fica **pendente** até o **Pai de Santo** aceitar em **Cadastros pendentes** (`/cadastros`), onde ele vê o tipo informado.
+- Rode as migrations `013_profile_approval.sql` e `014_person_kind.sql`.
+- O primeiro Pai de Santo pode ser liberado no painel (`role = pai_de_santo`, `approval_status = approved`).
 
 ### 6. Conferir
 

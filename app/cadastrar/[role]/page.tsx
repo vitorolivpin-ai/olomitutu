@@ -4,18 +4,25 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandMark } from "@/components/brand/logo";
+import {
+  HOUSE_SIGNUP_ROLES,
+  PERSON_KIND_OPTIONS,
+  isHouseSignupRole,
+  roleNeedsApproval,
+} from "@/lib/approvals";
 import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
-import { roleNeedsApproval } from "@/lib/approvals";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { UserRole } from "@/types";
+import type { PersonKind, UserRole } from "@/types";
 
 export default function CadastrarAreaPage() {
   const params = useParams<{ role: string }>();
   const roleParam = params.role;
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [personKind, setPersonKind] = useState<PersonKind | "">("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -36,7 +43,22 @@ export default function CadastrarAreaPage() {
 
   const role = roleParam as UserRole;
   const account = DEMO_ACCOUNTS[role];
+  const houseForm = isHouseSignupRole(role);
   const needsApproval = roleNeedsApproval(role);
+
+  // Cadastro completo só nas abas pedidas; cliente/pai mantêm fluxo simples
+  if (!houseForm && role !== "cliente" && role !== "pai_de_santo") {
+    return (
+      <div className="bg-app flex min-h-screen items-center justify-center px-4">
+        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
+          <p className="text-sm text-navy/70">Cadastro não disponível nesta área.</p>
+          <Link href="/" className="text-sm text-navy underline">
+            Voltar
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!isSupabaseConfigured()) {
     return (
@@ -59,7 +81,25 @@ export default function CadastrarAreaPage() {
     e.preventDefault();
     setError(null);
     setInfo(null);
+
+    const nome = firstName.trim();
+    const sobrenome = lastName.trim();
+    if (nome.length < 2) {
+      setError("Informe o nome.");
+      return;
+    }
+    if (houseForm && sobrenome.length < 2) {
+      setError("Informe o sobrenome.");
+      return;
+    }
+    if (houseForm && !personKind) {
+      setError("Selecione se você é Filho de Santo, Cliente ou Administrador.");
+      return;
+    }
+
     setPending(true);
+    const fullName = houseForm ? `${nome} ${sobrenome}`.trim() : nome;
+    const kind = (houseForm ? personKind : "cliente") as PersonKind;
 
     const supabase = createBrowserClient();
     if (!supabase) {
@@ -73,8 +113,9 @@ export default function CadastrarAreaPage() {
       password,
       options: {
         data: {
-          full_name: fullName.trim(),
+          full_name: fullName,
           requested_role: role,
+          person_kind: kind,
         },
         emailRedirectTo: `${window.location.origin}/auth/callback?next=/entrar/${role}`,
       },
@@ -87,26 +128,27 @@ export default function CadastrarAreaPage() {
       return;
     }
 
-    // Garante requested_role / status se o trigger ainda não estiver na migration 013
     if (data.user) {
       await supabase
         .from("profiles")
         .update({
-          full_name: fullName.trim(),
+          full_name: fullName,
           requested_role: role,
-          approval_status: needsApproval ? "pending" : "approved",
-          role: needsApproval ? "cliente" : role,
+          signup_area: role,
+          person_kind: kind,
+          approval_status: needsApproval || houseForm ? "pending" : "approved",
+          role: needsApproval || houseForm ? "cliente" : role,
           updated_at: new Date().toISOString(),
         })
         .eq("id", data.user.id);
     }
 
-    if (needsApproval) {
+    if (needsApproval || houseForm) {
       if (data.session) {
         await supabase.auth.signOut();
       }
       setInfo(
-        "Cadastro enviado. O Pai de Santo precisa aceitar antes de você entrar nesta área.",
+        "Cadastro enviado. O Pai de Santo (Pai Vitor) precisa aceitar antes do acesso.",
       );
       return;
     }
@@ -127,27 +169,61 @@ export default function CadastrarAreaPage() {
           <p className="text-sm font-semibold text-gold-deep">{account.label}</p>
           <h1 className="mt-1 font-display text-2xl text-navy">Criar conta</h1>
           <p className="mt-1 text-sm text-navy/60">
-            {needsApproval
-              ? "Após o cadastro, o Pai de Santo precisa aceitar o acesso a esta área."
-              : "Cadastro de cliente — acesso liberado após confirmação do e-mail."}
+            {houseForm
+              ? "Preencha seus dados. O Pai Vitor verá o tipo (Filho de Santo, Cliente ou Administrador) para aceitar o cadastro."
+              : needsApproval
+                ? "Após o cadastro, o Pai de Santo precisa aceitar o acesso."
+                : "Cadastro de cliente — acesso após confirmar o e-mail."}
           </p>
         </div>
 
         <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
           <form onSubmit={onSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="full_name" className="mb-1 block text-sm font-medium text-navy">
-                Nome completo
-              </label>
-              <input
-                id="full_name"
-                required
-                minLength={2}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
-              />
-            </div>
+            {houseForm ? (
+              <>
+                <div>
+                  <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-navy">
+                    Nome
+                  </label>
+                  <input
+                    id="first_name"
+                    required
+                    minLength={2}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="last_name" className="mb-1 block text-sm font-medium text-navy">
+                    Sobrenome
+                  </label>
+                  <input
+                    id="last_name"
+                    required
+                    minLength={2}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-navy">
+                  Nome completo
+                </label>
+                <input
+                  id="first_name"
+                  required
+                  minLength={2}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                />
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="mb-1 block text-sm font-medium text-navy">
                 E-mail
@@ -162,6 +238,7 @@ export default function CadastrarAreaPage() {
                 className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
               />
             </div>
+
             <div>
               <label htmlFor="password" className="mb-1 block text-sm font-medium text-navy">
                 Senha
@@ -178,6 +255,31 @@ export default function CadastrarAreaPage() {
               />
             </div>
 
+            {houseForm ? (
+              <div>
+                <label htmlFor="person_kind" className="mb-1 block text-sm font-medium text-navy">
+                  Você é
+                </label>
+                <select
+                  id="person_kind"
+                  required
+                  value={personKind}
+                  onChange={(e) => setPersonKind(e.target.value as PersonKind | "")}
+                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                >
+                  <option value="">Selecione…</option>
+                  {PERSON_KIND_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-navy/50">
+                  O Pai Vitor usa isso para saber quais cadastros aceitar.
+                </p>
+              </div>
+            ) : null}
+
             {error ? (
               <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
             ) : null}
@@ -190,7 +292,7 @@ export default function CadastrarAreaPage() {
               disabled={pending}
               className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid disabled:opacity-60"
             >
-              {pending ? "Enviando…" : `Cadastrar em ${areaTitle(role)}`}
+              {pending ? "Enviando…" : "Enviar cadastro"}
             </button>
           </form>
         </div>
@@ -201,6 +303,12 @@ export default function CadastrarAreaPage() {
             Entrar
           </Link>
         </p>
+        {houseForm ? (
+          <p className="text-center text-xs text-navy/40">
+            Abas com este cadastro:{" "}
+            {HOUSE_SIGNUP_ROLES.map((r) => areaTitle(r)).join(" · ")}
+          </p>
+        ) : null}
       </div>
     </div>
   );
