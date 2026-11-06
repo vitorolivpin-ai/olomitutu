@@ -181,6 +181,8 @@ export interface Appointment {
   ended_at?: string;
   amount?: number;
   notes?: string;
+  /** ID do evento no Google Calendar (sync App → Google). */
+  google_event_id?: string;
   created_at: string;
   updated_at: string;
 }

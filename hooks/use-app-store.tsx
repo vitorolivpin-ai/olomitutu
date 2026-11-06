@@ -101,6 +101,7 @@ type AppStore = {
   }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
   updateAppointmentStatus: (id: string, status: AppointmentStatus) => Appointment | null;
   cancelAppointment: (id: string) => Appointment | null;
+  patchAppointment: (id: string, patch: Partial<Appointment>) => Appointment | null;
   startAppointment: (id: string) => Appointment | null;
   finishAppointment: (id: string) => Appointment | null;
   addPublishedSlot: (input: {
@@ -769,6 +770,23 @@ export function AppStoreProvider({
           ...prev,
           appointments: prev.appointments.map((a) => (a.id === id ? updated! : a)),
           notifications: [broadcast, staffNote, ...prev.notifications],
+        };
+      });
+      return updated;
+    },
+    [commit],
+  );
+
+  const patchAppointment: AppStore["patchAppointment"] = useCallback(
+    (id, patch) => {
+      let updated: Appointment | null = null;
+      commit((prev) => {
+        const current = prev.appointments.find((a) => a.id === id);
+        if (!current) return prev;
+        updated = { ...current, ...patch, updated_at: nowIso() };
+        return {
+          ...prev,
+          appointments: prev.appointments.map((a) => (a.id === id ? updated! : a)),
         };
       });
       return updated;
@@ -1716,6 +1734,7 @@ export function AppStoreProvider({
     createAppointment,
     updateAppointmentStatus,
     cancelAppointment,
+    patchAppointment,
     startAppointment,
     finishAppointment,
     addPublishedSlot,

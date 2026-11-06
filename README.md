@@ -71,8 +71,22 @@ Em **Authentication → Emails / SMTP**:
 
 - **Cadastro nas abas** Admin, Estoque, Financeiro e Biblioteca: nome, sobrenome, e-mail, senha e tipo (**Filho de Santo / Cliente / Administrador**).
 - Fica **pendente** até o **Pai de Santo** aceitar em **Cadastros pendentes** (`/cadastros`), onde ele vê o tipo informado.
-- Rode as migrations `013_profile_approval.sql` e `014_person_kind.sql`.
+- Rode as migrations `013_profile_approval.sql`, `014_person_kind.sql` e `015_profile_read_own.sql`.
 - O primeiro Pai de Santo pode ser liberado no painel (`role = pai_de_santo`, `approval_status = approved`).
+
+### 6. Google Calendar (App → Google)
+
+1. No [Google Cloud Console](https://console.cloud.google.com/): crie um projeto → ative **Google Calendar API**.
+2. **APIs & Services → Credentials → Create OAuth client ID** (Web application).
+3. Authorized redirect URI: `https://olomitutu.vercel.app/api/google/callback`
+4. No Vercel, adicione:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_REDIRECT_URI=https://olomitutu.vercel.app/api/google/callback`
+   - `SUPABASE_SERVICE_ROLE_KEY` (legacy service_role do Supabase)
+5. No Supabase SQL Editor, rode `016_google_calendar.sql`.
+6. No app: entre como Pai → **Agenda** → **Conectar Google Calendar**.
+7. Novos agendamentos (e cancelamentos) sincronizam para a agenda Google do Pai.
 
 ### 6. Conferir
 

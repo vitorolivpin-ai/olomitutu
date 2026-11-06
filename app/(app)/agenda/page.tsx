@@ -1,23 +1,37 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { GoogleCalendarCard } from "@/components/agenda/google-calendar-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
 import { Label, Select } from "@/components/ui/input";
 import { ErrorMessage } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import {
+  pushAppointmentToGoogle,
+  removeAppointmentFromGoogle,
+} from "@/lib/google/appointment-sync";
 import { formatDateTime } from "@/lib/format";
 import { buildSlotViews } from "@/lib/slots";
 
 export default function AgendaPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-navy/50">Carregando agenda…</p>}>
+      <AgendaPageInner />
+    </Suspense>
+  );
+}
+
+function AgendaPageInner() {
   const {
     state,
     currentUser,
     createAppointment,
     updateAppointmentStatus,
     cancelAppointment,
+    patchAppointment,
   } = useAppStore();
   const [clientId, setClientId] = useState(state.clients[0]?.id ?? "");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -36,7 +50,7 @@ export default function AgendaPage() {
     .slice()
     .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
 
-  function onCreate(e: FormEvent) {
+  async function onCreate(e: FormEvent) {
     e.preventDefault();
     setError("");
     setOk("");
@@ -52,8 +66,29 @@ export default function AgendaPage() {
       setError(result.error);
       return;
     }
-    setOk("Agendamento criado.");
+    const client = state.clients.find((c) => c.id === clientId);
+    const eventId = await pushAppointmentToGoogle(result.appointment, client);
+    if (eventId) {
+      patchAppointment(result.appointment.id, { google_event_id: eventId });
+      setOk("Agendamento criado e enviado ao Google Calendar.");
+    } else {
+      setOk("Agendamento criado. (Google não sincronizou — conecte a agenda se ainda não conectou.)");
+    }
     setScheduledAt("");
+  }
+
+  async function onCancel(id: string) {
+    const current = state.appointments.find((a) => a.id === id);
+    const updated = cancelAppointment(id);
+    if (updated) await removeAppointmentFromGoogle(current ?? updated);
+  }
+
+  async function onConfirm(id: string) {
+    const updated = updateAppointmentStatus(id, "CONFIRMADO");
+    if (!updated) return;
+    const client = state.clients.find((c) => c.id === updated.client_id);
+    const eventId = await pushAppointmentToGoogle(updated, client);
+    if (eventId) patchAppointment(id, { google_event_id: eventId });
   }
 
   return (
@@ -70,9 +105,13 @@ export default function AgendaPage() {
         </Link>
       </div>
 
+      {currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador" ? (
+        <GoogleCalendarCard />
+      ) : null}
+
       <Card>
         <CardTitle>Novo agendamento</CardTitle>
-        <form onSubmit={onCreate} className="mt-4 grid gap-3 sm:grid-cols-2">
+        <form onSubmit={(e) => void onCreate(e)} className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <Label>Cliente</Label>
             <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
@@ -114,6 +153,9 @@ export default function AgendaPage() {
                 <div>
                   <p className="font-display text-xl text-navy">{client?.full_name}</p>
                   <p className="text-sm text-navy/60">{formatDateTime(apt.scheduled_at)}</p>
+                  {apt.google_event_id ? (
+                    <p className="mt-1 text-xs text-success">No Google Calendar</p>
+                  ) : null}
                 </div>
                 <Badge tone={feeStatusTone(apt.status)}>{apt.status.replaceAll("_", " ")}</Badge>
               </div>
@@ -122,16 +164,12 @@ export default function AgendaPage() {
                   <Button size="sm">Abrir</Button>
                 </Link>
                 {apt.status === "SOLICITADO" ? (
-                  <Button
-                    size="sm"
-                    variant="gold"
-                    onClick={() => updateAppointmentStatus(apt.id, "CONFIRMADO")}
-                  >
+                  <Button size="sm" variant="gold" onClick={() => void onConfirm(apt.id)}>
                     Confirmar
                   </Button>
                 ) : null}
                 {["SOLICITADO", "CONFIRMADO"].includes(apt.status) ? (
-                  <Button size="sm" variant="secondary" onClick={() => cancelAppointment(apt.id)}>
+                  <Button size="sm" variant="secondary" onClick={() => void onCancel(apt.id)}>
                     Cancelar
                   </Button>
                 ) : null}

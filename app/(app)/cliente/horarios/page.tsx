@@ -7,12 +7,22 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import {
+  pushAppointmentToGoogle,
+  removeAppointmentFromGoogle,
+} from "@/lib/google/appointment-sync";
 import { formatDateTime } from "@/lib/format";
 import { buildSlotViews } from "@/lib/slots";
 
 export default function ClienteHorariosPage() {
-  const { state, currentUser, createAppointment, cancelAppointment, markNotificationRead } =
-    useAppStore();
+  const {
+    state,
+    currentUser,
+    createAppointment,
+    cancelAppointment,
+    patchAppointment,
+    markNotificationRead,
+  } = useAppStore();
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const clientId = currentUser?.client_id;
@@ -43,7 +53,7 @@ export default function ClienteHorariosPage() {
     return <EmptyState title="Área exclusiva do cliente" />;
   }
 
-  function book(scheduledAt: string) {
+  async function book(scheduledAt: string) {
     if (!clientId) return;
     setError("");
     setOk("");
@@ -52,11 +62,16 @@ export default function ClienteHorariosPage() {
       setError(result.error);
       return;
     }
+    const client = state.clients.find((c) => c.id === clientId);
+    const eventId = await pushAppointmentToGoogle(result.appointment, client);
+    if (eventId) patchAppointment(result.appointment.id, { google_event_id: eventId });
     setOk("Solicitação enviada. Aguarde a confirmação da casa.");
   }
 
-  function onCancel(id: string) {
+  async function onCancel(id: string) {
+    const current = state.appointments.find((a) => a.id === id);
     cancelAppointment(id);
+    if (current) await removeAppointmentFromGoogle(current);
     setOk("Consulta cancelada. O horário foi liberado e todos foram avisados.");
   }
 
@@ -101,7 +116,7 @@ export default function ClienteHorariosPage() {
                 <p className="font-medium text-navy">{formatDateTime(slot.scheduled_at)}</p>
                 <p className="text-xs text-navy/55">{slot.duration_minutes} min · Livre</p>
               </div>
-              <Button size="sm" onClick={() => book(slot.scheduled_at)}>
+              <Button size="sm" onClick={() => void book(slot.scheduled_at)}>
                 Marcar
               </Button>
             </div>
@@ -157,7 +172,7 @@ export default function ClienteHorariosPage() {
                   </Button>
                 </Link>
                 {["SOLICITADO", "CONFIRMADO"].includes(apt.status) ? (
-                  <Button variant="danger" className="flex-1" onClick={() => onCancel(apt.id)}>
+                  <Button variant="danger" className="flex-1" onClick={() => void onCancel(apt.id)}>
                     Cancelar consulta
                   </Button>
                 ) : null}
