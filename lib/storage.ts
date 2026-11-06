@@ -48,6 +48,15 @@ export function loadSharedData(): SharedData {
       photoAlbums: parsed.photoAlbums ?? seed.photoAlbums,
       shopProducts: parsed.shopProducts ?? seed.shopProducts,
       staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
+      staffHiddenAt: {
+        ...Object.fromEntries(
+          (parsed.staffHiddenClientIds ?? []).map((id) => [
+            id,
+            "1970-01-01T00:00:00.000Z",
+          ]),
+        ),
+        ...(parsed.staffHiddenAt ?? {}),
+      },
     });
   } catch {
     return stripSession(createSeedState());

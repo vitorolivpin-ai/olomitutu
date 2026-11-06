@@ -31,7 +31,8 @@ function saveSeen(ids: Set<string>) {
 
 /** Alerta no celular ao chegar mensagem (Pai ← cliente e Cliente ← casa). */
 export function ChatAlertWatcher() {
-  const { currentUser, state, ready } = useAppStore();
+  const { currentUser, state, ready, syncStaffChatVisibility, unhideStaffChat } =
+    useAppStore();
   const pathname = usePathname();
   const primed = useRef(false);
 
@@ -53,7 +54,6 @@ export function ChatAlertWatcher() {
     const relevant = (state.messages ?? []).filter((m) => {
       if (!m.id) return false;
       if (isStaffChat) return m.sender_role === "cliente";
-      // Cliente: mensagens da casa na própria conversa
       return (
         m.sender_role !== "cliente" &&
         Boolean(currentUser.client_id) &&
@@ -76,6 +76,12 @@ export function ChatAlertWatcher() {
 
     const newest = fresh.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 
+    // Nova mensagem → conversa volta à lista do Pai se tinha sido excluída
+    if (isStaffChat) {
+      unhideStaffChat(newest.client_id);
+      syncStaffChatVisibility();
+    }
+
     if (isStaffChat && pathname?.startsWith(`/conversas/${newest.client_id}`)) return;
     if (isClient && pathname === "/cliente/mensagens") return;
 
@@ -85,7 +91,16 @@ export function ChatAlertWatcher() {
       url: isClient ? "/cliente/mensagens" : `/conversas/${newest.client_id}`,
       tag: `chat-${newest.client_id}`,
     });
-  }, [ready, currentUser, state.messages, pathname, isStaffChat, isClient]);
+  }, [
+    ready,
+    currentUser,
+    state.messages,
+    pathname,
+    isStaffChat,
+    isClient,
+    unhideStaffChat,
+    syncStaffChatVisibility,
+  ]);
 
   return null;
 }

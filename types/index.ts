@@ -405,10 +405,14 @@ export interface AppState {
   photoAlbums: PhotoAlbum[];
   shopProducts: ShopProduct[];
   /**
-   * Conversas ocultas na visão da casa (Pai/Admin).
-   * O cliente continua vendo o histórico completo.
+   * @deprecated Preferir staffHiddenAt — mantido para migração local.
    */
   staffHiddenClientIds: string[];
+  /**
+   * Conversas ocultas na visão da casa (Pai/Admin).
+   * clientId → ISO de quando foi ocultada. Mensagem posterior desarquiva.
+   */
+  staffHiddenAt: Record<string, string>;
 }
 
 /** Produto da loja (visível no App do Cliente). */

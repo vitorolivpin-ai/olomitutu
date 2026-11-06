@@ -16,8 +16,13 @@ import { cn } from "@/lib/utils";
 export default function ConversasLayout({ children }: { children: React.ReactNode }) {
   const params = useParams<{ clientId?: string }>();
   const router = useRouter();
-  const { state, currentUser, hideStaffChat, unhideStaffChat, refreshCloudChat } =
-    useAppStore();
+  const {
+    state,
+    currentUser,
+    hideStaffChat,
+    refreshCloudChat,
+    syncStaffChatVisibility,
+  } = useAppStore();
 
   const isStaff = currentUser?.role !== "cliente";
   const activeId = typeof params.clientId === "string" ? params.clientId : null;
@@ -25,23 +30,23 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
   const showPush =
     currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
-  const hidden = useMemo(
-    () => new Set(state.staffHiddenClientIds ?? []),
-    [state.staffHiddenClientIds],
-  );
+  const hidden = useMemo(() => {
+    const at = state.staffHiddenAt ?? {};
+    const ids = Object.keys(at).length
+      ? Object.keys(at)
+      : (state.staffHiddenClientIds ?? []);
+    return new Set(ids);
+  }, [state.staffHiddenAt, state.staffHiddenClientIds]);
 
   useEffect(() => {
     void refreshCloudChat();
   }, [refreshCloudChat]);
 
+  // Sempre que mensagens mudam: se chegou algo depois da exclusão, volta à lista
   useEffect(() => {
     if (!isStaff) return;
-    for (const n of state.notifications ?? []) {
-      if (n.type === "chat" && !n.read && n.related_id && hidden.has(n.related_id)) {
-        unhideStaffChat(n.related_id);
-      }
-    }
-  }, [isStaff, unhideStaffChat, state.notifications, hidden]);
+    syncStaffChatVisibility();
+  }, [isStaff, syncStaffChatVisibility, state.messages]);
 
   if (!canAccess(currentUser?.role, "chat")) {
     return <>{children}</>;

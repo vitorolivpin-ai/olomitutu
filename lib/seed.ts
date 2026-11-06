@@ -553,6 +553,7 @@ export function createSeedState(): AppState {
       },
     ],
     staffHiddenClientIds: [],
+    staffHiddenAt: {},
     shopProducts: [
       {
         id: "shop_1",

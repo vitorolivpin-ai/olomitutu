@@ -85,6 +85,12 @@ import {
   upsertEducationRemote,
   upsertShopRemote,
 } from "@/lib/supabase/house-content";
+import {
+  hideStaffChatInMap,
+  normalizeStaffHidden,
+  revealHiddenChatsWithNewerMessages,
+  unhideStaffChatInMap,
+} from "@/lib/staff-chat-visibility";
 import { freedSlotMessage, isSlotOccupied } from "@/lib/slots";
 import { findProductByBarcode, pickLotsForWithdrawal } from "@/lib/stock";
 
@@ -153,6 +159,8 @@ type AppStore = {
   /** Oculta conversa só na visão da casa; cliente mantém o histórico. */
   hideStaffChat: (clientId: string) => void;
   unhideStaffChat: (clientId: string) => void;
+  /** Desarquiva conversas ocultas se houver mensagem mais nova que a exclusão. */
+  syncStaffChatVisibility: () => void;
   /** Recarrega mensagens/clientes da nuvem (Conversas). */
   refreshCloudChat: () => Promise<void>;
   addInternalNote: (client_id: string, body: string) => InternalNote | null;
@@ -471,7 +479,6 @@ export function AppStoreProvider({
         console.warn("[loja] sync:", shopRes.error);
       }
       if (msgRes.ok) {
-        const prevIds = new Set((prev.messages ?? []).map((m) => m.id));
         const localOnly = (prev.messages ?? []).filter((m) => !isUuid(m.id));
         const byId = new Map<string, Message>();
         for (const m of msgRes.items) byId.set(m.id, m);
@@ -479,19 +486,16 @@ export function AppStoreProvider({
         const mergedMessages = Array.from(byId.values()).sort((a, b) =>
           a.created_at.localeCompare(b.created_at),
         );
-        // Nova mensagem do cliente → conversa volta para a lista do Pai
-        const arrivedClientIds = new Set(
-          msgRes.items
-            .filter((m) => !prevIds.has(m.id) && m.sender_role === "cliente")
-            .map((m) => m.client_id),
-        );
-        const staffHiddenClientIds = (prev.staffHiddenClientIds ?? []).filter(
-          (id) => !arrivedClientIds.has(id),
+        // Mensagem depois de “excluir da lista” → conversa volta (como WhatsApp)
+        const hiddenMap = revealHiddenChatsWithNewerMessages(
+          normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt),
+          mergedMessages,
         );
         next = {
           ...next,
           messages: mergedMessages,
-          staffHiddenClientIds,
+          staffHiddenAt: hiddenMap,
+          staffHiddenClientIds: Object.keys(hiddenMap),
         };
       } else {
         console.warn("[chat] sync:", msgRes.error);
@@ -955,6 +959,11 @@ export function AppStoreProvider({
         appointments: prev.appointments.filter((a) => a.client_id !== id),
         internalNotes: prev.internalNotes.filter((n) => n.client_id !== id),
         staffHiddenClientIds: (prev.staffHiddenClientIds ?? []).filter((x) => x !== id),
+        staffHiddenAt: (() => {
+          const map = { ...(prev.staffHiddenAt ?? {}) };
+          delete map[id];
+          return map;
+        })(),
         profiles: prev.profiles.map((p) =>
           p.client_id === id ? { ...p, client_id: undefined } : p,
         ),
@@ -1355,16 +1364,18 @@ export function AppStoreProvider({
           href: fromClient ? `/conversas/${input.client_id}` : `/cliente/mensagens`,
           created_at: stamp,
         };
-        const hidden = prev.staffHiddenClientIds ?? [];
-        const staffHiddenClientIds =
-          fromClient && hidden.includes(input.client_id)
-            ? hidden.filter((id) => id !== input.client_id)
-            : hidden;
+        const hiddenMap = normalizeStaffHidden(
+          prev.staffHiddenClientIds,
+          prev.staffHiddenAt,
+        );
+        // Qualquer mensagem nova na thread desarquiva na visão da casa
+        const nextHidden = unhideStaffChatInMap(hiddenMap, input.client_id);
         return {
           ...prev,
           messages: [...prev.messages, message],
           notifications: [notification, ...prev.notifications],
-          staffHiddenClientIds,
+          staffHiddenAt: nextHidden,
+          staffHiddenClientIds: Object.keys(nextHidden),
         };
       });
 
@@ -1473,9 +1484,13 @@ export function AppStoreProvider({
   const hideStaffChat: AppStore["hideStaffChat"] = useCallback(
     (clientId) => {
       commit((prev) => {
-        const hidden = prev.staffHiddenClientIds ?? [];
-        if (hidden.includes(clientId)) return prev;
-        return { ...prev, staffHiddenClientIds: [...hidden, clientId] };
+        const map = normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt);
+        const next = hideStaffChatInMap(map, clientId, nowIso());
+        return {
+          ...prev,
+          staffHiddenAt: next,
+          staffHiddenClientIds: Object.keys(next),
+        };
       });
     },
     [commit],
@@ -1483,15 +1498,31 @@ export function AppStoreProvider({
 
   const unhideStaffChat: AppStore["unhideStaffChat"] = useCallback(
     (clientId) => {
-      commit((prev) => ({
-        ...prev,
-        staffHiddenClientIds: (prev.staffHiddenClientIds ?? []).filter(
-          (id) => id !== clientId,
-        ),
-      }));
+      commit((prev) => {
+        const map = normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt);
+        const next = unhideStaffChatInMap(map, clientId);
+        return {
+          ...prev,
+          staffHiddenAt: next,
+          staffHiddenClientIds: Object.keys(next),
+        };
+      });
     },
     [commit],
   );
+
+  const syncStaffChatVisibility: AppStore["syncStaffChatVisibility"] = useCallback(() => {
+    commit((prev) => {
+      const map = normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt);
+      const next = revealHiddenChatsWithNewerMessages(map, prev.messages ?? []);
+      if (next === map) return prev;
+      return {
+        ...prev,
+        staffHiddenAt: next,
+        staffHiddenClientIds: Object.keys(next),
+      };
+    });
+  }, [commit]);
 
   const addInternalNote: AppStore["addInternalNote"] = useCallback(
     (client_id, body) => {
@@ -2447,6 +2478,7 @@ export function AppStoreProvider({
     sendMessage,
     hideStaffChat,
     unhideStaffChat,
+    syncStaffChatVisibility,
     refreshCloudChat,
     addInternalNote,
     markNotificationRead,
