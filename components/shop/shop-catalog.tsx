@@ -92,6 +92,12 @@ export function ShopCatalog({
                   <p className="mt-2 text-sm leading-relaxed text-navy/70">{p.description}</p>
                 ) : null}
 
+                <p className="mt-2 text-xs leading-relaxed text-navy/55">
+                  {p.requires_payment || p.kind === "pdf" || p.kind === "curso"
+                    ? "Após o Pix, a liberação do conteúdo pode levar até 3 dias úteis (confirmação do Financeiro)."
+                    : "Pedidos e combinações com a casa podem levar até 3 dias úteis para confirmação."}
+                </p>
+
                 {unlocked && p.file_url ? (
                   <a
                     href={p.file_url}

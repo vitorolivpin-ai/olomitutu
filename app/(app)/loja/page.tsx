@@ -295,6 +295,9 @@ export default function LojaStaffPage() {
                   {p.description ? (
                     <p className="mt-2 text-sm text-navy/70">{p.description}</p>
                   ) : null}
+                  <p className="mt-2 text-xs leading-relaxed text-navy/55">
+                    Aviso ao cliente: liberação pode levar até 3 dias úteis após o Pix.
+                  </p>
                   {canEdit ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button size="sm" variant="secondary" onClick={() => startEdit(p)}>
