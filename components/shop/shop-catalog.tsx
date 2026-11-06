@@ -1,12 +1,18 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Lock, ShoppingBag, FileText, GraduationCap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  ChevronUp,
+  FileText,
+  GraduationCap,
+  Heart,
+  Lock,
+  ShoppingBag,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { PixPanel } from "@/components/shop/pix-panel";
+import { cn } from "@/lib/utils";
 import type {
   HouseSettings,
   ShopInvoiceForm,
@@ -19,10 +25,8 @@ type Props = {
   houseSettings?: HouseSettings | null;
   purchases?: ShopPurchase[];
   clientId?: string | null;
-  /** Cliente logado: compra libera na conta */
   canBuyAccount?: boolean;
   onBuyAccount?: (productId: string) => void;
-  /** Visitante: ficha NF + envio por e-mail */
   canBuyGuest?: boolean;
   onBuyGuest?: (productId: string, invoice: ShopInvoiceForm) => void;
   buyError?: string | null;
@@ -39,6 +43,14 @@ function kindLabel(kind: ShopProduct["kind"]) {
   if (kind === "pdf") return "PDF";
   if (kind === "curso") return "Curso";
   return "Produto";
+}
+
+function cleanDescription(text?: string) {
+  if (!text) return "";
+  return text
+    .replace(/\s*[—–-]\s*troque pela descrição real\.?/gi, "")
+    .replace(/Produto de exemplo da loja da casa\.?/gi, "")
+    .trim();
 }
 
 const emptyInvoice: ShopInvoiceForm = {
@@ -66,6 +78,8 @@ export function ShopCatalog({
 }: Props) {
   const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<ShopInvoiceForm>(emptyInvoice);
+  const [pixOpenId, setPixOpenId] = useState<string | null>(null);
+  const [liked, setLiked] = useState<Record<string, boolean>>({});
 
   function submitGuest(e: FormEvent, productId: string) {
     e.preventDefault();
@@ -74,14 +88,21 @@ export function ShopCatalog({
     setInvoice(emptyInvoice);
   }
 
+  function togglePix(productId: string) {
+    setPixOpenId((cur) => (cur === productId ? null : productId));
+  }
+
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3.5">
       {buyError ? (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{buyError}</p>
+        <p className="rounded-2xl bg-danger/10 px-3 py-2 text-sm text-danger">
+          {buyError}
+        </p>
       ) : null}
       {buyOk ? (
-        <p className="rounded-lg bg-navy/5 px-3 py-2 text-sm text-navy/80">{buyOk}</p>
+        <p className="rounded-2xl bg-navy/5 px-3 py-2 text-sm text-navy/80">{buyOk}</p>
       ) : null}
+
       {products.map((p) => {
         const Icon = kindIcon(p.kind ?? "fisico");
         const unlocked = purchases.some(
@@ -98,66 +119,139 @@ export function ShopCatalog({
             x.status === "solicitado",
         );
         const locked = Boolean(p.requires_payment) && !unlocked;
-        const digital =
-          p.requires_payment || p.kind === "pdf" || p.kind === "curso";
+        const showPix = locked || p.kind === "fisico";
+        const pixOpen = pixOpenId === p.id;
         const showForm = invoiceFor === p.id;
+        const desc = cleanDescription(p.description);
 
         return (
-          <Card key={p.id} className="border-l-4 border-l-gold">
-            <div className="flex items-start gap-3">
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mist">
-                <Icon className="h-5 w-5 text-gold-deep" />
-                {locked ? (
-                  <span className="absolute -right-1 -top-1 rounded-full bg-navy p-0.5 text-cream">
-                    <Lock className="h-3 w-3" />
+          <article
+            key={p.id}
+            className="overflow-hidden rounded-[18px] bg-white shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03]"
+          >
+            <div className="flex gap-3 p-3.5">
+              <div className="relative h-[4.75rem] w-[4.75rem] shrink-0 overflow-hidden rounded-2xl bg-[#efe6d0]">
+                {p.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.image_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-navy">
+                    <Icon className="h-7 w-7" strokeWidth={1.75} />
+                    {locked ? (
+                      <span className="absolute right-1 top-1 rounded-full bg-navy p-0.5 text-cream">
+                        <Lock className="h-3 w-3" />
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
+                )}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <CardTitle className="text-xl">{p.name}</CardTitle>
-                  <p className="shrink-0 font-display text-lg text-gold-deep">
-                    R$ {p.price.toFixed(2).replace(".", ",")}
-                  </p>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge tone="gold">{kindLabel(p.kind ?? "fisico")}</Badge>
-                  {p.category ? <Badge>{p.category}</Badge> : null}
-                  {locked ? <Badge tone="danger">Bloqueado</Badge> : null}
-                  {unlocked ? <Badge tone="success">Liberado na conta</Badge> : null}
-                  {pending ? <Badge>Aguardando pagamento</Badge> : null}
-                </div>
-                {p.description ? (
-                  <p className="mt-2 text-sm leading-relaxed text-navy/70">{p.description}</p>
-                ) : null}
 
-                <p className="mt-2 text-xs leading-relaxed text-navy/55">
-                  {digital
-                    ? "Com conta: o conteúdo é liberado no App do Cliente. Sem conta: preencha a ficha de NF e o material é enviado por e-mail. Pode levar até 3 dias úteis após o Pix."
-                    : "Pedidos com a casa podem levar até 3 dias úteis para confirmação."}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-[15px] font-semibold text-navy">
+                      {p.name}
+                    </h2>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-[#efe6d0] px-2 py-0.5 text-[10px] font-semibold text-navy">
+                        {kindLabel(p.kind ?? "fisico")}
+                      </span>
+                      {p.category ? (
+                        <span className="rounded-full bg-mist px-2 py-0.5 text-[10px] font-medium text-navy/65">
+                          {p.category}
+                        </span>
+                      ) : null}
+                      {unlocked ? (
+                        <span className="rounded-full bg-leaf/15 px-2 py-0.5 text-[10px] font-semibold text-leaf">
+                          Liberado
+                        </span>
+                      ) : null}
+                      {pending ? (
+                        <span className="rounded-full bg-navy/5 px-2 py-0.5 text-[10px] font-medium text-navy/60">
+                          Aguardando
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Favoritar"
+                    onClick={() =>
+                      setLiked((prev) => ({ ...prev, [p.id]: !prev[p.id] }))
+                    }
+                    className="shrink-0 rounded-full p-1 text-navy/30 transition hover:text-navy/55"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-4 w-4",
+                        liked[p.id] && "fill-gold text-gold-deep",
+                      )}
+                      strokeWidth={1.75}
+                    />
+                  </button>
+                </div>
+
+                {desc ? (
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-navy/55">
+                    {desc}
+                  </p>
+                ) : null}
 
                 {unlocked && p.file_url ? (
                   <a
                     href={p.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 inline-block text-sm font-semibold text-gold-deep underline"
+                    className="mt-2 inline-block text-xs font-semibold text-gold-deep underline"
                   >
                     Abrir conteúdo na conta
                   </a>
                 ) : null}
 
-                {(locked || p.kind === "fisico") && (
-                  <div className="mt-3">
-                    <PixPanel
-                      pixKey={houseSettings?.pix_key}
-                      holderName={houseSettings?.pix_holder_name}
-                      amount={p.price}
-                      description={p.name}
-                    />
-                  </div>
-                )}
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-display text-lg font-semibold text-gold-deep">
+                    R$ {p.price.toFixed(2).replace(".", ",")}
+                  </p>
+                  {showPix ? (
+                    <button
+                      type="button"
+                      onClick={() => togglePix(p.id)}
+                      className="rounded-full bg-[#e4d2a0] px-3.5 py-2 text-xs font-bold text-navy shadow-[0_4px_12px_rgba(11,31,58,0.08)] transition hover:bg-[#ebd9ad] active:scale-[0.98]"
+                    >
+                      Comprar →
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            {showPix && pixOpen ? (
+              <div className="border-t border-navy/[0.06] bg-[#fbfaf7] px-3.5 py-3.5 transition-all duration-200">
+                <button
+                  type="button"
+                  onClick={() => togglePix(p.id)}
+                  className="mb-3 flex w-full items-center gap-2 text-left"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#efe6d0] text-gold-deep">
+                    <ShoppingBag className="h-4 w-4" strokeWidth={1.85} />
+                  </span>
+                  <span className="flex-1 text-sm font-semibold text-navy">
+                    Pagamento via PIX
+                  </span>
+                  <ChevronUp className="h-4 w-4 text-navy/40" />
+                </button>
+
+                <PixPanel
+                  variant="loja"
+                  pixKey={houseSettings?.pix_key}
+                  holderName={houseSettings?.pix_holder_name}
+                  amount={p.price}
+                  description={p.name}
+                />
 
                 {canBuyAccount && locked && !pending ? (
                   <Button
@@ -184,7 +278,7 @@ export function ShopCatalog({
 
                 {canBuyGuest && locked && showForm ? (
                   <form
-                    className="mt-3 space-y-2 rounded-xl border border-navy/10 bg-mist/50 p-3"
+                    className="mt-3 space-y-2 rounded-xl border border-navy/10 bg-white p-3"
                     onSubmit={(e) => submitGuest(e, p.id)}
                   >
                     <p className="text-sm font-semibold text-navy">
@@ -283,8 +377,8 @@ export function ShopCatalog({
                   </form>
                 ) : null}
               </div>
-            </div>
-          </Card>
+            ) : null}
+          </article>
         );
       })}
     </div>

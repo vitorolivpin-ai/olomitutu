@@ -592,7 +592,7 @@ export function createSeedState(): AppState {
       {
         id: "shop_1",
         name: "Vela votiva",
-        description: "Vela para oferendas e trabalhos — troque pela descrição real.",
+        description: "Vela para oferendas e trabalhos.",
         price: 25,
         category: "Velas",
         available: true,
@@ -605,9 +605,9 @@ export function createSeedState(): AppState {
       {
         id: "shop_2",
         name: "Sabonete ritual",
-        description: "Produto de exemplo da loja da casa.",
+        description: "Sabonete artesanal para uso ritual e espiritual.",
         price: 18,
-        category: "Banho",
+        category: "Higiene e cuidado",
         available: true,
         sort_order: 2,
         kind: "fisico",
