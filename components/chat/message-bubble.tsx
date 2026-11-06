@@ -11,8 +11,10 @@ type Props = {
 };
 
 export function MessageBubble({ message, mine }: Props) {
-  const isAudio = message.kind === "audio" && Boolean(message.audio_data_url);
-  const isVideo = message.kind === "video" && Boolean(message.video_data_url);
+  const audioSrc = message.audio_data_url || message.audio_url;
+  const videoSrc = message.video_data_url || message.video_url;
+  const isAudio = message.kind === "audio" && Boolean(audioSrc);
+  const isVideo = message.kind === "video" && Boolean(videoSrc);
   const isCall = message.kind === "call";
 
   return (
@@ -24,15 +26,15 @@ export function MessageBubble({ message, mine }: Props) {
         )}
       >
         <p className="mb-1 text-[11px] opacity-70">{message.sender_name}</p>
-        {isAudio && message.audio_data_url ? (
+        {isAudio && audioSrc ? (
           <AudioPlayer
-            src={message.audio_data_url}
+            src={audioSrc}
             durationSec={message.audio_duration_sec}
             inverted={mine}
           />
-        ) : isVideo && message.video_data_url ? (
+        ) : isVideo && videoSrc ? (
           <video
-            src={message.video_data_url}
+            src={videoSrc}
             controls
             playsInline
             className="mt-1 max-h-56 w-full rounded-xl bg-black/80"

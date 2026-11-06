@@ -65,6 +65,13 @@ import {
   upsertLibraryItemRemote,
   uploadLibraryFile,
 } from "@/lib/supabase/library";
+import {
+  fetchChatMessages,
+  fetchClientsRemote,
+  insertMessageRemote,
+  updateClientRegistrationRemote,
+  uploadChatMedia,
+} from "@/lib/supabase/chat";
 import { freedSlotMessage, isSlotOccupied } from "@/lib/slots";
 import { findProductByBarcode, pickLotsForWithdrawal } from "@/lib/stock";
 
@@ -393,7 +400,7 @@ export function AppStoreProvider({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Biblioteca na nuvem (Supabase) — fonte da verdade entre apps/dispositivos
+  // Biblioteca + chat + clientes na nuvem (Supabase)
   useEffect(() => {
     if (!ready || !authMode || !state.currentUserId) return;
     const supabase = createBrowserClient();
@@ -401,48 +408,88 @@ export function AppStoreProvider({
 
     let cancelled = false;
 
-    async function pullLibrary() {
-      // No celular o JWT às vezes ainda não está pronto no 1º tick
+    async function pullCloud() {
       const { data: sessionData } = await supabase!.auth.getSession();
       if (cancelled) return;
       if (!sessionData.session) {
-        console.warn("[biblioteca] sync: sem sessão Auth — RLS bloquearia a leitura");
+        console.warn("[sync] sem sessão Auth — RLS bloquearia a leitura");
         return;
       }
-      const result = await fetchLibraryItems(supabase!);
+
+      const [libRes, msgRes, clientsRes] = await Promise.all([
+        fetchLibraryItems(supabase!),
+        fetchChatMessages(supabase!),
+        fetchClientsRemote(supabase!),
+      ]);
       if (cancelled) return;
-      if (!result.ok) {
-        console.warn("[biblioteca] sync:", result.error);
-        return;
-      }
-      const remote = result.items;
+
       setState((prev) => {
-        // Mantém rascunhos só-locais (ids antigos lib_…) até republicar na nuvem
-        const localOnly = (prev.libraryItems ?? []).filter((i) => !isUuid(i.id));
-        const next = {
-          ...prev,
-          libraryItems: [...remote, ...localOnly],
-        };
+        let next = { ...prev };
+        if (libRes.ok) {
+          const localOnly = (prev.libraryItems ?? []).filter((i) => !isUuid(i.id));
+          next = { ...next, libraryItems: [...libRes.items, ...localOnly] };
+        } else {
+          console.warn("[biblioteca] sync:", libRes.error);
+        }
+        if (msgRes.ok) {
+          const localOnly = (prev.messages ?? []).filter((m) => !isUuid(m.id));
+          const byId = new Map<string, Message>();
+          for (const m of msgRes.items) byId.set(m.id, m);
+          for (const m of localOnly) byId.set(m.id, m);
+          next = {
+            ...next,
+            messages: Array.from(byId.values()).sort((a, b) =>
+              a.created_at.localeCompare(b.created_at),
+            ),
+          };
+        } else {
+          console.warn("[chat] sync:", msgRes.error);
+        }
+        if (clientsRes.ok) {
+          const remoteIds = new Set(clientsRes.items.map((c) => c.id));
+          const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
+          const merged = [
+            ...clientsRes.items,
+            ...localOnly.filter((c) => !remoteIds.has(c.id)),
+          ];
+          next = { ...next, clients: merged };
+        } else {
+          console.warn("[clients] sync:", clientsRes.error);
+        }
         persistSharedData(stripSession(next));
         return next;
       });
     }
 
-    void pullLibrary();
+    void pullCloud();
 
     function onVisible() {
-      if (document.visibilityState === "visible") void pullLibrary();
+      if (document.visibilityState === "visible") void pullCloud();
     }
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
 
     const channel = supabase
-      .channel("library_items_sync")
+      .channel("cloud_sync")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "library_items" },
         () => {
-          void pullLibrary();
+          void pullCloud();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          void pullCloud();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "clients" },
+        () => {
+          void pullCloud();
         },
       )
       .subscribe();
@@ -807,8 +854,8 @@ export function AppStoreProvider({
       }
 
       const stamp = nowIso();
+      const clientId = currentUser.client_id!;
       commit((prev) => {
-        const clientId = currentUser.client_id!;
         return {
           ...prev,
           clients: prev.clients.map((c) =>
@@ -837,6 +884,22 @@ export function AppStoreProvider({
           ),
         };
       });
+
+      if (isSupabaseConfigured() && isUuid(clientId)) {
+        const supabase = createBrowserClient();
+        if (supabase) {
+          void updateClientRegistrationRemote(supabase, {
+            client_id: clientId,
+            full_name,
+            phone,
+            email: email || undefined,
+            birth_date,
+          }).then((res) => {
+            if (!res.ok) console.warn("[cadastro] sync:", res.error);
+          });
+        }
+      }
+
       return { ok: true };
     },
     [commit, currentUser],
@@ -1113,9 +1176,11 @@ export function AppStoreProvider({
               ? input.body?.trim() || "Chamada de vídeo"
               : input.body!.trim();
 
+      const cloud = isSupabaseConfigured() && isUuid(input.client_id);
       const message: Message = {
-        id: uid("msg"),
+        id: cloud ? crypto.randomUUID() : uid("msg"),
         client_id: input.client_id,
+        sender_id: currentUser.id,
         sender_role: currentUser.role,
         sender_name: currentUser.full_name,
         body,
@@ -1168,6 +1233,76 @@ export function AppStoreProvider({
           staffHiddenClientIds,
         };
       });
+
+      if (cloud) {
+        const supabase = createBrowserClient();
+        if (supabase) {
+          void (async () => {
+            let audio_url = message.audio_url;
+            let video_url = message.video_url;
+            let audio_data_url = message.audio_data_url;
+            let video_data_url = message.video_data_url;
+
+            if (kind === "audio" && input.audio_data_url) {
+              const up = await uploadChatMedia(
+                supabase,
+                input.client_id,
+                input.audio_data_url,
+                "audio",
+              );
+              if (!up.ok) {
+                console.warn("[chat] upload áudio:", up.error);
+                return;
+              }
+              audio_url = up.url;
+              audio_data_url = undefined;
+            }
+            if (kind === "video" && input.video_data_url) {
+              const up = await uploadChatMedia(
+                supabase,
+                input.client_id,
+                input.video_data_url,
+                "video",
+              );
+              if (!up.ok) {
+                console.warn("[chat] upload vídeo:", up.error);
+                return;
+              }
+              video_url = up.url;
+              video_data_url = undefined;
+            }
+
+            const remote = await insertMessageRemote(supabase, {
+              ...message,
+              audio_url,
+              video_url,
+              audio_data_url: undefined,
+              video_data_url: undefined,
+            });
+            if (!remote.ok) {
+              console.warn("[chat] envio nuvem:", remote.error);
+              return;
+            }
+            commit((prev) => ({
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === message.id
+                  ? {
+                      ...remote.item,
+                      audio_data_url: audio_data_url ?? remote.item.audio_data_url,
+                      video_data_url: video_data_url ?? remote.item.video_data_url,
+                    }
+                  : m,
+              ),
+            }));
+          })();
+        }
+      } else if (isSupabaseConfigured() && !isUuid(input.client_id)) {
+        console.warn(
+          "[chat] client_id local — mensagem não chega ao Pai. Rode 017 e entre de novo.",
+        );
+      }
+
       return message;
     },
     [commit, currentUser],

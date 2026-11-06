@@ -98,8 +98,9 @@ export async function ensureClienteLinked(
   const refreshed = await fetchProfileRowDetailed(supabase, profile.id);
   if (refreshed.row?.client_id) return refreshed.row;
 
-  // Evita tela em branco se a migration 017 ainda não rodou — ficha só local
-  return { ...profile, client_id: crypto.randomUUID() };
+  // Sem client_id válido na nuvem o chat não chega ao Pai (FK em messages).
+  // Não inventar UUID local — o login / portal pedem a migration 017.
+  return refreshed.row ?? profile;
 }
 
 export function mapProfileRow(row: ProfileRow): Profile {

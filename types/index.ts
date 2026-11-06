@@ -201,6 +201,8 @@ export interface Message {
   audio_duration_sec?: number;
   /** Vídeo enviado no chat (data URL no demo / local). */
   video_data_url?: string;
+  /** URL pública do vídeo (Storage). */
+  video_url?: string;
   /** Link da sala de chamada de vídeo (Jitsi). */
   call_url?: string;
   appointment_id?: string;
