@@ -59,13 +59,18 @@ Em **Authentication → URL Configuration**:
 
 No Vercel, adicione também `NEXT_PUBLIC_SITE_URL=https://olomitutu.vercel.app`.
 
-### 4. E-mail (recuperação de senha)
+### 4. E-mail de confirmação / senha (obrigatório em produção)
 
-Em **Authentication → Emails / SMTP**:
+Sem **SMTP próprio**, o Supabase **não entrega** e-mail de cadastro para o público — só para membros da equipe do projeto (e com limite baixo). Por isso “não chega o e-mail” ao criar conta.
 
-1. Crie um remetente dedicado (ex.: `noreply@seudominio.com`).
-2. Configure SMTP (Resend, Brevo, SendGrid ou Gmail com senha de app).
-3. Sem SMTP customizado o e-mail padrão do Supabase serve só para testes.
+Em **Authentication → SMTP** (ou Emails):
+
+1. Use Resend, Brevo, SendGrid ou similar.
+2. Remetente verificado (ex.: `noreply@seudominio.com`).
+3. Host/porta/usuário/senha SMTP do provedor.
+4. Em **Authentication → Providers → Email**, deixe **Confirm email** ligado (ou, só em teste, confirme o usuário em **Authentication → Users**).
+
+Enquanto o SMTP não estiver ok: Authentication → Users → usuário → **Confirm email** manual.
 
 ### 5. Contas e papéis
 

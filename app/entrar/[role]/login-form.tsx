@@ -26,11 +26,15 @@ export function LoginForm({ role, initialError }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(initialError ?? null);
+  const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
+    setNeedsConfirm(false);
     setPending(true);
 
     const supabase = createBrowserClient();
@@ -50,8 +54,9 @@ export function LoginForm({ role, initialError }: Props) {
       const raw = signError?.message || "Não foi possível entrar.";
       const msg = raw.toLowerCase();
       if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        setNeedsConfirm(true);
         setError(
-          `E-mail ainda não confirmado (projeto ${host}). No Supabase → Authentication → Users, confirme o e-mail.`,
+          `E-mail ainda não confirmado. Reenvie o link abaixo ou, no Supabase → Authentication → Users, confirme manualmente. Sem SMTP próprio o e-mail só chega para membros da equipe do projeto (${host}).`,
         );
       } else if (msg.includes("invalid") || msg.includes("credentials")) {
         setError(
@@ -172,6 +177,49 @@ export function LoginForm({ role, initialError }: Props) {
 
       {error ? (
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
+      ) : null}
+      {info ? (
+        <p className="rounded-lg bg-navy/5 px-3 py-2 text-sm text-navy/80">{info}</p>
+      ) : null}
+
+      {needsConfirm ? (
+        <button
+          type="button"
+          disabled={pending || !email.trim()}
+          className="w-full rounded-xl border border-navy/20 bg-white px-4 py-3 text-sm font-semibold text-navy transition hover:bg-mist disabled:opacity-60"
+          onClick={() => {
+            void (async () => {
+              setPending(true);
+              setInfo(null);
+              setError(null);
+              const supabase = createBrowserClient();
+              if (!supabase) {
+                setError("Supabase não configurado.");
+                setPending(false);
+                return;
+              }
+              const { error: resendError } = await supabase.auth.resend({
+                type: "signup",
+                email: email.trim().toLowerCase(),
+              });
+              setPending(false);
+              if (resendError) {
+                setError(
+                  resendError.message.includes("rate") ||
+                    resendError.message.toLowerCase().includes("limit")
+                    ? "Limite de e-mails do Supabase. Configure SMTP customizado ou confirme o usuário no painel."
+                    : resendError.message,
+                );
+                return;
+              }
+              setInfo(
+                "Se o SMTP estiver ok, o e-mail foi reenviado (veja spam). Caso contrário configure Authentication → SMTP.",
+              );
+            })();
+          }}
+        >
+          Reenviar e-mail de confirmação
+        </button>
       ) : null}
 
       <button

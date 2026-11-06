@@ -151,7 +151,10 @@ export default function CadastrarAreaPage() {
         await supabase.auth.signOut();
       }
       setInfo(
-        "Cadastro enviado. O Pai de Santo (Pai Vitor) precisa aceitar antes do acesso.",
+        "Cadastro enviado. O Pai de Santo (Pai Vitor) precisa aceitar antes do acesso." +
+          (!data.session
+            ? " Se pedir confirmação de e-mail e nada chegar, a casa precisa configurar SMTP no Supabase (Authentication → SMTP)."
+            : ""),
       );
       return;
     }
@@ -161,7 +164,13 @@ export default function CadastrarAreaPage() {
       return;
     }
 
-    setInfo("Conta criada. Verifique seu e-mail para confirmar, depois entre.");
+    // Conta criada sem sessão = Confirm email ligado, mas o e-mail pode não sair
+    // sem SMTP próprio (o provedor padrão só manda para membros da equipe Supabase).
+    setInfo(
+      "Conta criada. Abra o e-mail de confirmação (também olhe o spam). " +
+        "Se não chegar em alguns minutos: no Supabase → Authentication → SMTP configure Resend/Brevo/SendGrid, " +
+        "ou em Authentication → Users confirme o e-mail manualmente. Depois entre em Entrar.",
+    );
   }
 
   return (
