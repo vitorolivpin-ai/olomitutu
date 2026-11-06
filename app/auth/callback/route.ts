@@ -39,10 +39,10 @@ export async function GET(req: NextRequest) {
     data: { user },
   } = await client.supabase.auth.getUser();
 
-  const res = withAuthCookies(
-    client.cookieResponse(),
-    NextResponse.redirect(new URL(next, origin)),
-  );
+  const redirect = NextResponse.redirect(new URL(next, origin));
+  const res = client.applyCookies
+    ? client.applyCookies(redirect)
+    : withAuthCookies(client.cookieResponse(), redirect);
 
   if (user) {
     res.cookies.set("ile-oloroke-sid", user.id, {

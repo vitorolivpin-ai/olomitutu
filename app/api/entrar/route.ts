@@ -108,10 +108,10 @@ async function loginWithSupabase(
   }
 
   const home = homePathForRole(roleRaw);
-  const res = withAuthCookies(
-    cookieResponse(),
-    NextResponse.redirect(new URL(home, origin)),
-  );
+  const redirect = NextResponse.redirect(new URL(home, origin));
+  const res = client.applyCookies
+    ? client.applyCookies(redirect)
+    : withAuthCookies(cookieResponse(), redirect);
   // Mantém cookie legado para o store local sincronizar currentUserId
   res.cookies.set("ile-oloroke-sid", profile.id, {
     path: "/",

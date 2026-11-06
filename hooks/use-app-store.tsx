@@ -269,8 +269,9 @@ export function AppStoreProvider({
       markReady();
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      void applyUser(data.session?.user?.id ?? null);
+    // getUser valida no servidor Auth; getSession sozinho às vezes vem vazio no 1º paint
+    supabase.auth.getUser().then(({ data }) => {
+      void applyUser(data.user?.id ?? null);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {

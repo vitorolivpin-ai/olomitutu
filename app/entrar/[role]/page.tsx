@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/logo";
 import { ClearPreviousSession } from "./clear-session";
+import { LoginForm } from "./login-form";
 import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
 import { DEMO_PASSWORD } from "@/lib/seed";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isHouseSignupRole, roleNeedsApproval } from "@/lib/approvals";
+import type { UserRole } from "@/types";
 
 type Props = {
   params: Promise<{ role: string }>;
@@ -49,6 +51,9 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
         </div>
 
         <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
+          {authReal ? (
+            <LoginForm role={role as UserRole} initialError={erro} />
+          ) : (
           <form action="/api/entrar" method="post" className="space-y-4">
             <input type="hidden" name="role" value={role} />
 
@@ -61,7 +66,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
                 name="email"
                 type="email"
                 required
-                defaultValue={authReal ? "" : account.email}
+                defaultValue={account.email}
                 autoComplete="username"
                 className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
               />
@@ -92,6 +97,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
               Entrar em {areaTitle(role)}
             </button>
           </form>
+          )}
 
           {authReal ? (
             <div className="mt-4 space-y-2 text-center text-sm text-navy/60">
