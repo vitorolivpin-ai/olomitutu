@@ -1,18 +1,17 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+"use client";
+
+import { createBrowserClient as createSsrBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabasePublicEnv, isSupabaseConfigured } from "@/lib/supabase/config";
+
+export { isSupabaseConfigured };
 
 /**
- * Cliente Supabase para o browser.
- * Usa apenas a chave pública (anon). Segredos ficam no servidor / .env.local.
+ * Cliente Supabase para o browser (sessão em cookies via @supabase/ssr).
+ * Retorna null se Auth ainda não estiver configurado.
  */
 export function createBrowserClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon || url.includes("your-project") || anon.includes("your-anon")) {
-    return null;
-  }
-  return createClient(url, anon);
-}
-
-export function isSupabaseConfigured() {
-  return createBrowserClient() !== null;
+  if (!isSupabaseConfigured()) return null;
+  const { url, anonKey } = getSupabasePublicEnv();
+  return createSsrBrowserClient(url, anonKey);
 }

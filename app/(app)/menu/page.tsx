@@ -91,9 +91,11 @@ export default function MenuPage() {
       </div>
 
       <div className="grid gap-2">
-        <Button variant="ghost" onClick={resetDemo}>
-          Restaurar dados demonstrativos
-        </Button>
+        {!isSupabaseConfigured() ? (
+          <Button variant="ghost" onClick={resetDemo}>
+            Restaurar dados demonstrativos
+          </Button>
+        ) : null}
         <Button variant="danger" onClick={onLogout}>
           Sair
         </Button>

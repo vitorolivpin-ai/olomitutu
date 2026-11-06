@@ -3,6 +3,7 @@ import { BrandMark } from "@/components/brand/logo";
 import { ClearPreviousSession } from "./clear-session";
 import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
 import { DEMO_PASSWORD } from "@/lib/seed";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 type Props = {
   params: Promise<{ role: string }>;
@@ -15,6 +16,7 @@ type Props = {
 export default async function EntrarAreaPage({ params, searchParams }: Props) {
   const { role } = await params;
   const { erro } = await searchParams;
+  const authReal = isSupabaseConfigured();
 
   if (!isAreaRole(role)) {
     return (
@@ -40,7 +42,9 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
           <BrandMark className="mb-2 h-36 w-36" priority />
           <p className="text-sm font-semibold text-gold-deep">{account.label}</p>
           <h1 className="mt-1 font-display text-2xl text-navy">Entrar</h1>
-          <p className="mt-1 text-sm text-navy/60">{account.hint}</p>
+          <p className="mt-1 text-sm text-navy/60">
+            {authReal ? "Use o e-mail e a senha da sua conta." : account.hint}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
@@ -56,7 +60,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
                 name="email"
                 type="email"
                 required
-                defaultValue={account.email}
+                defaultValue={authReal ? "" : account.email}
                 autoComplete="username"
                 className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
               />
@@ -88,12 +92,34 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-navy/50">
-            Conta desta área:{" "}
-            <span className="font-medium text-navy/70">{account.email}</span>
-            <br />
-            Senha demo: <span className="font-medium text-navy/70">{DEMO_PASSWORD}</span>
-          </p>
+          {authReal ? (
+            <div className="mt-4 space-y-2 text-center text-sm text-navy/60">
+              <p>
+                <Link href="/recuperar-senha" className="text-navy underline">
+                  Esqueci a senha
+                </Link>
+              </p>
+              {role === "cliente" ? (
+                <p>
+                  Não tem conta?{" "}
+                  <Link href="/cadastrar" className="text-navy underline">
+                    Cadastrar
+                  </Link>
+                </p>
+              ) : (
+                <p className="text-xs text-navy/45">
+                  Contas da casa são criadas pelo administrador no Supabase.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-center text-xs text-navy/50">
+              Conta desta área:{" "}
+              <span className="font-medium text-navy/70">{account.email}</span>
+              <br />
+              Senha demo: <span className="font-medium text-navy/70">{DEMO_PASSWORD}</span>
+            </p>
+          )}
         </div>
 
         <Link href="/" className="block text-center text-sm text-navy/55 hover:text-navy">

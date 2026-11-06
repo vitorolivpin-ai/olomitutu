@@ -19,6 +19,8 @@ import {
   stripSession,
   type SharedData,
 } from "@/lib/storage";
+import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { mapProfileRow, mergeAuthProfile, type ProfileRow } from "@/lib/supabase/profile";
 import { nowIso, uid } from "@/lib/utils";
 import type {
   AppNotification,
@@ -205,6 +207,54 @@ export function AppStoreProvider({
     setReady(true);
   }, []);
 
+  // Sessão Auth Supabase → injeta perfil real e currentUserId
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const supabase = createBrowserClient();
+    if (!supabase) return;
+
+    let cancelled = false;
+
+    async function applyUser(userId: string | null) {
+      if (cancelled) return;
+      if (!userId) {
+        setState((prev) => {
+          const next = { ...prev, currentUserId: null };
+          persistSessionUserId(null);
+          return next;
+        });
+        return;
+      }
+      const { data: row } = await supabase!
+        .from("profiles")
+        .select("id, full_name, email, role, phone, client_id, avatar_url, created_at, updated_at")
+        .eq("id", userId)
+        .maybeSingle();
+      if (cancelled || !row) return;
+      const authProfile = mapProfileRow(row as ProfileRow);
+      setState((prev) => {
+        const profiles = mergeAuthProfile(prev.profiles, authProfile);
+        const next = { ...prev, profiles, currentUserId: authProfile.id };
+        persistSharedData(stripSession(next));
+        persistSessionUserId(authProfile.id);
+        return next;
+      });
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      void applyUser(data.session?.user?.id ?? null);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applyUser(session?.user?.id ?? null);
+    });
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
   // Sincroniza dados entre abas (Casa ↔ Cliente)
   useEffect(() => {
     function onStorage(e: StorageEvent) {
@@ -246,6 +296,12 @@ export function AppStoreProvider({
 
   const login = useCallback(
     (email: string, password: string) => {
+      if (isSupabaseConfigured()) {
+        return {
+          ok: false,
+          error: "Use o formulário de entrada — Auth Supabase ativo.",
+        };
+      }
       if (password !== DEMO_PASSWORD) {
         return { ok: false, error: "Senha inválida. Use demo123 no modo demonstração." };
       }
@@ -260,6 +316,10 @@ export function AppStoreProvider({
   );
 
   const logout = useCallback(() => {
+    if (isSupabaseConfigured()) {
+      const supabase = createBrowserClient();
+      void supabase?.auth.signOut();
+    }
     commit((prev) => ({ ...prev, currentUserId: null }));
   }, [commit]);
 
@@ -312,8 +372,24 @@ export function AppStoreProvider({
         };
       });
       if (conflict) return { ok: false, error: "Este e-mail já está em uso." };
-      if (!saved) return { ok: false, error: "Não foi possível salvar." };
-      return { ok: true, profile: saved };
+      const profileSaved = saved as Profile | null;
+      if (!profileSaved) return { ok: false, error: "Não foi possível salvar." };
+
+      if (isSupabaseConfigured()) {
+        const supabase = createBrowserClient();
+        void supabase
+          ?.from("profiles")
+          .update({
+            full_name: profileSaved.full_name,
+            email: profileSaved.email,
+            phone: profileSaved.phone ?? null,
+            avatar_url: profileSaved.avatar_url ?? null,
+            updated_at: profileSaved.updated_at,
+          })
+          .eq("id", currentUser.id);
+      }
+
+      return { ok: true, profile: profileSaved };
     },
     [commit, currentUser],
   );

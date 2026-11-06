@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { Providers } from "@/components/providers";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +26,15 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
-  const initialUserId = jar.get("ile-oloroke-sid")?.value ?? null;
+  let initialUserId = jar.get("ile-oloroke-sid")?.value ?? null;
+
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
+    if (user) initialUserId = user.id;
+  }
 
   return (
     <html lang="pt-BR" className="h-full">
