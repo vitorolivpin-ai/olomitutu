@@ -1,5 +1,20 @@
 import type { Message } from "@/types";
 
+/** Canal da mensagem: casa (Pai) vs financeiro (compras). */
+export type ChatChannel = "casa" | "financeiro";
+
+export function isFinanceMessage(m: Message) {
+  return m.recipient_role === "tesouraria" || m.sender_role === "tesouraria";
+}
+
+export function messageChannel(m: Message): ChatChannel {
+  return isFinanceMessage(m) ? "financeiro" : "casa";
+}
+
+export function messagesForChannel(messages: Message[], channel: ChatChannel) {
+  return messages.filter((m) => messageChannel(m) === channel);
+}
+
 export function formatAudioDuration(seconds: number) {
   const s = Math.max(0, Math.round(seconds));
   const m = Math.floor(s / 60);

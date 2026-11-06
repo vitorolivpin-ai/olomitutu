@@ -45,9 +45,14 @@ export default function FinancePage() {
           <h1 className="font-display text-3xl text-navy">Análise financeira</h1>
           <p className="text-sm text-navy/60">{formatCompetence(competence)}</p>
         </div>
-        <Link href="/loja/liberacoes">
-          <Button variant="gold">Liberações da loja</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/conversas">
+            <Button variant="secondary">Chat com clientes</Button>
+          </Link>
+          <Link href="/loja/liberacoes">
+            <Button variant="gold">Liberações da loja</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

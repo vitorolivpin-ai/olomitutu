@@ -9,8 +9,9 @@ type Body = {
   client_id?: string;
   preview?: string;
   sender_name?: string;
-  /** Quem deve receber: staff (Pai) ou o cliente da conversa */
-  audience?: "staff" | "cliente";
+  /** Quem deve receber: staff (Pai), tesouraria ou o cliente da conversa */
+  audience?: "staff" | "tesouraria" | "cliente";
+  channel?: "casa" | "financeiro";
 };
 
 export async function POST(req: NextRequest) {
@@ -31,7 +32,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
-  const audience = body.audience === "cliente" ? "cliente" : "staff";
+  const audience =
+    body.audience === "cliente"
+      ? "cliente"
+      : body.audience === "tesouraria"
+        ? "tesouraria"
+        : "staff";
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json(
@@ -47,6 +53,12 @@ export async function POST(req: NextRequest) {
       .from("profiles")
       .select("id")
       .in("role", ["pai_de_santo", "administrador"]);
+    userIds = (staff ?? []).map((p) => p.id as string);
+  } else if (audience === "tesouraria") {
+    const { data: staff } = await admin
+      .from("profiles")
+      .select("id")
+      .in("role", ["tesouraria", "administrador"]);
     userIds = (staff ?? []).map((p) => p.id as string);
   } else {
     if (!body.client_id) {
@@ -69,13 +81,22 @@ export async function POST(req: NextRequest) {
     .select("id, endpoint, subscription")
     .in("user_id", userIds);
 
-  const title = audience === "cliente" ? "Mensagem do Pai" : "Nova mensagem";
+  const title =
+    audience === "cliente"
+      ? body.channel === "financeiro"
+        ? "Mensagem do Financeiro"
+        : "Mensagem da casa"
+      : audience === "tesouraria"
+        ? "Mensagem — compras"
+        : "Nova mensagem";
   const preview = (body.preview || "Abra o chat").slice(0, 120);
   const sender = body.sender_name?.trim();
   const notifBody = sender ? `${sender}: ${preview}` : preview;
   const url =
     audience === "cliente"
-      ? "/cliente/mensagens"
+      ? body.channel === "financeiro"
+        ? "/cliente/financeiro-chat"
+        : "/cliente/mensagens"
       : body.client_id
         ? `/conversas/${body.client_id}`
         : "/conversas";

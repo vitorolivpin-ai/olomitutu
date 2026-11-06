@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Package,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
@@ -28,6 +29,11 @@ const appLinks = [
   { href: "/cliente/loja", label: "Loja", icon: Package },
   { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
+  {
+    href: "/cliente/financeiro-chat",
+    label: "Chat com o Financeiro",
+    icon: Wallet,
+  },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
 ] as const;

@@ -174,6 +174,8 @@ type AppStore = {
     audio_duration_sec?: number;
     video_data_url?: string;
     call_url?: string;
+    /** casa = Pai; financeiro = compras / tesouraria */
+    channel?: "casa" | "financeiro";
   }) => Message | null;
   /** Oculta conversa só na visão da casa; cliente mantém o histórico. */
   hideStaffChat: (clientId: string) => void;
@@ -1710,12 +1712,19 @@ export function AppStoreProvider({
               : input.body!.trim();
 
       const cloud = isSupabaseConfigured() && isUuid(input.client_id);
+      const financeChannel =
+        input.channel === "financeiro" || currentUser.role === "tesouraria";
       const message: Message = {
         id: cloud ? crypto.randomUUID() : uid("msg"),
         client_id: input.client_id,
         sender_id: currentUser.id,
         sender_role: currentUser.role,
         sender_name: currentUser.full_name,
+        recipient_role: financeChannel
+          ? currentUser.role === "cliente"
+            ? "tesouraria"
+            : "cliente"
+          : undefined,
         body,
         kind,
         audio_data_url: kind === "audio" ? input.audio_data_url : undefined,
@@ -1742,17 +1751,33 @@ export function AppStoreProvider({
                 : body;
         const notification: AppNotification = {
           id: uid("ntf"),
-          title: fromClient ? "Nova mensagem do cliente" : "Nova mensagem da casa",
+          title: financeChannel
+            ? fromClient
+              ? "Mensagem para o Financeiro"
+              : "Mensagem do Financeiro"
+            : fromClient
+              ? "Nova mensagem do cliente"
+              : "Nova mensagem da casa",
           body: fromClient
             ? `${clientName ?? client?.full_name ?? "Cliente"}: ${preview}`
             : `${currentUser.full_name}: ${preview}`,
           type: "chat",
-          audience: fromClient
-            ? ["pai_de_santo", "administrador"]
-            : ["cliente"],
+          audience: financeChannel
+            ? fromClient
+              ? ["tesouraria", "administrador"]
+              : ["cliente"]
+            : fromClient
+              ? ["pai_de_santo", "administrador"]
+              : ["cliente"],
           related_id: input.client_id,
           read: false,
-          href: fromClient ? `/conversas/${input.client_id}` : `/cliente/mensagens`,
+          href: financeChannel
+            ? fromClient
+              ? `/conversas/${input.client_id}`
+              : `/cliente/financeiro-chat`
+            : fromClient
+              ? `/conversas/${input.client_id}`
+              : `/cliente/mensagens`,
           created_at: stamp,
         };
         const hiddenMap = normalizeStaffHidden(
@@ -1832,13 +1857,14 @@ export function AppStoreProvider({
               ),
             }));
 
-            // Web Push: cliente → Pai | Pai/casa → cliente
+            // Web Push: cliente → staff (Pai ou Financeiro) | staff → cliente
             if (currentUser.role === "cliente") {
               void fetch("/api/push/notify-chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  audience: "staff",
+                  audience: financeChannel ? "tesouraria" : "staff",
+                  channel: financeChannel ? "financeiro" : "casa",
                   client_id: input.client_id,
                   preview: body,
                   sender_name: currentUser.full_name,
@@ -1846,13 +1872,15 @@ export function AppStoreProvider({
               }).catch(() => null);
             } else if (
               currentUser.role === "pai_de_santo" ||
-              currentUser.role === "administrador"
+              currentUser.role === "administrador" ||
+              currentUser.role === "tesouraria"
             ) {
               void fetch("/api/push/notify-chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   audience: "cliente",
+                  channel: financeChannel ? "financeiro" : "casa",
                   client_id: input.client_id,
                   preview: body,
                   sender_name: currentUser.full_name,

@@ -6,6 +6,7 @@ import { ConversationListPanel } from "@/components/chat/conversation-list-panel
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { useAppStore } from "@/hooks/use-app-store";
+import { messagesForChannel } from "@/lib/chat";
 import { canAccess } from "@/lib/permissions";
 import {
   normalizeStaffHidden,
@@ -30,10 +31,19 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
   } = useAppStore();
 
   const isStaff = currentUser?.role !== "cliente";
+  const isFinance = currentUser?.role === "tesouraria";
+  const channel = isFinance ? "financeiro" : "casa";
   const activeId = typeof params.clientId === "string" ? params.clientId : null;
   const onThread = Boolean(activeId);
   const showPush =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+    currentUser?.role === "pai_de_santo" ||
+    currentUser?.role === "administrador" ||
+    currentUser?.role === "tesouraria";
+
+  const channelMessages = useMemo(
+    () => messagesForChannel(state.messages ?? [], channel),
+    [state.messages, channel],
+  );
 
   const hidden = useMemo(
     () =>
@@ -83,15 +93,15 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
 
   const list = (
     <ConversationListPanel
-      messages={state.messages}
+      messages={channelMessages}
       clients={state.clients}
       notifications={state.notifications}
-      hiddenIds={hidden}
+      hiddenIds={isFinance ? undefined : hidden}
       activeId={activeId}
       hrefFor={(id) => `/conversas/${id}`}
-      onHide={isStaff ? onHide : undefined}
-      title="Conversas"
-      subtitle="ILÉ OLÓRÒKÈ ÀṢẸ"
+      onHide={isStaff && !isFinance ? onHide : undefined}
+      title={isFinance ? "Chat compras" : "Conversas"}
+      subtitle={isFinance ? "Financeiro · clientes" : "ILÉ OLÓRÒKÈ ÀṢẸ"}
       avatarByClientId={avatarByClientId}
       onlyWithMessages
       className="h-full min-h-0"

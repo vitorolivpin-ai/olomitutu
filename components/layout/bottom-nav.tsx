@@ -27,6 +27,13 @@ const staffItems = [
   { href: "/menu", label: "Menu", icon: Menu },
 ];
 
+const financeItems = [
+  { href: "/financeiro", label: "Análise", icon: Wallet },
+  { href: "/loja", label: "Loja", icon: Package },
+  { href: "/conversas", label: "Chat", icon: MessageCircle },
+  { href: "/menu", label: "Menu", icon: Menu },
+];
+
 const paiItems = [
   { href: "/inicio", label: "Quem somos", icon: LayoutDashboard },
   { href: "/conteudo", label: "Conteúdo", icon: BookOpen },
@@ -52,8 +59,8 @@ const libraryAppItems = [
 const clientItems = [
   { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
   { href: "/cliente/loja", label: "Loja", icon: Package },
-  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Pai", icon: MessageCircle },
+  { href: "/cliente/financeiro-chat", label: "Financ.", icon: Wallet },
   { href: "/cliente/conta", label: "Menu", icon: Menu },
 ];
 
@@ -64,6 +71,7 @@ export function BottomNav() {
   const isStockApp = currentUser?.role === "estoque";
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
+  const isFinance = currentUser?.role === "tesouraria";
 
   const chatUnread = unreadChatCountForRole(
     state.notifications ?? [],
@@ -89,6 +97,8 @@ export function BottomNav() {
       ? stockItems
       : isLibraryApp
         ? libraryAppItems
+        : isFinance
+          ? financeItems
         : isPai
           ? paiItems
           : staffItems.filter((item) => {

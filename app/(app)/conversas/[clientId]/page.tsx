@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ChatRoom } from "@/components/chat/chat-room";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
-import { videoCallRoomUrl } from "@/lib/chat";
+import { messagesForChannel, videoCallRoomUrl } from "@/lib/chat";
 import { canAccess } from "@/lib/permissions";
 import { ensureClientsFromMessages } from "@/lib/supabase/chat";
 import type { Client } from "@/types";
@@ -23,6 +23,8 @@ export default function ChatPage() {
     markChatNotificationsRead,
   } = useAppStore();
   const [internal, setInternal] = useState(false);
+  const isFinance = currentUser?.role === "tesouraria";
+  const channel = isFinance ? "financeiro" : "casa";
 
   useEffect(() => {
     void refreshCloudChat();
@@ -61,8 +63,10 @@ export default function ChatPage() {
     return <EmptyState title="Acesso negado" />;
   }
 
-  const messages = state.messages.filter((m) => m.client_id === currentClient.id);
-  const canNotes = canAccess(currentUser?.role, "internal_notes");
+  const messages = messagesForChannel(state.messages ?? [], channel).filter(
+    (m) => m.client_id === currentClient.id,
+  );
+  const canNotes = canAccess(currentUser?.role, "internal_notes") && !isFinance;
   const isStaff = currentUser?.role !== "cliente";
   const clientProfile = state.profiles.find((p) => p.client_id === currentClient.id);
 
@@ -73,6 +77,7 @@ export default function ChatPage() {
       kind: "call",
       call_url: url,
       body: "Chamada de vídeo iniciada — toque para entrar.",
+      channel,
     });
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -92,7 +97,7 @@ export default function ChatPage() {
   return (
     <ChatRoom
       title={currentClient.full_name}
-      subtitle="online"
+      subtitle={isFinance ? "Compras · Financeiro" : "online"}
       backHref="/conversas"
       avatarName={currentClient.full_name}
       avatarSrc={clientProfile?.avatar_url ?? null}
@@ -107,7 +112,7 @@ export default function ChatPage() {
           setInternal(false);
           return;
         }
-        sendMessage({ client_id: currentClient.id, body });
+        sendMessage({ client_id: currentClient.id, body, channel });
       }}
       onSendAudio={(payload) => {
         if (internal) return;
@@ -116,6 +121,7 @@ export default function ChatPage() {
           kind: "audio",
           audio_data_url: payload.dataUrl,
           audio_duration_sec: payload.durationSec,
+          channel,
         });
       }}
       onSendVideo={(payload) => {
@@ -124,11 +130,14 @@ export default function ChatPage() {
           client_id: currentClient.id,
           kind: "video",
           video_data_url: payload.dataUrl,
+          channel,
         });
       }}
-      onStartCall={startVideoCall}
-      onHide={isStaff ? onHideChat : undefined}
-      placeholder="Digite uma mensagem"
+      onStartCall={isFinance ? undefined : startVideoCall}
+      onHide={isStaff && !isFinance ? onHideChat : undefined}
+      placeholder={
+        isFinance ? "Mensagem sobre a compra / Pix…" : "Digite uma mensagem"
+      }
       composerDisabled={false}
       composerTopSlot={
         canNotes ? (

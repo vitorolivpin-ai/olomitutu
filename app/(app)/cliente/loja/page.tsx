@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
 import { ShopCatalog } from "@/components/shop/shop-catalog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
@@ -65,6 +67,19 @@ export default function ClienteLojaPage() {
           buyOk={buyOk}
         />
       )}
+
+      <Card>
+        <CardTitle>Falar com o Financeiro</CardTitle>
+        <p className="mt-2 text-sm text-navy/65">
+          Dúvidas de Pix, nota fiscal ou liberação do conteúdo — chat direto com
+          a tesouraria.
+        </p>
+        <Link href="/cliente/financeiro-chat" className="mt-4 block">
+          <Button variant="secondary" className="w-full">
+            Abrir chat com o Financeiro
+          </Button>
+        </Link>
+      </Card>
     </div>
   );
 }
