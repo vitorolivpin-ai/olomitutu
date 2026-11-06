@@ -52,15 +52,19 @@ export async function fetchProfileRowDetailed(
       .select(columns)
       .eq("id", userId)
       .maybeSingle();
-    if (!error && data) return { row: data as ProfileRow };
+    if (!error && data && typeof data === "object" && "id" in data) {
+      return { row: data as unknown as ProfileRow };
+    }
     if (error) errors.push(error.message);
   }
 
   // RPC security definer (migration 015) — bypassa RLS problemático
   const rpc = await supabase.rpc("get_own_profile");
   if (!rpc.error && rpc.data) {
-    const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
-    if (row && (row as ProfileRow).id) return { row: row as ProfileRow };
+    const raw = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    if (raw && typeof raw === "object" && "id" in (raw as object)) {
+      return { row: raw as unknown as ProfileRow };
+    }
   }
   if (rpc.error) errors.push(rpc.error.message);
 
