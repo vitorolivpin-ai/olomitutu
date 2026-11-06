@@ -4,7 +4,7 @@ import type { LibraryItem } from "@/types";
 import { youtubeEmbedUrl } from "@/lib/library";
 
 export function LibraryPlayer({ item }: { item: LibraryItem }) {
-  const src = item.file_data_url || item.external_url;
+  const src = item.file_data_url || item.file_url || item.external_url;
   if (!src) {
     return <p className="text-sm text-navy/55">Sem arquivo ou link neste material.</p>;
   }

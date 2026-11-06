@@ -399,9 +399,24 @@ export interface AppState {
   checklistProgress: ChecklistProgress[];
   ajodunEvents: AjodunEvent[];
   photoAlbums: PhotoAlbum[];
+  shopProducts: ShopProduct[];
   /**
    * Conversas ocultas na visão da casa (Pai/Admin).
    * O cliente continua vendo o histórico completo.
    */
   staffHiddenClientIds: string[];
+}
+
+/** Produto da loja (visível no App do Cliente). */
+export interface ShopProduct {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image_url?: string;
+  category?: string;
+  available: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }

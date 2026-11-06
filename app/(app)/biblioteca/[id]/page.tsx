@@ -72,8 +72,7 @@ export default function BibliotecaItemPage() {
           variant="danger"
           onClick={() => {
             if (!confirm(`Remover “${item.title}”?`)) return;
-            removeLibraryItem(item.id);
-            router.replace("/biblioteca");
+            void removeLibraryItem(item.id).then(() => router.replace("/biblioteca"));
           }}
         >
           Remover material

@@ -46,6 +46,7 @@ export function loadSharedData(): SharedData {
       checklistProgress: parsed.checklistProgress ?? seed.checklistProgress,
       ajodunEvents: parsed.ajodunEvents ?? seed.ajodunEvents,
       photoAlbums: parsed.photoAlbums ?? seed.photoAlbums,
+      shopProducts: parsed.shopProducts ?? seed.shopProducts,
       staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
     });
   } catch {

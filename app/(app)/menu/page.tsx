@@ -31,6 +31,7 @@ export default function MenuPage() {
     { href: "/clientes", label: "Clientes de jogo", module: "clients" as const },
     { href: "/estoque", label: "Estoque (código de barras)", module: "stock" as const },
     { href: "/biblioteca", label: "Biblioteca (vídeos, cantigas, PDFs)", module: "library" as const },
+    { href: "/loja", label: "Loja (produtos à venda)", module: "shop" as const },
     {
       href: "/conteudo",
       label: "Conteúdo da casa (blog, educação, hierarquia…)",

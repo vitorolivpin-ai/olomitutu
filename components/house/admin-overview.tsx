@@ -137,6 +137,14 @@ const tiles: Tile[] = [
     module: "library",
     tone: "leaf",
   },
+  {
+    href: "/loja",
+    label: "Loja",
+    hint: "Produtos à venda",
+    icon: Package,
+    module: "shop",
+    tone: "gold",
+  },
 ];
 
 /**

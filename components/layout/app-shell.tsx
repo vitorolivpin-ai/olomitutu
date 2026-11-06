@@ -19,6 +19,7 @@ const routeModules: Array<{ prefix: string; module: AppModule }> = [
   { prefix: "/clientes", module: "clients" },
   { prefix: "/estoque", module: "stock" },
   { prefix: "/biblioteca", module: "library" },
+  { prefix: "/loja", module: "shop" },
   { prefix: "/conteudo", module: "house_content" },
   { prefix: "/quem-somos", module: "house_content" },
   { prefix: "/educacao", module: "house_content" },
@@ -48,6 +49,7 @@ const staffOnlyPrefixes = [
   "/clientes",
   "/estoque",
   "/biblioteca",
+  "/loja",
   "/relatorios",
   "/notificacoes",
   "/agenda",
@@ -63,8 +65,8 @@ const staffOnlyPrefixes = [
   "/atendimentos",
 ];
 
-/** Rotas antigas do portal — cliente não usa mais */
-const clientBlockedPrefixes = ["/cliente/horarios", "/cliente/biblioteca"];
+/** Prefixo reservado — sem bloqueio ativo no portal do cliente */
+const clientBlockedPrefixes: string[] = [];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { ready, currentUser } = useAppStore();

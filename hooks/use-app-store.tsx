@@ -50,13 +50,21 @@ import type {
   PhotoAlbum,
   Profile,
   PublishedSlot,
+  ShopProduct,
   StockLot,
   StockMovement,
   StockProduct,
   UserRole,
 } from "@/types";
-import { canManageHouseContent, canManageLibrary } from "@/lib/permissions";
+import { canAccess, canManageHouseContent, canManageLibrary } from "@/lib/permissions";
 import { formatAudioDuration } from "@/lib/chat";
+import {
+  deleteLibraryItemRemote,
+  fetchLibraryItems,
+  isUuid,
+  upsertLibraryItemRemote,
+  uploadLibraryFile,
+} from "@/lib/supabase/library";
 import { freedSlotMessage, isSlotOccupied } from "@/lib/slots";
 import { findProductByBarcode, pickLotsForWithdrawal } from "@/lib/stock";
 
@@ -156,8 +164,8 @@ type AppStore = {
     file_name?: string;
     mime_type?: string;
     visible_to_clients: boolean;
-  }) => { ok: true; item: LibraryItem } | { ok: false; error: string };
-  removeLibraryItem: (id: string) => void;
+  }) => Promise<{ ok: true; item: LibraryItem } | { ok: false; error: string }>;
+  removeLibraryItem: (id: string) => Promise<void>;
   upsertBlogPost: (
     input: Omit<BlogPost, "id" | "created_at" | "updated_at" | "author_name"> & {
       id?: string;
@@ -187,6 +195,10 @@ type AppStore = {
     input: Omit<PhotoAlbum, "id" | "created_at" | "updated_at"> & { id?: string },
   ) => { ok: true; item: PhotoAlbum } | { ok: false; error: string };
   removePhotoAlbum: (id: string) => void;
+  upsertShopProduct: (
+    input: Omit<ShopProduct, "id" | "created_at" | "updated_at"> & { id?: string },
+  ) => { ok: true; item: ShopProduct } | { ok: false; error: string };
+  removeShopProduct: (id: string) => void;
 };
 
 const AppStoreContext = createContext<AppStore | null>(null);
@@ -374,6 +386,68 @@ export function AppStoreProvider({
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Biblioteca na nuvem (Supabase) — fonte da verdade entre apps/dispositivos
+  useEffect(() => {
+    if (!ready || !authMode || !state.currentUserId) return;
+    const supabase = createBrowserClient();
+    if (!supabase) return;
+
+    let cancelled = false;
+
+    async function pullLibrary() {
+      // No celular o JWT às vezes ainda não está pronto no 1º tick
+      const { data: sessionData } = await supabase!.auth.getSession();
+      if (cancelled) return;
+      if (!sessionData.session) {
+        console.warn("[biblioteca] sync: sem sessão Auth — RLS bloquearia a leitura");
+        return;
+      }
+      const result = await fetchLibraryItems(supabase!);
+      if (cancelled) return;
+      if (!result.ok) {
+        console.warn("[biblioteca] sync:", result.error);
+        return;
+      }
+      const remote = result.items;
+      setState((prev) => {
+        // Mantém rascunhos só-locais (ids antigos lib_…) até republicar na nuvem
+        const localOnly = (prev.libraryItems ?? []).filter((i) => !isUuid(i.id));
+        const next = {
+          ...prev,
+          libraryItems: [...remote, ...localOnly],
+        };
+        persistSharedData(stripSession(next));
+        return next;
+      });
+    }
+
+    void pullLibrary();
+
+    function onVisible() {
+      if (document.visibilityState === "visible") void pullLibrary();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    const channel = supabase
+      .channel("library_items_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "library_items" },
+        () => {
+          void pullLibrary();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [ready, authMode, state.currentUserId]);
 
   const commit = useCallback((updater: (prev: AppState) => AppState) => {
     setState((prev) => {
@@ -1393,7 +1467,7 @@ export function AppStoreProvider({
   );
 
   const upsertLibraryItem: AppStore["upsertLibraryItem"] = useCallback(
-    (input) => {
+    async (input) => {
       if (!currentUser || !canManageLibrary(currentUser.role)) {
         return {
           ok: false,
@@ -1404,7 +1478,7 @@ export function AppStoreProvider({
       if (title.length < 2) return { ok: false, error: "Informe o título do material." };
       const external = input.external_url?.trim() || undefined;
       const hasFile = Boolean(input.file_data_url);
-      if (!external && !hasFile) {
+      if (!external && !hasFile && !input.id) {
         return {
           ok: false,
           error: "Envie um arquivo ou cole um link (YouTube, Drive, áudio online…).",
@@ -1412,60 +1486,97 @@ export function AppStoreProvider({
       }
 
       const stamp = nowIso();
-      let saved!: LibraryItem;
-      commit((prev) => {
-        const items = prev.libraryItems ?? [];
-        if (input.id) {
-          const current = items.find((i) => i.id === input.id);
-          if (!current) return prev;
-          saved = {
-            ...current,
-            title,
-            description: input.description?.trim() || undefined,
-            kind: input.kind,
-            external_url: external,
-            file_data_url: input.file_data_url ?? current.file_data_url,
-            file_name: input.file_name ?? current.file_name,
-            mime_type: input.mime_type ?? current.mime_type,
-            visible_to_clients: input.visible_to_clients,
-            updated_at: stamp,
-          };
-          // limpar arquivo se só link
-          if (external && input.file_data_url === undefined && !input.file_name) {
-            // keep existing file unless explicitly replaced
-          }
-          if (input.file_data_url === "") {
-            saved = {
-              ...saved,
-              file_data_url: undefined,
-              file_name: undefined,
-              mime_type: undefined,
-            };
-          }
+      const cloud = isSupabaseConfigured();
+      const existing = input.id
+        ? (state.libraryItems ?? []).find((i) => i.id === input.id)
+        : undefined;
+      if (input.id && !existing) {
+        return { ok: false, error: "Material não encontrado." };
+      }
+
+      const id =
+        existing?.id ??
+        (cloud ? crypto.randomUUID() : uid("lib"));
+
+      let file_url = existing?.file_url;
+      let file_data_url =
+        input.file_data_url === ""
+          ? undefined
+          : (input.file_data_url ?? existing?.file_data_url);
+      let file_name =
+        input.file_data_url === ""
+          ? undefined
+          : (input.file_name ?? existing?.file_name);
+      let mime_type =
+        input.file_data_url === ""
+          ? undefined
+          : (input.mime_type ?? existing?.mime_type);
+
+      if (input.file_data_url === "") {
+        file_url = undefined;
+      }
+
+      if (cloud && input.file_data_url) {
+        const supabase = createBrowserClient();
+        if (!supabase) {
+          return { ok: false, error: "Supabase não configurado neste ambiente." };
+        }
+        const uploaded = await uploadLibraryFile(
+          supabase,
+          id,
+          input.file_data_url,
+          input.file_name,
+        );
+        if (!uploaded.ok) return uploaded;
+        file_url = uploaded.file_url;
+        file_data_url = undefined;
+      }
+
+      let saved: LibraryItem = {
+        id,
+        title,
+        description: input.description?.trim() || undefined,
+        kind: input.kind,
+        external_url: external,
+        file_url,
+        file_data_url: cloud ? undefined : file_data_url,
+        file_name,
+        mime_type,
+        visible_to_clients: input.visible_to_clients,
+        uploaded_by: existing?.uploaded_by ?? currentUser.id,
+        uploaded_by_name: existing?.uploaded_by_name ?? currentUser.full_name,
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      };
+
+      if (cloud) {
+        const supabase = createBrowserClient();
+        if (!supabase) {
+          return { ok: false, error: "Supabase não configurado neste ambiente." };
+        }
+        const remotePayload: LibraryItem = {
+          ...saved,
+          uploaded_by: isUuid(saved.uploaded_by ?? "") ? saved.uploaded_by : undefined,
+          file_data_url: undefined,
+        };
+        const remote = await upsertLibraryItemRemote(supabase, remotePayload);
+        if (!remote.ok) {
           return {
-            ...prev,
-            libraryItems: items.map((i) => (i.id === input.id ? saved : i)),
+            ok: false,
+            error:
+              remote.error.includes("row-level security") || remote.error.includes("RLS")
+                ? "Sem permissão no banco para publicar. Rode a migration 018_library_sync.sql e confirme o papel Biblioteca/Pai."
+                : remote.error,
           };
         }
+        saved = remote.item;
+      }
 
-        saved = {
-          id: uid("lib"),
-          title,
-          description: input.description?.trim() || undefined,
-          kind: input.kind,
-          external_url: external,
-          file_data_url: input.file_data_url,
-          file_name: input.file_name,
-          mime_type: input.mime_type,
-          visible_to_clients: input.visible_to_clients,
-          uploaded_by: currentUser.id,
-          uploaded_by_name: currentUser.full_name,
-          created_at: stamp,
-          updated_at: stamp,
-        };
-
+      commit((prev) => {
+        const items = prev.libraryItems ?? [];
         const notifications = [...prev.notifications];
-        if (input.visible_to_clients) {
+        const isNew = !items.some((i) => i.id === saved.id);
+        if (isNew && saved.visible_to_clients) {
           notifications.unshift({
             id: uid("ntf"),
             title: "Novo material na biblioteca",
@@ -1477,21 +1588,32 @@ export function AppStoreProvider({
             created_at: stamp,
           });
         }
-
         return {
           ...prev,
-          libraryItems: [saved, ...items],
+          libraryItems: isNew
+            ? [saved, ...items]
+            : items.map((i) => (i.id === saved.id ? saved : i)),
           notifications,
         };
       });
       return { ok: true, item: saved };
     },
-    [commit, currentUser],
+    [commit, currentUser, state.libraryItems],
   );
 
   const removeLibraryItem: AppStore["removeLibraryItem"] = useCallback(
-    (id) => {
+    async (id) => {
       if (!currentUser || !canManageLibrary(currentUser.role)) return;
+      if (isSupabaseConfigured()) {
+        const supabase = createBrowserClient();
+        if (supabase && isUuid(id)) {
+          const remote = await deleteLibraryItemRemote(supabase, id);
+          if (!remote.ok) {
+            console.warn("Falha ao remover na nuvem:", remote.error);
+            return;
+          }
+        }
+      }
       commit((prev) => ({
         ...prev,
         libraryItems: (prev.libraryItems ?? []).filter((i) => i.id !== id),
@@ -1868,6 +1990,68 @@ export function AppStoreProvider({
     [commit, currentUser],
   );
 
+  const upsertShopProduct: AppStore["upsertShopProduct"] = useCallback(
+    (input) => {
+      if (!currentUser || !canAccess(currentUser.role, "shop")) {
+        return { ok: false, error: "Sem permissão para editar a loja." };
+      }
+      const name = input.name.trim();
+      if (name.length < 2) return { ok: false, error: "Informe o nome do produto." };
+      if (input.price < 0 || Number.isNaN(input.price)) {
+        return { ok: false, error: "Preço inválido." };
+      }
+      const stamp = nowIso();
+      let saved!: ShopProduct;
+      commit((prev) => {
+        const list = prev.shopProducts ?? [];
+        if (input.id) {
+          const cur = list.find((p) => p.id === input.id);
+          if (!cur) return prev;
+          saved = {
+            ...cur,
+            ...input,
+            id: cur.id,
+            name,
+            description: input.description?.trim() || undefined,
+            category: input.category?.trim() || undefined,
+            image_url: input.image_url?.trim() || undefined,
+            updated_at: stamp,
+          };
+          return {
+            ...prev,
+            shopProducts: list.map((p) => (p.id === cur.id ? saved : p)),
+          };
+        }
+        saved = {
+          id: uid("shop"),
+          name,
+          description: input.description?.trim() || undefined,
+          price: input.price,
+          image_url: input.image_url?.trim() || undefined,
+          category: input.category?.trim() || undefined,
+          available: input.available,
+          sort_order: input.sort_order ?? list.length + 1,
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        return { ...prev, shopProducts: [saved, ...list] };
+      });
+      return { ok: true, item: saved };
+    },
+    [commit, currentUser],
+  );
+
+  const removeShopProduct: AppStore["removeShopProduct"] = useCallback(
+    (id) => {
+      if (!currentUser || !canAccess(currentUser.role, "shop")) return;
+      commit((prev) => ({
+        ...prev,
+        shopProducts: (prev.shopProducts ?? []).filter((p) => p.id !== id),
+      }));
+    },
+    [commit, currentUser],
+  );
+
   const value: AppStore = {
     ready,
     state,
@@ -1918,6 +2102,8 @@ export function AppStoreProvider({
     toggleAjodunTask,
     upsertPhotoAlbum,
     removePhotoAlbum,
+    upsertShopProduct,
+    removeShopProduct,
   };
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;

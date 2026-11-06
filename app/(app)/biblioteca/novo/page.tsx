@@ -65,11 +65,11 @@ export default function BibliotecaNovoPage() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
     setSaving(true);
-    const result = upsertLibraryItem({
+    const result = await upsertLibraryItem({
       title,
       description,
       kind,

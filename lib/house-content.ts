@@ -93,4 +93,9 @@ export const CONTENT_SECTIONS = [
     title: "Fotos",
     blurb: "Memórias do barracão e links de Drive.",
   },
+  {
+    href: "/loja",
+    title: "Loja",
+    blurb: "Produtos à venda no App do Cliente.",
+  },
 ] as const;

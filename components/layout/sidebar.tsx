@@ -39,6 +39,7 @@ const staffLinks = [
   { href: "/clientes", label: "Clientes", icon: UserRound, module: "clients" as const },
   { href: "/estoque", label: "Estoque", icon: Package, module: "stock" as const },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen, module: "library" as const },
+  { href: "/loja", label: "Loja", icon: Package, module: "shop" as const },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" as const },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock, module: "agenda" as const },
   { href: "/conversas", label: "Conversas", icon: MessageCircle, module: "chat" as const },
@@ -52,6 +53,7 @@ const paiLinks = [
   { href: "/perfil", label: "Meu perfil", icon: UserRound },
   { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
+  { href: "/loja", label: "Loja", icon: Package },
   { href: "/clientes", label: "Clientes", icon: UserRound },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock },
@@ -80,6 +82,9 @@ const libraryAppLinks = [
 
 const clientLinks = [
   { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
+  { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen },
+  { href: "/cliente/loja", label: "Loja", icon: Package },
+  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
   { href: "/", label: "Menu principal", icon: Settings2 },
