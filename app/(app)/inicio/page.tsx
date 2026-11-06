@@ -68,6 +68,15 @@ export default function CasaInicioPage() {
           tone: "navy" as const,
         }
       : null,
+    currentUser.role === "pai_de_santo"
+      ? {
+          id: "cadastros",
+          label: "Cadastros pendentes",
+          hint: "Aceitar Financeiro, Estoque, Admin…",
+          href: "/cadastros",
+          tone: "gold" as const,
+        }
+      : null,
     {
       id: "menu",
       label: "Conta / Menu",

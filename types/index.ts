@@ -57,6 +57,8 @@ export type StockMovementType = "entrada" | "saida";
 
 export type MessageKind = "text" | "audio";
 
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -65,6 +67,9 @@ export interface Profile {
   phone?: string;
   client_id?: string;
   avatar_url?: string;
+  /** Área pedida no cadastro (pode diferir de role até aprovação). */
+  requested_role?: UserRole;
+  approval_status?: ApprovalStatus;
   created_at: string;
   updated_at: string;
 }

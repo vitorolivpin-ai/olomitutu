@@ -8,6 +8,8 @@ export type ProfileRow = {
   phone?: string | null;
   client_id?: string | null;
   avatar_url?: string | null;
+  requested_role?: UserRole | null;
+  approval_status?: Profile["approval_status"] | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -21,6 +23,8 @@ export function mapProfileRow(row: ProfileRow): Profile {
     phone: row.phone ?? undefined,
     client_id: row.client_id ?? undefined,
     avatar_url: row.avatar_url ?? undefined,
+    requested_role: row.requested_role ?? undefined,
+    approval_status: row.approval_status ?? undefined,
     created_at: row.created_at ?? new Date().toISOString(),
     updated_at: row.updated_at ?? new Date().toISOString(),
   };

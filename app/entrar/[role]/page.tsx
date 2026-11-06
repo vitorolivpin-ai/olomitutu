@@ -4,6 +4,7 @@ import { ClearPreviousSession } from "./clear-session";
 import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
 import { DEMO_PASSWORD } from "@/lib/seed";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { roleNeedsApproval } from "@/lib/approvals";
 
 type Props = {
   params: Promise<{ role: string }>;
@@ -99,18 +100,17 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
                   Esqueci a senha
                 </Link>
               </p>
-              {role === "cliente" ? (
-                <p>
-                  Não tem conta?{" "}
-                  <Link href="/cadastrar" className="text-navy underline">
-                    Cadastrar
-                  </Link>
-                </p>
-              ) : (
+              <p>
+                Não tem conta?{" "}
+                <Link href={`/cadastrar/${role}`} className="text-navy underline">
+                  Cadastrar
+                </Link>
+              </p>
+              {roleNeedsApproval(role) ? (
                 <p className="text-xs text-navy/45">
-                  Contas da casa são criadas pelo administrador no Supabase.
+                  Cadastros desta área precisam ser aceitos pelo Pai de Santo.
                 </p>
-              )}
+              ) : null}
             </div>
           ) : (
             <p className="mt-4 text-center text-xs text-navy/50">

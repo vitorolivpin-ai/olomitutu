@@ -67,10 +67,11 @@ Em **Authentication → Emails / SMTP**:
 
 ### 5. Contas e papéis
 
-- **Auto-cadastro** (`/cadastrar`): sempre cria perfil com role `cliente`.
-- **Staff** (pai de santo, admin, tesouraria, estoque, biblioteca):
-  1. Crie o usuário em **Authentication → Users**.
-  2. Em **Table Editor → profiles**, ajuste a coluna `role`.
+- **Cadastro por área:** em cada login (`/entrar/...`) há link **Cadastrar** → `/cadastrar/[área]`.
+- **Cliente:** liberado na hora (após confirmar e-mail, se exigido).
+- **Casa** (Financeiro, Estoque, Admin, Biblioteca, Pai de Santo): fica **pendente** até o **Pai de Santo** (ou Admin) aceitar em **Cadastros pendentes** (`/cadastros`).
+- Rode também a migration `013_profile_approval.sql`.
+- O primeiro Pai de Santo pode ser liberado no painel (Table Editor → `profiles`: `role = pai_de_santo`, `approval_status = approved`).
 
 ### 6. Conferir
 

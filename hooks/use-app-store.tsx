@@ -227,7 +227,9 @@ export function AppStoreProvider({
       }
       const { data: row } = await supabase!
         .from("profiles")
-        .select("id, full_name, email, role, phone, client_id, avatar_url, created_at, updated_at")
+        .select(
+          "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, created_at, updated_at",
+        )
         .eq("id", userId)
         .maybeSingle();
       if (cancelled || !row) return;

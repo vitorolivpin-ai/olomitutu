@@ -68,7 +68,7 @@ async function loginWithSupabase(
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, role, email, full_name")
+    .select("id, role, email, full_name, requested_role, approval_status")
     .eq("id", data.user.id)
     .maybeSingle();
 
@@ -77,8 +77,25 @@ async function loginWithSupabase(
     return fail(
       req,
       roleRaw,
-      "Perfil não encontrado. Confirme se a migration 012 foi aplicada.",
+      "Perfil não encontrado. Confirme se as migrations 012–013 foram aplicadas.",
     );
+  }
+
+  const status = (profile.approval_status as string | null) ?? "approved";
+  const requested = (profile.requested_role as string | null) ?? profile.role;
+
+  if (status === "pending" && (requested === roleRaw || profile.role === roleRaw)) {
+    await supabase.auth.signOut();
+    return fail(
+      req,
+      roleRaw,
+      "Cadastro aguardando aprovação do Pai de Santo.",
+    );
+  }
+
+  if (status === "rejected" && requested === roleRaw) {
+    await supabase.auth.signOut();
+    return fail(req, roleRaw, "Este cadastro foi recusado. Fale com a casa.");
   }
 
   if (profile.role !== roleRaw) {

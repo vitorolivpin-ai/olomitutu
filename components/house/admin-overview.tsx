@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Package,
   Receipt,
+  UserCheck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -41,6 +42,13 @@ const toneBorder = {
 };
 
 const tiles: Tile[] = [
+  {
+    href: "/cadastros",
+    label: "Cadastros",
+    hint: "Aceitar acessos da casa",
+    icon: UserCheck,
+    tone: "gold",
+  },
   {
     href: "/dashboard",
     label: "Resumo",

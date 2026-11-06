@@ -20,6 +20,9 @@ export default function MenuPage() {
   }
 
   const links = [
+    ...(currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador"
+      ? [{ href: "/cadastros", label: "Cadastros pendentes", module: "dashboard" as const }]
+      : []),
     { href: "/membros", label: "Membros", module: "members" as const },
     { href: "/mensalidades", label: "Mensalidades", module: "fees" as const },
     { href: "/cobrancas", label: "Cobranças", module: "charges" as const },
