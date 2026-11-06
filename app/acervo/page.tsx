@@ -67,10 +67,10 @@ export default function AcervoPublicoPage() {
   const openItem: LibraryItem | undefined = items.find((i) => i.id === openId);
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-[#f3f4f6]">
+    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-[#F7F8FA]">
       <BrandWatermarks variant="biblioteca" />
 
-      <main className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-5 pb-28 pt-5 sm:px-6">
+      <main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-5 pb-28 pt-5 sm:px-6">
         <div className="relative mb-1 flex items-center justify-center">
           <Link
             href="/"

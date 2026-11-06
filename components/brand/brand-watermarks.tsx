@@ -8,84 +8,134 @@ type Props = {
 };
 
 /**
- * Marcas d’água em traço fino (bege/dourado claro) — identidade visual da Home.
- * Sempre atrás do conteúdo; pointer-events: none.
+ * Grafismos em line art (bege/dourado ~6–8% opacidade).
+ * Peixe, padrão vertical, arcos — como na referência da Home.
  */
 export function BrandWatermarks({ variant = "default", className }: Props) {
+  const ink = "#c4a35a";
+
   return (
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden",
+        "pointer-events-none absolute inset-0 z-0 overflow-hidden",
         className,
       )}
     >
-      {/* Peixe — lateral esquerda */}
+      {/* Peixe grande — esquerda (parcialmente fora) */}
       <svg
-        viewBox="0 0 120 200"
+        viewBox="0 0 180 320"
         className={cn(
-          "absolute text-[#c9a227]",
-          variant === "biblioteca"
-            ? "left-[-1.25rem] top-16 h-44 w-24 opacity-[0.09]"
-            : "left-[-1.5rem] top-10 h-40 w-24 opacity-[0.1]",
+          "absolute -left-10 top-6 h-[19rem] w-[11rem] sm:h-[22rem] sm:w-[13rem]",
+          variant === "biblioteca" ? "opacity-[0.07] top-14" : "opacity-[0.08]",
         )}
         fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
+        stroke={ink}
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        <path d="M18 100c28-34 58-48 88-42-8 18-10 36-2 54-30 8-58-2-86-12z" />
-        <path d="M106 58c8 10 10 24 4 38" />
-        <circle cx="92" cy="78" r="2.2" fill="currentColor" stroke="none" />
-        <path d="M22 92c-10 4-16 12-16 20 6-2 12-4 18-8" />
-        <path d="M48 118c12 8 28 10 42 4" opacity="0.7" />
+        {/* corpo */}
+        <path d="M28 168 C52 110, 98 78, 148 92 C138 128, 140 168, 152 198 C104 210, 58 198, 28 168 Z" />
+        {/* linha interna do corpo */}
+        <path d="M48 160 C78 128, 112 118, 138 128" opacity="0.85" />
+        <path d="M52 176 C84 188, 118 186, 142 172" opacity="0.7" />
+        {/* cauda */}
+        <path d="M28 168 C8 148, 4 128, 14 112 C22 136, 18 152, 28 168 Z" />
+        <path d="M28 168 C10 188, 6 210, 18 224 C24 198, 22 180, 28 168 Z" />
+        {/* nadadeira */}
+        <path d="M96 118 C108 98, 128 92, 142 102 C128 112, 112 118, 96 118 Z" />
+        <path d="M90 196 C102 214, 122 220, 138 210 C122 200, 106 198, 90 196 Z" />
+        {/* olho + guelras */}
+        <circle cx="132" cy="128" r="3.2" fill={ink} stroke="none" />
+        <path d="M118 142 C126 148, 128 158, 124 168" />
+        <path d="M110 146 C118 154, 120 164, 116 172" opacity="0.75" />
       </svg>
 
       {/* Padrão geométrico vertical — direita */}
       <svg
-        viewBox="0 0 80 280"
+        viewBox="0 0 100 360"
         className={cn(
-          "absolute text-[#c9a227]",
-          variant === "biblioteca"
-            ? "right-[-0.5rem] top-28 h-56 w-16 opacity-[0.08]"
-            : "right-[-0.75rem] top-20 h-52 w-14 opacity-[0.09]",
+          "absolute -right-3 top-16 h-[22rem] w-[5.5rem] sm:top-12 sm:h-[26rem] sm:w-28",
+          variant === "biblioteca" ? "opacity-[0.065]" : "opacity-[0.075]",
         )}
         fill="none"
-        stroke="currentColor"
-        strokeWidth="1.15"
+        stroke={ink}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        {[0, 36, 72, 108, 144, 180, 216].map((y) => (
-          <path key={y} d={`M12 ${y + 28} L40 ${y + 8} L68 ${y + 28}`} />
-        ))}
-        <path d="M40 8 V248" opacity="0.45" />
+        {Array.from({ length: 10 }).map((_, i) => {
+          const y = 18 + i * 32;
+          return (
+            <g key={i}>
+              <path d={`M18 ${y + 22} L50 ${y} L82 ${y + 22}`} />
+              <path d={`M26 ${y + 22} L50 ${y + 8} L74 ${y + 22}`} opacity="0.65" />
+            </g>
+          );
+        })}
+        <path d="M50 8 V330" opacity="0.35" />
+        {/* diamantes extras */}
+        <path d="M50 48 L62 60 L50 72 L38 60 Z" opacity="0.5" />
+        <path d="M50 176 L64 190 L50 204 L36 190 Z" opacity="0.45" />
+        <path d="M50 272 L60 282 L50 292 L40 282 Z" opacity="0.4" />
       </svg>
 
-      {/* Arcos inferiores */}
+      {/* Arcos — canto inferior esquerdo */}
       <svg
-        viewBox="0 0 220 140"
-        className="absolute bottom-[-2.5rem] left-[-2rem] h-36 w-52 text-[#c9a227] opacity-[0.08]"
+        viewBox="0 0 280 200"
+        className="absolute -bottom-16 -left-16 h-52 w-72 opacity-[0.075] sm:h-60 sm:w-80"
         fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
+        stroke={ink}
+        strokeWidth="1.3"
       >
-        <circle cx="70" cy="140" r="58" />
-        <circle cx="70" cy="140" r="42" />
-        <circle cx="70" cy="140" r="26" />
-      </svg>
-      <svg
-        viewBox="0 0 220 140"
-        className="absolute bottom-[-2rem] right-[-2.5rem] h-32 w-48 text-[#c9a227] opacity-[0.07]"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-      >
-        <circle cx="150" cy="140" r="64" />
-        <circle cx="150" cy="140" r="46" />
-        <circle cx="150" cy="140" r="28" />
+        <path d="M-10 200 A140 140 0 0 1 270 200" />
+        <path d="M20 200 A110 110 0 0 1 240 200" />
+        <path d="M50 200 A80 80 0 0 1 210 200" />
+        <path d="M78 200 A52 52 0 0 1 182 200" />
       </svg>
 
-      {variant === "home" ? (
-        <div className="absolute right-8 top-20 h-28 w-28 rounded-full border border-[#c9a227]/15 opacity-80" />
-      ) : null}
+      {/* Arcos / montanhas — canto inferior direito */}
+      <svg
+        viewBox="0 0 260 200"
+        className="absolute -bottom-14 -right-14 h-48 w-64 opacity-[0.07] sm:h-56 sm:w-72"
+        fill="none"
+        stroke={ink}
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      >
+        <path d="M-20 200 A150 150 0 0 0 280 200" />
+        <path d="M10 200 A120 120 0 0 0 250 200" />
+        <path d="M40 200 A90 90 0 0 0 220 200" />
+        {/* pontas geométricas no arco */}
+        <path d="M70 148 L90 118 L110 148" opacity="0.8" />
+        <path d="M110 138 L130 108 L150 138" opacity="0.75" />
+        <path d="M150 148 L170 120 L190 148" opacity="0.7" />
+        <path d="M80 168 L100 142 L120 168" opacity="0.55" />
+        <path d="M140 168 L160 144 L180 168" opacity="0.5" />
+      </svg>
+
+      {/* Detalhes pequenos nas extremidades */}
+      <svg
+        viewBox="0 0 60 60"
+        className="absolute right-10 top-10 h-14 w-14 opacity-[0.07]"
+        fill="none"
+        stroke={ink}
+        strokeWidth="1.2"
+      >
+        <circle cx="30" cy="30" r="22" />
+        <circle cx="30" cy="30" r="12" />
+        <path d="M30 8 V18 M30 42 V52 M8 30 H18 M42 30 H52" />
+      </svg>
+      <svg
+        viewBox="0 0 40 40"
+        className="absolute left-8 bottom-36 h-9 w-9 opacity-[0.06]"
+        fill="none"
+        stroke={ink}
+        strokeWidth="1.2"
+      >
+        <path d="M20 4 L36 20 L20 36 L4 20 Z" />
+      </svg>
     </div>
   );
 }
