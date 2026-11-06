@@ -18,10 +18,10 @@ export default function LojaLiberacoesPage() {
   } = useAppStore();
 
   const canManage =
-    currentUser?.role === "tesouraria" || currentUser?.role === "administrador";
-  const canView =
-    canManage ||
+    currentUser?.role === "tesouraria" ||
+    currentUser?.role === "administrador" ||
     currentUser?.role === "pai_de_santo";
+  const canView = canManage;
 
   const rows = useMemo(() => {
     return (state.shopPurchases ?? [])
@@ -48,10 +48,7 @@ export default function LojaLiberacoesPage() {
         </Link>
         <h1 className="mt-2 font-display text-3xl text-navy">Liberações da loja</h1>
         <p className="text-sm text-navy/60">
-          Confirme o Pix e libere PDF/curso.{" "}
-          {currentUser?.role === "pai_de_santo"
-            ? "Só o Financeiro libera após o pagamento."
-            : "Você confirma o pagamento e libera o conteúdo."}
+          Confirme o Pix e libere PDF/curso. Pai e Financeiro podem liberar.
         </p>
       </div>
 

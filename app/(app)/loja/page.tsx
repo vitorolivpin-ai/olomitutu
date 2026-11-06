@@ -14,10 +14,17 @@ import { canAccess } from "@/lib/permissions";
 import type { ShopProduct, ShopProductKind } from "@/types";
 
 export default function LojaStaffPage() {
-  const { state, currentUser, upsertShopProduct, removeShopProduct } = useAppStore();
+  const {
+    state,
+    currentUser,
+    upsertShopProduct,
+    removeShopProduct,
+    releaseShopPurchase,
+    rejectShopPurchase,
+  } = useAppStore();
   const canEdit =
     currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
-  const canSeeReleases =
+  const canRelease =
     currentUser?.role === "tesouraria" ||
     currentUser?.role === "administrador" ||
     currentUser?.role === "pai_de_santo";
@@ -41,6 +48,27 @@ export default function LojaStaffPage() {
         .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
     [state.shopProducts],
   );
+
+  const pendingByProduct = useMemo(() => {
+    const map = new Map<
+      string,
+      Array<{
+        purchaseId: string;
+        clientName: string;
+      }>
+    >();
+    for (const purchase of state.shopPurchases ?? []) {
+      if (purchase.status !== "solicitado") continue;
+      const client = (state.clients ?? []).find((c) => c.id === purchase.client_id);
+      const list = map.get(purchase.product_id) ?? [];
+      list.push({
+        purchaseId: purchase.id,
+        clientName: client?.full_name ?? "Cliente",
+      });
+      map.set(purchase.product_id, list);
+    }
+    return map;
+  }, [state.shopPurchases, state.clients]);
 
   if (!canAccess(currentUser?.role, "shop") || currentUser?.role === "cliente") {
     return <EmptyState title="Acesso restrito à loja da casa" />;
@@ -110,9 +138,9 @@ export default function LojaStaffPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canSeeReleases ? (
+          {canRelease ? (
             <Link href="/loja/liberacoes">
-              <Button variant="secondary">Liberações</Button>
+              <Button variant="secondary">Todas as liberações</Button>
             </Link>
           ) : null}
           {canEdit ? (
@@ -295,6 +323,44 @@ export default function LojaStaffPage() {
                       >
                         Remover
                       </Button>
+                    </div>
+                  ) : null}
+
+                  {canRelease ? (
+                    <div className="mt-3 space-y-2 border-t border-navy/10 pt-3">
+                      {(pendingByProduct.get(p.id) ?? []).length === 0 ? (
+                        <p className="text-xs text-navy/45">
+                          Nenhuma compra aguardando liberação
+                        </p>
+                      ) : (
+                        (pendingByProduct.get(p.id) ?? []).map((req) => (
+                          <div
+                            key={req.purchaseId}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-mist/70 px-3 py-2"
+                          >
+                            <p className="text-sm text-navy">
+                              <span className="font-medium">{req.clientName}</span>
+                              <span className="text-navy/50"> · aguardando Pix</span>
+                            </p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="gold"
+                                onClick={() => releaseShopPurchase(req.purchaseId)}
+                              >
+                                Liberar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => rejectShopPurchase(req.purchaseId)}
+                              >
+                                Recusar
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   ) : null}
                 </div>

@@ -903,16 +903,7 @@ export function AppStoreProvider({
           currentUser.role !== "administrador" &&
           currentUser.role !== "pai_de_santo")
       ) {
-        return { ok: false, error: "Só o Financeiro (ou Admin) libera compras." };
-      }
-      // Preferência do plano: Financeiro libera; Pai/Admin também podem em emergência
-      if (currentUser.role === "pai_de_santo") {
-        // Pai vê, mas liberação oficial é tesouraria — ainda permite Admin/tesouraria;
-        // pai_de_santo bloqueado de liberar
-        return {
-          ok: false,
-          error: "Peça ao Financeiro para liberar após confirmar o pagamento.",
-        };
+        return { ok: false, error: "Só Pai, Financeiro ou Admin libera compras." };
       }
       let ok = false;
       commit((prev) => {
@@ -968,9 +959,11 @@ export function AppStoreProvider({
     (purchaseId) => {
       if (
         !currentUser ||
-        (currentUser.role !== "tesouraria" && currentUser.role !== "administrador")
+        (currentUser.role !== "tesouraria" &&
+          currentUser.role !== "administrador" &&
+          currentUser.role !== "pai_de_santo")
       ) {
-        return { ok: false, error: "Só o Financeiro pode recusar." };
+        return { ok: false, error: "Só Pai, Financeiro ou Admin pode recusar." };
       }
       let ok = false;
       commit((prev) => {
