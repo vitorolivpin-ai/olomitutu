@@ -118,8 +118,8 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
               ) : null}
               {isHouseSignupRole(role) ? (
                 <p className="text-xs text-navy/45">
-                  Informe se é Filho de Santo, Cliente ou Administrador. O Pai
-                  Vitor aceita o cadastro depois.
+                  Cadastro nesta aba libera só este acesso ({areaTitle(role)}).
+                  O Pai Vitor precisa aceitar antes de entrar.
                 </p>
               ) : roleNeedsApproval(role) ? (
                 <p className="text-xs text-navy/45">

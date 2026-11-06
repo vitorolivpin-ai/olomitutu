@@ -114,8 +114,12 @@ export function LoginForm({ role, initialError }: Props) {
 
     if (profile.role !== role) {
       await supabase.auth.signOut();
+      const area =
+        (profile.signup_area as string | null) ||
+        (profile.requested_role as string | null) ||
+        profile.role;
       setError(
-        `Esta conta é "${profile.role}", não tem acesso a esta aba. Entre na aba correspondente.`,
+        `Esta conta é da área "${area}", não desta aba. Entre em /entrar/${area}.`,
       );
       setPending(false);
       return;

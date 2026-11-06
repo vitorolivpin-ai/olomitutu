@@ -130,6 +130,8 @@ export default function CadastrarAreaPage() {
     }
 
     if (data.user) {
+      const pending = needsApproval || houseForm;
+      // A aba define o papel (estoque, biblioteca…). Pending só bloqueia o login.
       await supabase
         .from("profiles")
         .update({
@@ -137,8 +139,8 @@ export default function CadastrarAreaPage() {
           requested_role: role,
           signup_area: role,
           person_kind: kind,
-          approval_status: needsApproval || houseForm ? "pending" : "approved",
-          role: needsApproval || houseForm ? "cliente" : role,
+          approval_status: pending ? "pending" : "approved",
+          role,
           updated_at: new Date().toISOString(),
         })
         .eq("id", data.user.id);
@@ -171,7 +173,7 @@ export default function CadastrarAreaPage() {
           <h1 className="mt-1 font-display text-2xl text-navy">Criar conta</h1>
           <p className="mt-1 text-sm text-navy/60">
             {houseForm
-              ? "Preencha seus dados. O Pai Vitor verá o tipo (Filho de Santo, Cliente ou Administrador) para aceitar o cadastro."
+              ? `Cadastro para ${account.label}. O acesso desta aba só libera depois que o Pai Vitor aceitar.`
               : needsApproval
                 ? "Após o cadastro, o Pai de Santo precisa aceitar o acesso."
                 : "Cadastro de cliente — acesso após confirmar o e-mail."}
@@ -276,7 +278,8 @@ export default function CadastrarAreaPage() {
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-navy/50">
-                  O Pai Vitor usa isso para saber quais cadastros aceitar.
+                  Informação para o Pai — o acesso liberado é o desta aba (
+                  {account.label}).
                 </p>
               </div>
             ) : null}

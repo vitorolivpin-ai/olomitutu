@@ -7,7 +7,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/hooks/use-app-store";
 import {
   personKindLabel,
-  roleFromPersonKind,
+  roleGrantedOnApproval,
 } from "@/lib/approvals";
 import { areaTitle } from "@/lib/demo-accounts";
 import { roleLabel } from "@/lib/permissions";
@@ -73,10 +73,11 @@ export default function CadastrosPendentesPage() {
     setBusyId(row.id);
     setError(null);
 
-    const grantedRole =
-      row.person_kind != null
-        ? roleFromPersonKind(row.person_kind)
-        : row.requested_role;
+    const grantedRole = roleGrantedOnApproval({
+      requested_role: row.requested_role,
+      signup_area: row.signup_area,
+      person_kind: row.person_kind,
+    });
 
     const payload =
       decision === "approved"
@@ -127,8 +128,9 @@ export default function CadastrosPendentesPage() {
       <div>
         <h1 className="font-display text-3xl text-navy">Cadastros pendentes</h1>
         <p className="mt-1 text-sm text-navy/60">
-          Veja se a pessoa é Filho de Santo, Cliente ou Administrador e aceite ou
-          recuse.
+          Cada cadastro libera a aba em que a pessoa se inscreveu (Estoque,
+          Biblioteca, etc.). O tipo (Filho de Santo / Cliente / Admin) é só
+          informação.
         </p>
       </div>
 
@@ -155,10 +157,14 @@ export default function CadastrosPendentesPage() {
                       Tipo: {personKindLabel(row.person_kind)}
                     </p>
                     <p className="mt-0.5 text-xs text-navy/50">
-                      Cadastrou pela aba {areaTitle(area)}
-                      {row.person_kind
-                        ? ` · ao aceitar libera: ${roleLabel(roleFromPersonKind(row.person_kind))}`
-                        : ""}
+                      Cadastrou pela aba {areaTitle(area)} · ao aceitar libera:{" "}
+                      {roleLabel(
+                        roleGrantedOnApproval({
+                          requested_role: row.requested_role,
+                          signup_area: row.signup_area,
+                          person_kind: row.person_kind,
+                        }),
+                      )}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">

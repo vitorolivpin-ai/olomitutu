@@ -36,9 +36,25 @@ export function personKindLabel(kind: PersonKind | null | undefined) {
   return PERSON_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? kind;
 }
 
-/** Papel liberado quando o Pai aceita, conforme o tipo informado. */
+/**
+ * Papel liberado quando o Pai aceita.
+ * A aba de cadastro (requested_role / signup_area) define o acesso —
+ * person_kind é só informação para o Pai (Filho de Santo / Cliente / Admin).
+ */
+export function roleGrantedOnApproval(input: {
+  requested_role: UserRole;
+  signup_area?: UserRole | null;
+  person_kind?: PersonKind | null;
+}): UserRole {
+  const fromTab = input.signup_area ?? input.requested_role;
+  if (fromTab && fromTab !== "cliente") return fromTab;
+  // Cadastro pelo App do Cliente: person_kind administrador → admin; demais → cliente
+  if (input.person_kind === "administrador") return "administrador";
+  return "cliente";
+}
+
+/** @deprecated Preferir roleGrantedOnApproval — mantido para refs antigas. */
 export function roleFromPersonKind(kind: PersonKind): UserRole {
   if (kind === "administrador") return "administrador";
-  // Filho de Santo e Cliente usam o portal de cliente
   return "cliente";
 }
