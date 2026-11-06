@@ -53,7 +53,7 @@ const clientItems = [
   { href: "/cliente/loja", label: "Loja", icon: Package },
   { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Pai", icon: MessageCircle },
-  { href: "/", label: "Menu", icon: Menu },
+  { href: "/cliente/cadastro", label: "Conta", icon: UserRound },
 ];
 
 export function BottomNav() {

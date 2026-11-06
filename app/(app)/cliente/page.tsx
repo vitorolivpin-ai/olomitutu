@@ -75,8 +75,16 @@ export default function ClienteHomePage() {
     [state.shopProducts],
   );
 
-  if (currentUser?.role !== "cliente" || !currentUser.client_id) {
+  if (currentUser?.role !== "cliente") {
     return <EmptyState title="Área exclusiva do cliente" />;
+  }
+  if (!currentUser.client_id) {
+    return (
+      <EmptyState
+        title="Preparando sua conta…"
+        description="Se ficar assim, saia e entre de novo. No Supabase, confira se a migration 017_ensure_client.sql foi aplicada."
+      />
+    );
   }
 
   const client = state.clients.find((c) => c.id === currentUser.client_id);
@@ -241,11 +249,6 @@ export default function ClienteHomePage() {
         </section>
       ) : null}
 
-      <Link href="/">
-        <Button variant="ghost" className="w-full">
-          Menu principal
-        </Button>
-      </Link>
     </div>
   );
 }

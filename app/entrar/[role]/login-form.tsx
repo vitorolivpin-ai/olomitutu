@@ -87,6 +87,13 @@ export function LoginForm({ role, initialError }: Props) {
     if (profile.role === "cliente" && !profile.client_id) {
       profile = await ensureClienteLinked(supabase, profile);
     }
+    if (profile.role === "cliente" && !profile.client_id) {
+      setError(
+        "Não foi possível abrir a ficha do cliente. No Supabase, rode a migration 017_ensure_client.sql e tente de novo.",
+      );
+      setPending(false);
+      return;
+    }
 
     const status = (profile.approval_status as string | null) ?? "approved";
     const requested = (profile.requested_role as string | null) ?? profile.role;

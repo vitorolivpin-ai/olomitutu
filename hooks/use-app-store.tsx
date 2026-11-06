@@ -350,17 +350,23 @@ export function AppStoreProvider({
       markReady();
     }
 
-    // Se houver JWT, sincroniza o perfil. Se não, NÃO limpa o sid local —
-    // o login grava o perfil no storage; limpar aqui mandava todo mundo de volta ao menu.
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.id) void applyUser(data.user.id);
+    // getSession é mais estável no celular que getUser no 1º paint
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.id) void applyUser(data.session.user.id);
       else markReady();
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "INITIAL_SESSION") return;
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
       if (event === "SIGNED_OUT") {
-        void applyUser(null, { allowClear: true });
+        // Em alguns dispositivos o SIGNED_OUT dispara sem sessão real acabar
+        void supabase.auth.getSession().then(({ data }) => {
+          if (data.session?.user?.id) {
+            void applyUser(data.session.user.id);
+            return;
+          }
+          void applyUser(null, { allowClear: true });
+        });
         return;
       }
       if (session?.user?.id) void applyUser(session.user.id);

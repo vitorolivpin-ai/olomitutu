@@ -24,7 +24,9 @@ const PROFILE_SELECT_FULL =
 const PROFILE_SELECT_BASE =
   "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, created_at, updated_at";
 
-const PROFILE_SELECT_MIN = "id, full_name, email, role, created_at, updated_at";
+/** Inclui client_id — sem isso o portal do cliente fica em branco. */
+const PROFILE_SELECT_MIN =
+  "id, full_name, email, role, client_id, created_at, updated_at";
 
 export type FetchProfileResult = {
   row: ProfileRow | null;
@@ -85,15 +87,19 @@ export async function ensureClienteLinked(
   if (profile.role !== "cliente") return profile;
   if (profile.client_id) return profile;
 
-  const { error: rpcError } = await supabase.rpc("ensure_own_client");
+  const { data: cid, error: rpcError } = await supabase.rpc("ensure_own_client");
+  if (!rpcError && cid) {
+    return { ...profile, client_id: String(cid) };
+  }
   if (rpcError) {
-    // Fallback local: cria id e tenta gravar (pode falhar por FK/RLS)
     console.warn("ensure_own_client:", rpcError.message);
-    return profile;
   }
 
   const refreshed = await fetchProfileRowDetailed(supabase, profile.id);
-  return refreshed.row ?? profile;
+  if (refreshed.row?.client_id) return refreshed.row;
+
+  // Evita tela em branco se a migration 017 ainda não rodou — ficha só local
+  return { ...profile, client_id: crypto.randomUUID() };
 }
 
 export function mapProfileRow(row: ProfileRow): Profile {

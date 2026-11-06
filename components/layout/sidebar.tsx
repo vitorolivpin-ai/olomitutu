@@ -87,7 +87,6 @@ const clientLinks = [
   { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
-  { href: "/", label: "Menu principal", icon: Settings2 },
 ];
 
 export function Sidebar() {

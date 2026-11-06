@@ -6,12 +6,16 @@ import { getSupabasePublicEnv, isSupabaseConfigured } from "@/lib/supabase/confi
 
 export { isSupabaseConfigured };
 
+let browserClient: SupabaseClient | null = null;
+
 /**
- * Cliente Supabase para o browser (sessão em cookies via @supabase/ssr).
- * Retorna null se Auth ainda não estiver configurado.
+ * Cliente Supabase único no browser (sessão em cookies via @supabase/ssr).
+ * Singleton evita vários GoTrue competindo e disparando SIGNED_OUT no celular.
  */
 export function createBrowserClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
+  if (browserClient) return browserClient;
   const { url, anonKey } = getSupabasePublicEnv();
-  return createSsrBrowserClient(url, anonKey);
+  browserClient = createSsrBrowserClient(url, anonKey);
+  return browserClient;
 }

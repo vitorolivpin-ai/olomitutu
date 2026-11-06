@@ -135,7 +135,7 @@ export default function ClienteCadastroPage() {
             router.replace("/");
           }}
         >
-          Menu principal
+          Sair da conta
         </Button>
       </div>
     </div>

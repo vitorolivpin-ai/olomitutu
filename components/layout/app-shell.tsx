@@ -69,13 +69,16 @@ const staffOnlyPrefixes = [
 const clientBlockedPrefixes: string[] = [];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { ready, currentUser } = useAppStore();
+  const { ready, currentUser, state } = useAppStore();
   const router = useRouter();
   const pathname = usePathname();
+  const sessionId = state.currentUserId;
 
   useEffect(() => {
     if (!ready) return;
+    // Tem sid/id mas o perfil ainda não entrou no store → não chutar para /
     if (!currentUser) {
+      if (sessionId) return;
       router.replace("/");
       return;
     }
@@ -110,10 +113,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (match && !canAccess(currentUser.role, match.module)) {
       router.replace(home);
     }
-  }, [ready, currentUser, pathname, router]);
+  }, [ready, currentUser, sessionId, pathname, router]);
 
   if (!ready) return <LoadingBlock />;
-  if (!currentUser) return <LoadingBlock label="Redirecionando..." />;
+  if (!currentUser) {
+    return (
+      <LoadingBlock
+        label={sessionId ? "Carregando sua conta..." : "Redirecionando..."}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-app">
