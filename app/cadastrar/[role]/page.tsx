@@ -11,6 +11,7 @@ import {
   roleNeedsApproval,
 } from "@/lib/approvals";
 import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
+import { getAppOrigin } from "@/lib/supabase/config";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { PersonKind, UserRole } from "@/types";
 
@@ -117,7 +118,7 @@ export default function CadastrarAreaPage() {
           requested_role: role,
           person_kind: kind,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/entrar/${role}`,
+        emailRedirectTo: `${getAppOrigin()}/auth/callback?next=/entrar/${role}`,
       },
     });
 

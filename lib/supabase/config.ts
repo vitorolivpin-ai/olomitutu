@@ -14,3 +14,16 @@ export function getSupabasePublicEnv() {
     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   };
 }
+
+/**
+ * Origem pública do app (links de e-mail Auth).
+ * Prefere NEXT_PUBLIC_SITE_URL para não cair em localhost.
+ */
+export function getAppOrigin() {
+  const fromEnv = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "";
+}

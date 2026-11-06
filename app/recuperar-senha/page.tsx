@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BrandMark } from "@/components/brand/logo";
+import { getAppOrigin } from "@/lib/supabase/config";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 function RecuperarForm() {
@@ -35,7 +36,7 @@ function RecuperarForm() {
       return;
     }
 
-    const redirectTo = `${window.location.origin}/auth/callback?next=/nova-senha`;
+    const redirectTo = `${getAppOrigin()}/auth/callback?next=/nova-senha`;
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email.trim().toLowerCase(),
       { redirectTo },

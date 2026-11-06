@@ -51,11 +51,13 @@ No Vercel: **Settings → Environment Variables** com as mesmas chaves → Redep
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL:** URL do Vercel (ex.: `https://seu-app.vercel.app`)
+- **Site URL:** `https://olomitutu.vercel.app` (não use localhost aqui)
 - **Redirect URLs:**
-  - `http://localhost:3000/**`
-  - `https://seu-app.vercel.app/**`
-  - `https://seu-app.vercel.app/auth/callback`
+  - `https://olomitutu.vercel.app/**`
+  - `https://olomitutu.vercel.app/auth/callback`
+  - `http://localhost:3000/**` (só para testar no PC)
+
+No Vercel, adicione também `NEXT_PUBLIC_SITE_URL=https://olomitutu.vercel.app`.
 
 ### 4. E-mail (recuperação de senha)
 
