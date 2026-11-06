@@ -552,6 +552,7 @@ export function createSeedState(): AppState {
         updated_at: new Date(now.getTime() - 1000 * 60 * 60 * 12).toISOString(),
       },
     ],
+    staffHiddenClientIds: [],
     ...house,
   };
 }

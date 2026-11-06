@@ -2,21 +2,24 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
-import { Send } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Send, Video } from "lucide-react";
 import { AudioRecorder } from "@/components/chat/audio-recorder";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { VideoAttach } from "@/components/chat/video-attach";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
+import { videoCallRoomUrl } from "@/lib/chat";
 import { formatDateTime } from "@/lib/format";
 import { canAccess } from "@/lib/permissions";
 
 export default function ChatPage() {
   const params = useParams<{ clientId: string }>();
-  const { state, currentUser, sendMessage, addInternalNote } = useAppStore();
+  const router = useRouter();
+  const { state, currentUser, sendMessage, addInternalNote, hideStaffChat } = useAppStore();
   const [body, setBody] = useState("");
   const [internal, setInternal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -33,6 +36,7 @@ export default function ChatPage() {
   if (!client) return <EmptyState title="Cliente não encontrado" />;
 
   const currentClient = client;
+  const isStaff = currentUser?.role !== "cliente";
 
   if (currentUser?.role === "cliente" && currentUser.client_id !== currentClient.id) {
     return <EmptyState title="Acesso negado" />;
@@ -66,16 +70,61 @@ export default function ChatPage() {
     });
   }
 
+  function onSendVideo(payload: { dataUrl: string }) {
+    if (internal) return;
+    sendMessage({
+      client_id: currentClient.id,
+      kind: "video",
+      video_data_url: payload.dataUrl,
+    });
+  }
+
+  function startVideoCall() {
+    const url = videoCallRoomUrl(currentClient.id);
+    sendMessage({
+      client_id: currentClient.id,
+      kind: "call",
+      call_url: url,
+      body: "Chamada de vídeo iniciada — toque para entrar.",
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function onHideChat() {
+    if (
+      !confirm(
+        "Remover esta conversa da sua lista? O cliente continua vendo áudios, vídeos e todo o histórico.",
+      )
+    ) {
+      return;
+    }
+    hideStaffChat(currentClient.id);
+    router.push("/conversas");
+  }
+
   return (
     <div className="animate-rise flex min-h-[70vh] flex-col gap-4">
-      <div>
-        <Link href="/conversas" className="text-sm text-navy/55 hover:text-navy">
-          ← Conversas
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{currentClient.full_name}</h1>
-        <p className="text-sm text-navy/55">
-          Chat sincronizado com o App do Cliente · texto e áudio
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link href="/conversas" className="text-sm text-navy/55 hover:text-navy">
+            ← Conversas
+          </Link>
+          <h1 className="font-display text-3xl text-navy">{currentClient.full_name}</h1>
+          <p className="text-sm text-navy/55">
+            Texto, áudio, vídeo e chamada · sincronizado com o App do Cliente
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="gold" onClick={startVideoCall}>
+            <Video className="mr-1.5 h-4 w-4" />
+            Chamada de vídeo
+          </Button>
+          {isStaff ? (
+            <Button size="sm" variant="danger" onClick={onHideChat}>
+              Excluir da minha lista
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Card className="flex flex-1 flex-col overflow-hidden p-0">
@@ -116,9 +165,14 @@ export default function ChatPage() {
             </Button>
           </div>
           {!internal ? (
-            <AudioRecorder onSend={onSendAudio} />
+            <div className="flex flex-wrap gap-2">
+              <AudioRecorder onSend={onSendAudio} />
+              <VideoAttach onSend={onSendVideo} />
+            </div>
           ) : (
-            <p className="text-xs text-navy/45">Áudio só nas mensagens do chat (não em anotação interna).</p>
+            <p className="text-xs text-navy/45">
+              Áudio/vídeo só nas mensagens do chat (não em anotação interna).
+            </p>
           )}
         </form>
       </Card>

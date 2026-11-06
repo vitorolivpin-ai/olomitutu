@@ -46,6 +46,7 @@ export function loadSharedData(): SharedData {
       checklistProgress: parsed.checklistProgress ?? seed.checklistProgress,
       ajodunEvents: parsed.ajodunEvents ?? seed.ajodunEvents,
       photoAlbums: parsed.photoAlbums ?? seed.photoAlbums,
+      staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
     });
   } catch {
     return stripSession(createSeedState());
@@ -61,13 +62,21 @@ export function persistSharedData(data: SharedData) {
     const pruned: SharedData = {
       ...data,
       messages: data.messages.map((m, idx, arr) => {
-        if (m.kind !== "audio" || !m.audio_data_url) return m;
-        // mantém só os 8 áudios mais recentes com payload
-        const newerAudioCount = arr
-          .slice(idx + 1)
-          .filter((x) => x.kind === "audio" && x.audio_data_url).length;
-        if (newerAudioCount >= 8) {
-          return { ...m, audio_data_url: undefined, body: m.body || "Áudio (expirado no demo)" };
+        if (m.kind === "audio" && m.audio_data_url) {
+          const newerAudioCount = arr
+            .slice(idx + 1)
+            .filter((x) => x.kind === "audio" && x.audio_data_url).length;
+          if (newerAudioCount >= 8) {
+            return { ...m, audio_data_url: undefined, body: m.body || "Áudio (expirado no demo)" };
+          }
+        }
+        if (m.kind === "video" && m.video_data_url) {
+          const newerVideoCount = arr
+            .slice(idx + 1)
+            .filter((x) => x.kind === "video" && x.video_data_url).length;
+          if (newerVideoCount >= 4) {
+            return { ...m, video_data_url: undefined, body: m.body || "Vídeo (expirado no demo)" };
+          }
         }
         return m;
       }),

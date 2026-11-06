@@ -16,7 +16,15 @@ export function messagePreview(msg: Message | undefined | null) {
         : null;
     return dur ? `Áudio · ${dur}` : "Áudio";
   }
+  if (msg.kind === "video") return "Vídeo";
+  if (msg.kind === "call") return "Chamada de vídeo";
   return msg.body;
+}
+
+/** Sala Jitsi estável por cliente (chamada de vídeo no chat). */
+export function videoCallRoomUrl(clientId: string) {
+  const safe = clientId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "casa";
+  return `https://meet.jit.si/olomitutu-${safe}`;
 }
 
 export function blobToDataUrl(blob: Blob): Promise<string> {

@@ -1,14 +1,16 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, Video } from "lucide-react";
 import { AudioRecorder } from "@/components/chat/audio-recorder";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { VideoAttach } from "@/components/chat/video-attach";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
+import { videoCallRoomUrl } from "@/lib/chat";
 
 export default function ClienteMensagensPage() {
   const { state, currentUser, sendMessage } = useAppStore();
@@ -45,14 +47,42 @@ export default function ClienteMensagensPage() {
     });
   }
 
+  function onSendVideo(payload: { dataUrl: string }) {
+    if (!clientId) return;
+    sendMessage({
+      client_id: clientId,
+      kind: "video",
+      video_data_url: payload.dataUrl,
+    });
+  }
+
+  function startVideoCall() {
+    if (!clientId) return;
+    const url = videoCallRoomUrl(clientId);
+    sendMessage({
+      client_id: clientId,
+      kind: "call",
+      call_url: url,
+      body: "Chamada de vídeo iniciada — toque para entrar.",
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="animate-rise flex min-h-[70vh] flex-col gap-4">
-      <div>
-        <p className="text-sm font-medium text-gold-deep">Área do cliente</p>
-        <h1 className="font-display text-3xl text-navy">Mensagens</h1>
-        <p className="text-sm text-navy/60">
-          Texto e áudio vão direto para o App da Casa. As respostas do Pai de Santo aparecem aqui.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-gold-deep">Área do cliente</p>
+          <h1 className="font-display text-3xl text-navy">Mensagens</h1>
+          <p className="text-sm text-navy/60">
+            Seu histórico fica guardado aqui (texto, áudio e vídeo), mesmo se a casa limpar a
+            lista dela.
+          </p>
+        </div>
+        <Button size="sm" variant="gold" onClick={startVideoCall}>
+          <Video className="mr-1.5 h-4 w-4" />
+          Chamada de vídeo
+        </Button>
       </div>
 
       <Card className="flex flex-1 flex-col overflow-hidden p-0">
@@ -83,7 +113,10 @@ export default function ClienteMensagensPage() {
               <Send className="h-5 w-5" />
             </Button>
           </div>
-          <AudioRecorder onSend={onSendAudio} />
+          <div className="flex flex-wrap gap-2">
+            <AudioRecorder onSend={onSendAudio} />
+            <VideoAttach onSend={onSendVideo} />
+          </div>
         </form>
       </Card>
     </div>

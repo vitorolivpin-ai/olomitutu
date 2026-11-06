@@ -115,10 +115,15 @@ type AppStore = {
     client_id: string;
     body?: string;
     appointment_id?: string;
-    kind?: "text" | "audio";
+    kind?: "text" | "audio" | "video" | "call";
     audio_data_url?: string;
     audio_duration_sec?: number;
+    video_data_url?: string;
+    call_url?: string;
   }) => Message | null;
+  /** Oculta conversa só na visão da casa; cliente mantém o histórico. */
+  hideStaffChat: (clientId: string) => void;
+  unhideStaffChat: (clientId: string) => void;
   addInternalNote: (client_id: string, body: string) => InternalNote | null;
   markNotificationRead: (id: string) => void;
   addNotification: (n: Omit<AppNotification, "id" | "created_at" | "read">) => void;
@@ -934,8 +939,18 @@ export function AppStoreProvider({
   const sendMessage: AppStore["sendMessage"] = useCallback(
     (input) => {
       if (!currentUser) return null;
-      const kind = input.kind ?? (input.audio_data_url ? "audio" : "text");
+      const kind =
+        input.kind ??
+        (input.video_data_url
+          ? "video"
+          : input.audio_data_url
+            ? "audio"
+            : input.call_url
+              ? "call"
+              : "text");
       if (kind === "audio" && !input.audio_data_url) return null;
+      if (kind === "video" && !input.video_data_url) return null;
+      if (kind === "call" && !input.call_url) return null;
       if (kind === "text" && !input.body?.trim()) return null;
 
       const stamp = nowIso();
@@ -944,7 +959,14 @@ export function AppStoreProvider({
         typeof durationSec === "number"
           ? `Áudio · ${formatAudioDuration(durationSec)}`
           : "Áudio";
-      const body = kind === "audio" ? audioLabel : input.body!.trim();
+      const body =
+        kind === "audio"
+          ? audioLabel
+          : kind === "video"
+            ? "Vídeo"
+            : kind === "call"
+              ? input.body?.trim() || "Chamada de vídeo"
+              : input.body!.trim();
 
       const message: Message = {
         id: uid("msg"),
@@ -955,24 +977,32 @@ export function AppStoreProvider({
         kind,
         audio_data_url: kind === "audio" ? input.audio_data_url : undefined,
         audio_duration_sec: kind === "audio" ? durationSec : undefined,
+        video_data_url: kind === "video" ? input.video_data_url : undefined,
+        call_url: kind === "call" ? input.call_url : undefined,
         appointment_id: input.appointment_id,
         created_at: stamp,
       };
 
       const clientName =
-        currentUser.role === "cliente"
-          ? currentUser.full_name
-          : undefined;
+        currentUser.role === "cliente" ? currentUser.full_name : undefined;
 
       commit((prev) => {
         const client = prev.clients.find((c) => c.id === input.client_id);
         const fromClient = currentUser.role === "cliente";
+        const preview =
+          kind === "audio"
+            ? audioLabel
+            : kind === "video"
+              ? "Vídeo"
+              : kind === "call"
+                ? "Chamada de vídeo"
+                : body;
         const notification: AppNotification = {
           id: uid("ntf"),
           title: fromClient ? "Nova mensagem do cliente" : "Nova mensagem da casa",
           body: fromClient
-            ? `${clientName ?? client?.full_name ?? "Cliente"}: ${body}`
-            : `${currentUser.full_name}: ${body}`,
+            ? `${clientName ?? client?.full_name ?? "Cliente"}: ${preview}`
+            : `${currentUser.full_name}: ${preview}`,
           type: "chat",
           audience: fromClient
             ? ["pai_de_santo", "administrador"]
@@ -981,15 +1011,44 @@ export function AppStoreProvider({
           href: fromClient ? `/conversas/${input.client_id}` : `/cliente/mensagens`,
           created_at: stamp,
         };
+        const hidden = prev.staffHiddenClientIds ?? [];
+        const staffHiddenClientIds =
+          fromClient && hidden.includes(input.client_id)
+            ? hidden.filter((id) => id !== input.client_id)
+            : hidden;
         return {
           ...prev,
           messages: [...prev.messages, message],
           notifications: [notification, ...prev.notifications],
+          staffHiddenClientIds,
         };
       });
       return message;
     },
     [commit, currentUser],
+  );
+
+  const hideStaffChat: AppStore["hideStaffChat"] = useCallback(
+    (clientId) => {
+      commit((prev) => {
+        const hidden = prev.staffHiddenClientIds ?? [];
+        if (hidden.includes(clientId)) return prev;
+        return { ...prev, staffHiddenClientIds: [...hidden, clientId] };
+      });
+    },
+    [commit],
+  );
+
+  const unhideStaffChat: AppStore["unhideStaffChat"] = useCallback(
+    (clientId) => {
+      commit((prev) => ({
+        ...prev,
+        staffHiddenClientIds: (prev.staffHiddenClientIds ?? []).filter(
+          (id) => id !== clientId,
+        ),
+      }));
+    },
+    [commit],
   );
 
   const addInternalNote: AppStore["addInternalNote"] = useCallback(
@@ -1769,6 +1828,8 @@ export function AppStoreProvider({
     addPublishedSlot,
     removePublishedSlot,
     sendMessage,
+    hideStaffChat,
+    unhideStaffChat,
     addInternalNote,
     markNotificationRead,
     addNotification,

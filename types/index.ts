@@ -55,7 +55,7 @@ export type ChecklistTopic = "vestimentas" | "ebo" | "igba" | "geral" | "outro";
 
 export type StockMovementType = "entrada" | "saida";
 
-export type MessageKind = "text" | "audio";
+export type MessageKind = "text" | "audio" | "video" | "call";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -199,6 +199,10 @@ export interface Message {
   audio_data_url?: string;
   audio_url?: string;
   audio_duration_sec?: number;
+  /** Vídeo enviado no chat (data URL no demo / local). */
+  video_data_url?: string;
+  /** Link da sala de chamada de vídeo (Jitsi). */
+  call_url?: string;
   appointment_id?: string;
   created_at: string;
 }
@@ -395,4 +399,9 @@ export interface AppState {
   checklistProgress: ChecklistProgress[];
   ajodunEvents: AjodunEvent[];
   photoAlbums: PhotoAlbum[];
+  /**
+   * Conversas ocultas na visão da casa (Pai/Admin).
+   * O cliente continua vendo o histórico completo.
+   */
+  staffHiddenClientIds: string[];
 }
