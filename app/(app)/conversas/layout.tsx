@@ -7,6 +7,10 @@ import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { useAppStore } from "@/hooks/use-app-store";
 import { canAccess } from "@/lib/permissions";
+import {
+  normalizeStaffHidden,
+  staffHiddenIdSet,
+} from "@/lib/staff-chat-visibility";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,13 +34,13 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
   const showPush =
     currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
-  const hidden = useMemo(() => {
-    const at = state.staffHiddenAt ?? {};
-    const ids = Object.keys(at).length
-      ? Object.keys(at)
-      : (state.staffHiddenClientIds ?? []);
-    return new Set(ids);
-  }, [state.staffHiddenAt, state.staffHiddenClientIds]);
+  const hidden = useMemo(
+    () =>
+      staffHiddenIdSet(
+        normalizeStaffHidden(state.staffHiddenClientIds, state.staffHiddenAt),
+      ),
+    [state.staffHiddenAt, state.staffHiddenClientIds],
+  );
 
   useEffect(() => {
     void refreshCloudChat();

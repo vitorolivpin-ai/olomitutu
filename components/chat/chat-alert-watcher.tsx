@@ -65,11 +65,16 @@ export function ChatAlertWatcher() {
       for (const m of relevant) seen.add(m.id);
       saveSeen(seen);
       primed.current = true;
+      // Ao abrir o app: se já há mensagem após “excluir da lista”, desarquiva
+      if (isStaffChat) syncStaffChatVisibility();
       return;
     }
 
     const fresh = relevant.filter((m) => !seen.has(m.id));
-    if (fresh.length === 0) return;
+    if (fresh.length === 0) {
+      if (isStaffChat) syncStaffChatVisibility();
+      return;
+    }
 
     for (const m of fresh) seen.add(m.id);
     saveSeen(seen);

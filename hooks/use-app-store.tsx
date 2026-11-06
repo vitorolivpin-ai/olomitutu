@@ -479,10 +479,13 @@ export function AppStoreProvider({
         console.warn("[loja] sync:", shopRes.error);
       }
       if (msgRes.ok) {
-        const localOnly = (prev.messages ?? []).filter((m) => !isUuid(m.id));
         const byId = new Map<string, Message>();
         for (const m of msgRes.items) byId.set(m.id, m);
-        for (const m of localOnly) byId.set(m.id, m);
+        // Mantém mensagens locais ainda não refletidas na nuvem (UUID otimista
+        // ou ids demo) — senão o sync reocultava a conversa logo após enviar.
+        for (const m of prev.messages ?? []) {
+          if (!byId.has(m.id)) byId.set(m.id, m);
+        }
         const mergedMessages = Array.from(byId.values()).sort((a, b) =>
           a.created_at.localeCompare(b.created_at),
         );

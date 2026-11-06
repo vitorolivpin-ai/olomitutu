@@ -28,6 +28,11 @@ export function unhideStaffChatInMap(map: StaffHiddenMap, clientId: string) {
   return next;
 }
 
+function messageTimeMs(iso: string) {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+
 /**
  * Se chegou mensagem (qualquer lado) DEPOIS de ocultar, a conversa volta à lista —
  * igual ao WhatsApp desarquivar com mensagem nova.
@@ -42,9 +47,10 @@ export function revealHiddenChatsWithNewerMessages(
   let changed = false;
   const next = { ...map };
   for (const clientId of hiddenIds) {
-    const hiddenAt = next[clientId] ?? EPOCH;
+    const hiddenAtMs = messageTimeMs(next[clientId] ?? EPOCH);
     const hasNewer = messages.some(
-      (m) => m.client_id === clientId && m.created_at > hiddenAt,
+      (m) =>
+        m.client_id === clientId && messageTimeMs(m.created_at) > hiddenAtMs,
     );
     if (hasNewer) {
       delete next[clientId];
