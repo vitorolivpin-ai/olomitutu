@@ -19,6 +19,13 @@ export function roleNeedsApproval(role: UserRole) {
   return role !== "cliente";
 }
 
+/** Aba Filho de Santo também espera aceite (mesmo role cliente no banco). */
+export function areaNeedsApproval(area: string) {
+  if (area === "filho") return true;
+  if (area === "cliente") return false;
+  return true;
+}
+
 export function approvalLabel(status: ApprovalStatus) {
   if (status === "pending") return "Aguardando aprovação";
   if (status === "rejected") return "Cadastro recusado";

@@ -114,5 +114,6 @@ export function appLabelForRole(role: UserRole | null | undefined) {
   if (role === "cliente") return "App do Cliente";
   if (role === "estoque") return "App do Estoque";
   if (role === "biblioteca") return "App da Biblioteca";
+  if (role === "tesouraria") return "App do Financeiro";
   return "App da Casa";
 }

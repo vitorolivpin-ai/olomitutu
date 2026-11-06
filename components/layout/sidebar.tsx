@@ -53,18 +53,21 @@ const staffLinks = [
   { href: "/menu", label: "Conta", icon: Settings2, module: "dashboard" as const },
 ];
 
-/** Pai: atalho direto a todas as abas da casa (exceto App do Cliente / Filho). */
+/** Pai: Clientes e chat no topo — é o que se olha primeiro. */
 const paiLinks = [
-  { href: "/inicio", label: "Quem somos", icon: LayoutDashboard },
-  { href: "/perfil", label: "Meu perfil", icon: UserRound },
+  { href: "/inicio", label: "Início", icon: LayoutDashboard },
+  { href: "/conversas", label: "Conversas", icon: MessageCircle },
+  { href: "/clientes", label: "Clientes de jogo", icon: UserRound },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/disponibilidade", label: "Horários", icon: CalendarClock },
   { href: "/cadastros", label: "Cadastros pendentes", icon: UserRound },
+  { href: "/perfil", label: "Meu perfil", icon: UserRound },
   { href: "/dashboard", label: "Resumo", icon: ChartColumn },
   { href: "/membros", label: "Membros", icon: Users },
   { href: "/mensalidades", label: "Mensalidades", icon: Receipt },
   { href: "/cobrancas", label: "Cobranças", icon: CreditCard },
   { href: "/despesas", label: "Despesas", icon: Wallet },
   { href: "/financeiro", label: "Análise financeira", icon: ChartColumn },
-  { href: "/clientes", label: "Clientes de jogo", icon: UserRound },
   { href: "/estoque", label: "Estoque", icon: Package },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
   { href: "/loja", label: "Loja", icon: Package },
@@ -76,9 +79,6 @@ const paiLinks = [
   { href: "/ajodun", label: "Ajodun", icon: CalendarDays },
   { href: "/ajodun/liberacoes", label: "Ajodun liberações", icon: CalendarDays },
   { href: "/fotos", label: "Fotos", icon: BookOpen },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/disponibilidade", label: "Horários", icon: CalendarClock },
-  { href: "/conversas", label: "Conversas", icon: MessageCircle },
   { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
   { href: "/notificacoes", label: "Notificações", icon: Bell },
   { href: "/menu", label: "Conta", icon: Settings2 },
@@ -105,7 +105,12 @@ const libraryAppLinks = [
 const clientLinks = [
   { href: "/cliente", label: "Início", icon: LayoutDashboard, external: false },
   { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays, external: false },
-  { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
+  {
+    href: "/cliente/mensagens",
+    label: "Chat com Vitor Cardozo - Ògún Yande",
+    icon: MessageCircle,
+    external: false,
+  },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell, external: false },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound, external: false },
 ];
@@ -119,7 +124,12 @@ const filhoLinks = [
   { href: "/filho/hierarquia", label: "Hierarquia", icon: Users, external: false },
   { href: "/filho/checklist", label: "O que fazer", icon: Receipt, external: false },
   { href: "/filho/loja", label: "Loja", icon: Package, external: false },
-  { href: "/filho/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
+  {
+    href: "/filho/mensagens",
+    label: "Chat com Vitor Cardozo - Ògún Yande",
+    icon: MessageCircle,
+    external: false,
+  },
   {
     href: "/filho/financeiro-chat",
     label: "Chat com o Financeiro",

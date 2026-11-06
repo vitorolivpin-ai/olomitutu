@@ -7,17 +7,24 @@ import { BrandMark } from "@/components/brand/logo";
 import {
   HOUSE_SIGNUP_ROLES,
   PERSON_KIND_OPTIONS,
+  areaNeedsApproval,
   isHouseSignupRole,
-  roleNeedsApproval,
 } from "@/lib/approvals";
-import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
+import {
+  areaTitle,
+  authRoleForArea,
+  DEMO_ACCOUNTS,
+  isAreaRole,
+  isFilhoArea,
+  type AreaSlug,
+} from "@/lib/demo-accounts";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { PersonKind, UserRole } from "@/types";
+import type { PersonKind } from "@/types";
 
 export default function CadastrarAreaPage() {
   const params = useParams<{ role: string }>();
-  const roleParam = params.role;
+  const areaParam = params.role;
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -28,7 +35,7 @@ export default function CadastrarAreaPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  if (!isAreaRole(roleParam)) {
+  if (!isAreaRole(areaParam)) {
     return (
       <div className="bg-app flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
@@ -42,13 +49,16 @@ export default function CadastrarAreaPage() {
     );
   }
 
-  const role = roleParam as UserRole;
-  const account = DEMO_ACCOUNTS[role];
-  const houseForm = isHouseSignupRole(role);
-  const needsApproval = roleNeedsApproval(role);
+  const area = areaParam as AreaSlug;
+  const authRole = authRoleForArea(area);
+  const account = DEMO_ACCOUNTS[area];
+  const filhoForm = isFilhoArea(area);
+  const houseForm = isHouseSignupRole(authRole);
+  const needsApproval = areaNeedsApproval(area);
+  const fullNameForm = houseForm || filhoForm;
 
-  // Cadastro completo só nas abas pedidas; cliente/pai mantêm fluxo simples
-  if (!houseForm && role !== "cliente" && role !== "pai_de_santo") {
+  // Cadastro completo só nas abas pedidas; cliente/pai/filho mantêm fluxo
+  if (!houseForm && !filhoForm && area !== "cliente" && area !== "pai_de_santo") {
     return (
       <div className="bg-app flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
@@ -70,8 +80,8 @@ export default function CadastrarAreaPage() {
             Cadastro real exige Supabase configurado. No modo demo use as contas
             do README.
           </p>
-          <Link href={`/entrar/${role}`} className="text-sm text-navy underline">
-            Entrar em {areaTitle(role)} (demo)
+          <Link href={`/entrar/${area}`} className="text-sm text-navy underline">
+            Entrar em {areaTitle(area)} (demo)
           </Link>
         </div>
       </div>
@@ -89,7 +99,7 @@ export default function CadastrarAreaPage() {
       setError("Informe o nome.");
       return;
     }
-    if (houseForm && sobrenome.length < 2) {
+    if (fullNameForm && sobrenome.length < 2) {
       setError("Informe o sobrenome.");
       return;
     }
@@ -99,8 +109,12 @@ export default function CadastrarAreaPage() {
     }
 
     setPending(true);
-    const fullName = houseForm ? `${nome} ${sobrenome}`.trim() : nome;
-    const kind = (houseForm ? personKind : "cliente") as PersonKind;
+    const fullName = fullNameForm ? `${nome} ${sobrenome}`.trim() : nome;
+    const kind: PersonKind = filhoForm
+      ? "filho_de_santo"
+      : houseForm
+        ? (personKind as PersonKind)
+        : "cliente";
 
     const supabase = createBrowserClient();
     if (!supabase) {
@@ -115,10 +129,10 @@ export default function CadastrarAreaPage() {
       options: {
         data: {
           full_name: fullName,
-          requested_role: role,
+          requested_role: authRole,
           person_kind: kind,
         },
-        emailRedirectTo: `${getAppOrigin()}/auth/callback?next=/entrar/${role}`,
+        emailRedirectTo: `${getAppOrigin()}/auth/callback?next=/entrar/${area}`,
       },
     });
 
@@ -130,23 +144,22 @@ export default function CadastrarAreaPage() {
     }
 
     if (data.user) {
-      const pending = needsApproval || houseForm;
-      // A aba define o papel (estoque, biblioteca…). Pending só bloqueia o login.
+      const waitApproval = needsApproval || houseForm || filhoForm;
       await supabase
         .from("profiles")
         .update({
           full_name: fullName,
-          requested_role: role,
-          signup_area: role,
+          requested_role: authRole,
+          signup_area: authRole,
           person_kind: kind,
-          approval_status: pending ? "pending" : "approved",
-          role,
+          approval_status: waitApproval ? "pending" : "approved",
+          role: authRole,
           updated_at: new Date().toISOString(),
         })
         .eq("id", data.user.id);
     }
 
-    if (needsApproval || houseForm) {
+    if (needsApproval || houseForm || filhoForm) {
       if (data.session) {
         await supabase.auth.signOut();
       }
@@ -160,12 +173,10 @@ export default function CadastrarAreaPage() {
     }
 
     if (data.session) {
-      router.replace(`/entrar/${role}`);
+      router.replace(`/entrar/${area}`);
       return;
     }
 
-    // Conta criada sem sessão = Confirm email ligado, mas o e-mail pode não sair
-    // sem SMTP próprio (o provedor padrão só manda para membros da equipe Supabase).
     setInfo(
       "Conta criada. Abra o e-mail de confirmação (também olhe o spam). " +
         "Se não chegar em alguns minutos: no Supabase → Authentication → SMTP configure Resend/Brevo/SendGrid, " +
@@ -181,17 +192,19 @@ export default function CadastrarAreaPage() {
           <p className="text-sm font-semibold text-gold-deep">{account.label}</p>
           <h1 className="mt-1 font-display text-2xl text-navy">Criar conta</h1>
           <p className="mt-1 text-sm text-navy/60">
-            {houseForm
-              ? `Cadastro para ${account.label}. O acesso desta aba só libera depois que o Pai Vitor aceitar.`
-              : needsApproval
-                ? "Após o cadastro, o Pai de Santo precisa aceitar o acesso."
-                : "Cadastro de cliente — acesso após confirmar o e-mail."}
+            {filhoForm
+              ? "Cadastro do Filho de Santo. O Pai Vitor precisa aceitar antes do acesso ao portal."
+              : houseForm
+                ? `Cadastro para ${account.label}. O acesso desta aba só libera depois que o Pai Vitor aceitar.`
+                : needsApproval
+                  ? "Após o cadastro, o Pai de Santo precisa aceitar o acesso."
+                  : "Cadastro de cliente — acesso após confirmar o e-mail."}
           </p>
         </div>
 
         <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
           <form onSubmit={onSubmit} className="space-y-4">
-            {houseForm ? (
+            {fullNameForm ? (
               <>
                 <div>
                   <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-navy">
@@ -293,6 +306,13 @@ export default function CadastrarAreaPage() {
               </div>
             ) : null}
 
+            {filhoForm ? (
+              <p className="rounded-lg bg-navy/5 px-3 py-2 text-xs text-navy/65">
+                Este cadastro é do portal do Filho de Santo (mensalidade, educação,
+                ajodun, chat com Vitor Cardozo - Ògún Yande).
+              </p>
+            ) : null}
+
             {error ? (
               <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
             ) : null}
@@ -312,7 +332,7 @@ export default function CadastrarAreaPage() {
 
         <p className="text-center text-sm text-navy/55">
           Já tem conta?{" "}
-          <Link href={`/entrar/${role}`} className="text-navy underline">
+          <Link href={`/entrar/${area}`} className="text-navy underline">
             Entrar
           </Link>
         </p>

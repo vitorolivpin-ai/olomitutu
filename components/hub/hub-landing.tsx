@@ -4,6 +4,7 @@ import {
   Library,
   Menu,
   ShoppingBag,
+  Users,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
@@ -43,64 +44,81 @@ export function HubLanding({ entries }: Props) {
           </p>
         </div>
 
-        {/* Atalhos públicos — sempre à vista, sem abrir menu */}
-        <div className="flex flex-wrap items-start justify-center gap-5 pb-2 pt-6 sm:gap-7">
+        {/* Atalhos públicos — balões maiores para leitura no celular */}
+        <div className="flex flex-wrap items-start justify-center gap-6 pb-3 pt-6 sm:gap-8">
           <a
             href="/marcar"
-            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+            className="group flex w-[6.5rem] flex-col items-center gap-2.5 sm:w-28"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gold/25 text-navy shadow-soft ring-1 ring-gold/40 transition group-hover:bg-gold/40 sm:h-16 sm:w-16">
-              <CalendarDays className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/25 text-navy shadow-soft ring-1 ring-gold/40 transition group-hover:bg-gold/40 sm:h-24 sm:w-24">
+              <CalendarDays className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+            <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
               Marcar
-              <span className="mt-0.5 block font-normal text-navy/55">horário</span>
+              <span className="mt-0.5 block text-xs font-normal text-navy/55 sm:text-sm">
+                horário
+              </span>
             </span>
           </a>
 
           <a
             href="/acervo"
-            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+            className="group flex w-[6.5rem] flex-col items-center gap-2.5 sm:w-28"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
-              <Library className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-24 sm:w-24">
+              <Library className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+            <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
               Biblioteca
             </span>
           </a>
 
           <a
             href="/vitrine"
-            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+            className="group flex w-[6.5rem] flex-col items-center gap-2.5 sm:w-28"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
-              <ShoppingBag className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-24 sm:w-24">
+              <ShoppingBag className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+            <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
               Loja
             </span>
           </a>
 
           <a
             href="/historia"
-            className="group flex w-[5.25rem] flex-col items-center gap-2 sm:w-24"
+            className="group flex w-[6.5rem] flex-col items-center gap-2.5 sm:w-28"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
-              <BookOpen className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-24 sm:w-24">
+              <BookOpen className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={1.75} />
             </span>
-            <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+            <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
               Quem somos
             </span>
           </a>
 
-          <details className="group relative w-[5.25rem] sm:w-24">
-            <summary className="flex cursor-pointer list-none flex-col items-center gap-2 [&::-webkit-details-marker]:hidden">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-navy text-cream shadow-soft transition group-open:bg-cream group-open:text-navy sm:h-16 sm:w-16">
-                <Menu className="h-6 w-6 group-open:hidden sm:h-7 sm:w-7" strokeWidth={1.75} />
-                <X className="hidden h-6 w-6 group-open:block sm:h-7 sm:w-7" strokeWidth={1.75} />
+          <a
+            href="/entrar/filho"
+            className="group flex w-[6.5rem] flex-col items-center gap-2.5 sm:w-28"
+          >
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/30 text-navy shadow-soft ring-1 ring-gold/50 transition group-hover:bg-gold/45 sm:h-24 sm:w-24">
+              <Users className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={1.75} />
+            </span>
+            <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
+              Filho
+              <span className="mt-0.5 block text-xs font-normal text-navy/55 sm:text-sm">
+                de Santo
               </span>
-              <span className="text-center text-[11px] font-medium leading-tight text-navy sm:text-xs">
+            </span>
+          </a>
+
+          <details className="group relative w-[6.5rem] sm:w-28">
+            <summary className="flex cursor-pointer list-none flex-col items-center gap-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="flex h-20 w-20 items-center justify-center rounded-full bg-navy text-cream shadow-soft transition group-open:bg-cream group-open:text-navy sm:h-24 sm:w-24">
+                <Menu className="h-9 w-9 group-open:hidden sm:h-10 sm:w-10" strokeWidth={1.75} />
+                <X className="hidden h-9 w-9 group-open:block sm:h-10 sm:w-10" strokeWidth={1.75} />
+              </span>
+              <span className="text-center text-sm font-medium leading-tight text-navy sm:text-base">
                 Menu
               </span>
             </summary>

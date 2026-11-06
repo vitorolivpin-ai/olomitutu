@@ -43,6 +43,13 @@ export default function HubPage() {
           section: "restrito",
         },
         {
+          id: "filho",
+          label: "Filho de Santo",
+          hint: "Mensalidade, educação, ajodun…",
+          href: "/entrar/filho",
+          section: "restrito",
+        },
+        {
           id: "admin",
           label: "Administrador",
           hint: "Login restrito",

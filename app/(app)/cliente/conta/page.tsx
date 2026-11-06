@@ -15,7 +15,11 @@ import { unreadCountForRole } from "@/lib/notifications";
 const appLinks = [
   { href: "/cliente", label: "Início", icon: CalendarDays },
   { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays },
-  { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
+  {
+    href: "/cliente/mensagens",
+    label: "Chat com Vitor Cardozo - Ògún Yande",
+    icon: MessageCircle,
+  },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
 ] as const;

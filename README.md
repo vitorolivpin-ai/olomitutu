@@ -21,7 +21,7 @@ Contas:
 |------|--------|
 | Pai de Santo | pai@ileoloroke.demo |
 | Cliente | cliente@ileoloroke.demo |
-| Filho de Santo | filho@ileoloroke.demo (aba Cliente) |
+| Filho de Santo | filho@ileoloroke.demo → `/entrar/filho` |
 | Administrador | admin@ileoloroke.demo |
 | Financeiro | tesouraria@ileoloroke.demo |
 | Estoque | estoque@ileoloroke.demo |

@@ -37,9 +37,9 @@ const financeItems = [
 
 const paiItems = [
   { href: "/inicio", label: "Início", icon: LayoutDashboard },
-  { href: "/financeiro", label: "Financ.", icon: Wallet },
+  { href: "/conversas", label: "Chat", icon: MessageCircle },
+  { href: "/clientes", label: "Clientes", icon: UserRound },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/conversas", label: "Conversas", icon: MessageCircle },
   { href: "/menu", label: "Menu", icon: Menu },
 ];
 

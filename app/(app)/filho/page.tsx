@@ -31,7 +31,12 @@ const shortcuts = [
   { href: "/filho/hierarquia", label: "Hierarquia", icon: Users, hint: "Organograma da casa" },
   { href: "/filho/checklist", label: "O que fazer", icon: ListChecks, hint: "Abian até cargos" },
   { href: "/filho/loja", label: "Loja", icon: Package, hint: "Comprar produtos" },
-  { href: "/filho/mensagens", label: "Chat com o Pai", icon: MessageCircle, hint: "Conversa direta" },
+  {
+    href: "/filho/mensagens",
+    label: "Chat com Vitor Cardozo - Ògún Yande",
+    icon: MessageCircle,
+    hint: "Conversa direta",
+  },
   {
     href: "/filho/financeiro-chat",
     label: "Chat Financeiro",

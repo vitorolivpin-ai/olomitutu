@@ -1,9 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { areaTitle } from "@/lib/demo-accounts";
+import {
+  areaTitle,
+  authRoleForArea,
+  isFilhoArea,
+  type AreaSlug,
+} from "@/lib/demo-accounts";
 import { useAppStore } from "@/hooks/use-app-store";
-import { homePathForUser } from "@/lib/filho";
+import { homePathForUser, isFilhoDeSanto } from "@/lib/filho";
 import { homePathForRole } from "@/lib/navigation";
 import { getSupabasePublicEnv } from "@/lib/supabase/config";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -12,17 +17,17 @@ import {
   fetchProfileRowDetailed,
   mapProfileRow,
 } from "@/lib/supabase/profile";
-import type { UserRole } from "@/types";
 
 type Props = {
-  role: UserRole;
+  area: AreaSlug;
   initialError?: string | null;
 };
 
 /**
  * Login no browser — grava a sessão Auth e o perfil no store antes de abrir a área.
  */
-export function LoginForm({ role, initialError }: Props) {
+export function LoginForm({ area, initialError }: Props) {
+  const role = authRoleForArea(area);
   const { hydrateAuthProfile } = useAppStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -104,10 +109,15 @@ export function LoginForm({ role, initialError }: Props) {
     const status = (profile.approval_status as string | null) ?? "approved";
     const requested = (profile.requested_role as string | null) ?? profile.role;
     const signupArea = (profile.signup_area as string | null) ?? requested;
+    const mappedPreview = mapProfileRow(profile);
+    const isFilhoAccount = isFilhoDeSanto(mappedPreview);
 
     if (
       status === "pending" &&
-      (requested === role || profile.role === role || signupArea === role)
+      (requested === role ||
+        profile.role === role ||
+        signupArea === role ||
+        (isFilhoArea(area) && (isFilhoAccount || signupArea === "filho")))
     ) {
       await supabase.auth.signOut();
       setError(
@@ -117,7 +127,12 @@ export function LoginForm({ role, initialError }: Props) {
       return;
     }
 
-    if (status === "rejected" && (requested === role || signupArea === role)) {
+    if (
+      status === "rejected" &&
+      (requested === role ||
+        signupArea === role ||
+        (isFilhoArea(area) && (isFilhoAccount || signupArea === "filho")))
+    ) {
       await supabase.auth.signOut();
       setError("Este cadastro foi recusado. Fale com a casa.");
       setPending(false);
@@ -137,9 +152,24 @@ export function LoginForm({ role, initialError }: Props) {
       return;
     }
 
+    if (isFilhoArea(area) && !isFilhoAccount) {
+      await supabase.auth.signOut();
+      setError(
+        "Esta conta não é de Filho de Santo. Use a marcação pública ou outra aba.",
+      );
+      setPending(false);
+      return;
+    }
+
+    if (area === "cliente" && isFilhoAccount) {
+      await supabase.auth.signOut();
+      setError("Conta de Filho de Santo — entre em /entrar/filho.");
+      setPending(false);
+      return;
+    }
+
     const mapped = mapProfileRow(profile);
     hydrateAuthProfile(mapped);
-    // Navegação completa: garante cookies Auth + store hidratado na área
     window.location.assign(homePathForUser(mapped) || homePathForRole(role));
   }
 
@@ -229,7 +259,7 @@ export function LoginForm({ role, initialError }: Props) {
         disabled={pending}
         className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid disabled:opacity-60"
       >
-        {pending ? "Entrando…" : `Entrar em ${areaTitle(role)}`}
+        {pending ? "Entrando…" : `Entrar em ${areaTitle(area)}`}
       </button>
     </form>
   );

@@ -2,11 +2,17 @@ import Link from "next/link";
 import { BrandMark } from "@/components/brand/logo";
 import { ClearPreviousSession } from "./clear-session";
 import { LoginForm } from "./login-form";
-import { areaTitle, DEMO_ACCOUNTS, isAreaRole } from "@/lib/demo-accounts";
+import {
+  areaTitle,
+  authRoleForArea,
+  DEMO_ACCOUNTS,
+  isAreaRole,
+  isFilhoArea,
+  type AreaSlug,
+} from "@/lib/demo-accounts";
 import { DEMO_PASSWORD } from "@/lib/seed";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { isHouseSignupRole, roleNeedsApproval } from "@/lib/approvals";
-import type { UserRole } from "@/types";
+import { areaNeedsApproval, isHouseSignupRole } from "@/lib/approvals";
 
 type Props = {
   params: Promise<{ role: string }>;
@@ -35,7 +41,14 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
     );
   }
 
-  const account = DEMO_ACCOUNTS[role];
+  const area = role as AreaSlug;
+  const account = DEMO_ACCOUNTS[area];
+  const authRole = authRoleForArea(area);
+  const canSignup =
+    isFilhoArea(area) ||
+    area === "cliente" ||
+    area === "pai_de_santo" ||
+    isHouseSignupRole(authRole);
 
   return (
     <div className="bg-app flex min-h-screen items-center justify-center px-4 py-10">
@@ -52,51 +65,51 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
 
         <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
           {authReal ? (
-            <LoginForm role={role as UserRole} initialError={erro} />
+            <LoginForm area={area} initialError={erro} />
           ) : (
-          <form action="/api/entrar" method="post" className="space-y-4">
-            <input type="hidden" name="role" value={role} />
+            <form action="/api/entrar" method="post" className="space-y-4">
+              <input type="hidden" name="role" value={area} />
 
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium text-navy">
-                E-mail
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                defaultValue={account.email}
-                autoComplete="username"
-                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
-              />
-            </div>
+              <div>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-navy">
+                  E-mail
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={account.email}
+                  autoComplete="username"
+                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                />
+              </div>
 
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium text-navy">
-                Senha
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
-              />
-            </div>
+              <div>
+                <label htmlFor="password" className="mb-1 block text-sm font-medium text-navy">
+                  Senha
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+                />
+              </div>
 
-            {erro ? (
-              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>
-            ) : null}
+              {erro ? (
+                <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>
+              ) : null}
 
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid"
-            >
-              Entrar em {areaTitle(role)}
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid"
+              >
+                Entrar em {areaTitle(area)}
+              </button>
+            </form>
           )}
 
           {authReal ? (
@@ -106,22 +119,25 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
                   Esqueci a senha
                 </Link>
               </p>
-              {role === "cliente" ||
-              role === "pai_de_santo" ||
-              isHouseSignupRole(role) ? (
+              {canSignup ? (
                 <p>
                   Não tem conta?{" "}
-                  <Link href={`/cadastrar/${role}`} className="text-navy underline">
+                  <Link href={`/cadastrar/${area}`} className="text-navy underline">
                     Cadastrar
                   </Link>
                 </p>
               ) : null}
-              {isHouseSignupRole(role) ? (
+              {isFilhoArea(area) ? (
                 <p className="text-xs text-navy/45">
-                  Cadastro nesta aba libera só este acesso ({areaTitle(role)}).
+                  Cadastro nesta aba libera o portal do Filho de Santo. O Pai Vitor
+                  precisa aceitar antes de entrar.
+                </p>
+              ) : isHouseSignupRole(authRole) ? (
+                <p className="text-xs text-navy/45">
+                  Cadastro nesta aba libera só este acesso ({areaTitle(area)}).
                   O Pai Vitor precisa aceitar antes de entrar.
                 </p>
-              ) : roleNeedsApproval(role) ? (
+              ) : areaNeedsApproval(area) ? (
                 <p className="text-xs text-navy/45">
                   Cadastros desta área precisam ser aceitos pelo Pai de Santo.
                 </p>

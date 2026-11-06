@@ -130,7 +130,7 @@ export default function MarcarPublicoPage() {
             </p>
             <h1 className="font-display text-3xl text-navy">Marcar horário</h1>
             <p className="mt-1 text-sm text-navy/55">
-              Sem criar conta. Pix + chat com o Pai. Ficha só ele vê.
+              Sem criar conta. Pix + chat com Vitor Cardozo - Ògún Yande. Ficha só ele vê.
             </p>
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function MarcarPublicoPage() {
               <Link href="/marcar/chat">
                 <Button variant="gold" className="w-full">
                   <MessageCircle className="h-4 w-4" />
-                  Abrir chat com o Pai
+                  Abrir chat com Vitor Cardozo - Ògún Yande
                 </Button>
               </Link>
               <Button
@@ -169,13 +169,22 @@ export default function MarcarPublicoPage() {
               >
                 Ver outros horários
               </Button>
-              <button
-                type="button"
-                className="text-xs text-navy/45 underline"
-                onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-              >
-                Dúvidas? WhatsApp
-              </button>
+              <div className="mt-1 flex flex-col gap-1.5 text-xs text-navy/45">
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
+                >
+                  Dúvidas? WhatsApp
+                </button>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+                >
+                  Entrar no grupo · {CLIENT_WHATSAPP.grupo.label}
+                </button>
+              </div>
             </div>
           </Card>
         ) : null}
@@ -189,7 +198,9 @@ export default function MarcarPublicoPage() {
                     <MessageCircle className="h-5 w-5" />
                   </span>
                   <div>
-                    <CardTitle className="text-xl">Chat com o Pai</CardTitle>
+                    <CardTitle className="text-xl">
+                      Chat com Vitor Cardozo - Ògún Yande
+                    </CardTitle>
                     <p className="mt-1 text-sm text-navy/60">
                       Tire dúvidas do jogo ou combine detalhes — sem criar conta.
                     </p>
@@ -228,13 +239,22 @@ export default function MarcarPublicoPage() {
               </div>
             </Card>
 
-            <button
-              type="button"
-              className="w-full text-center text-sm text-navy/45 underline"
-              onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-            >
-              Dúvidas? WhatsApp (último caso)
-            </button>
+            <div className="space-y-2 text-center text-sm text-navy/45">
+              <button
+                type="button"
+                className="block w-full underline"
+                onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
+              >
+                Dúvidas? WhatsApp (último caso)
+              </button>
+              <button
+                type="button"
+                className="block w-full underline"
+                onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+              >
+                Grupo · {CLIENT_WHATSAPP.grupo.label}
+              </button>
+            </div>
           </>
         ) : null}
 
@@ -339,7 +359,7 @@ export default function MarcarPublicoPage() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-amber-900">
-                Chave Pix ainda não cadastrada. Use o chat com o Pai.
+                Chave Pix ainda não cadastrada. Use o chat com Vitor Cardozo - Ògún Yande.
               </p>
             )}
 

@@ -39,7 +39,7 @@ export default function MarcarChatPage() {
   const pai =
     state.profiles.find((p) => p.role === "pai_de_santo") ??
     state.profiles.find((p) => p.role === "administrador");
-  const paiName = pai?.full_name?.trim() || "Pai de Santo";
+  const paiName = "Vitor Cardozo - Ògún Yande";
 
   const messages = useMemo(() => {
     if (!session) return [];
@@ -77,7 +77,9 @@ export default function MarcarChatPage() {
               <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
                 Marcação
               </p>
-              <h1 className="font-display text-2xl text-navy">Chat com o Pai</h1>
+              <h1 className="font-display text-2xl text-navy">
+                Chat com Vitor Cardozo - Ògún Yande
+              </h1>
               <p className="text-sm text-navy/55">Sem criar conta — só nome e telefone.</p>
             </div>
           </div>
@@ -111,13 +113,22 @@ export default function MarcarChatPage() {
             </form>
           </Card>
 
-          <button
-            type="button"
-            className="w-full text-center text-sm text-navy/50 underline"
-            onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-          >
-            Dúvidas? WhatsApp (último caso)
-          </button>
+          <div className="space-y-2 text-center text-sm text-navy/50">
+            <button
+              type="button"
+              className="block w-full underline"
+              onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
+            >
+              Dúvidas? WhatsApp (último caso)
+            </button>
+            <button
+              type="button"
+              className="block w-full underline"
+              onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+            >
+              Grupo · {CLIENT_WHATSAPP.grupo.label}
+            </button>
+          </div>
 
           <p className="text-center text-sm">
             <Link href="/marcar" className="text-navy/55 underline">
@@ -179,16 +190,23 @@ export default function MarcarChatPage() {
             });
             window.open(url, "_blank", "noopener,noreferrer");
           }}
-          placeholder="Mensagem para o Pai…"
+          placeholder="Mensagem para Vitor Cardozo…"
         />
       </div>
-      <div className="shrink-0 border-t border-navy/10 bg-white px-3 py-2 text-center">
+      <div className="shrink-0 space-y-1 border-t border-navy/10 bg-white px-3 py-2 text-center">
         <button
           type="button"
-          className="text-xs text-navy/45 underline"
+          className="block w-full text-xs text-navy/45 underline"
           onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
         >
           Dúvidas? Abrir WhatsApp
+        </button>
+        <button
+          type="button"
+          className="block w-full text-xs text-navy/45 underline"
+          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+        >
+          Entrar no grupo
         </button>
       </div>
     </div>

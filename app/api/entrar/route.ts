@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSeedState, DEMO_PASSWORD } from "@/lib/seed";
-import { homePathForUser } from "@/lib/filho";
-import { homePathForRole } from "@/lib/navigation";
-import { isAreaRole } from "@/lib/demo-accounts";
+import { homePathForUser, isFilhoDeSanto } from "@/lib/filho";
+import {
+  authRoleForArea,
+  isAreaRole,
+  isFilhoArea,
+  type AreaSlug,
+} from "@/lib/demo-accounts";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createRouteHandlerClient, withAuthCookies } from "@/lib/supabase/route";
 import type { PersonKind, UserRole } from "@/types";
@@ -41,23 +45,24 @@ function clearDemoSid(res: NextResponse) {
   return res;
 }
 
-function fail(req: NextRequest, role: string, message: string) {
+function fail(req: NextRequest, area: string, message: string) {
   const origin = requestOrigin(req);
-  const url = new URL(`/entrar/${role}`, origin);
+  const url = new URL(`/entrar/${area}`, origin);
   url.searchParams.set("erro", message);
   return clearDemoSid(NextResponse.redirect(url));
 }
 
 async function loginWithSupabase(
   req: NextRequest,
-  roleRaw: UserRole,
+  area: AreaSlug,
   email: string,
   password: string,
 ) {
+  const roleRaw = authRoleForArea(area);
   const origin = requestOrigin(req);
   const client = createRouteHandlerClient(req);
   if (!client) {
-    return fail(req, roleRaw, "Supabase não configurado.");
+    return fail(req, area, "Supabase não configurado.");
   }
 
   const { supabase, cookieResponse } = client;
@@ -69,7 +74,7 @@ async function loginWithSupabase(
       error?.message?.toLowerCase().includes("credentials")
         ? "E-mail ou senha inválidos."
         : error?.message || "Não foi possível entrar.";
-    return fail(req, roleRaw, msg);
+    return fail(req, area, msg);
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -82,46 +87,57 @@ async function loginWithSupabase(
     await supabase.auth.signOut();
     return fail(
       req,
-      roleRaw,
+      area,
       "Perfil não encontrado. Confirme se as migrations 012–013 foram aplicadas.",
     );
   }
 
   const status = (profile.approval_status as string | null) ?? "approved";
   const requested = (profile.requested_role as string | null) ?? profile.role;
+  const personKind = (profile.person_kind as PersonKind | null) ?? undefined;
+  const filhoOk = isFilhoDeSanto({ role: profile.role as UserRole, person_kind: personKind });
 
-  if (status === "pending" && (requested === roleRaw || profile.role === roleRaw)) {
+  if (status === "pending" && (requested === roleRaw || profile.role === roleRaw || filhoOk)) {
     await supabase.auth.signOut();
-    return fail(
-      req,
-      roleRaw,
-      "Cadastro aguardando aprovação do Pai de Santo.",
-    );
+    return fail(req, area, "Cadastro aguardando aprovação do Pai de Santo.");
   }
 
-  if (status === "rejected" && requested === roleRaw) {
+  if (status === "rejected" && (requested === roleRaw || filhoOk)) {
     await supabase.auth.signOut();
-    return fail(req, roleRaw, "Este cadastro foi recusado. Fale com a casa.");
+    return fail(req, area, "Este cadastro foi recusado. Fale com a casa.");
   }
 
   if (profile.role !== roleRaw) {
     await supabase.auth.signOut();
     return fail(
       req,
-      roleRaw,
+      area,
       "Esta conta não tem acesso a esta área. Use o e-mail desta aba.",
     );
   }
 
+  if (isFilhoArea(area) && !filhoOk) {
+    await supabase.auth.signOut();
+    return fail(
+      req,
+      area,
+      "Esta conta não é de Filho de Santo. Use a marcação pública ou outra aba.",
+    );
+  }
+
+  if (area === "cliente" && filhoOk) {
+    await supabase.auth.signOut();
+    return fail(req, area, "Conta de Filho de Santo — entre em /entrar/filho.");
+  }
+
   const home = homePathForUser({
     role: roleRaw,
-    person_kind: (profile.person_kind as PersonKind | null) ?? undefined,
+    person_kind: personKind,
   });
   const redirect = NextResponse.redirect(new URL(home, origin));
   const res = client.applyCookies
     ? client.applyCookies(redirect)
     : withAuthCookies(cookieResponse(), redirect);
-  // Mantém cookie legado para o store local sincronizar currentUserId
   res.cookies.set("ile-oloroke-sid", profile.id, {
     path: "/",
     sameSite: "lax",
@@ -131,24 +147,40 @@ async function loginWithSupabase(
   return res;
 }
 
-function loginDemo(req: NextRequest, roleRaw: UserRole, email: string, password: string) {
+function loginDemo(req: NextRequest, area: AreaSlug, email: string, password: string) {
+  const roleRaw = authRoleForArea(area);
+
   if (password !== DEMO_PASSWORD) {
-    return fail(req, roleRaw, "Senha inválida.");
+    return fail(req, area, "Senha inválida.");
   }
 
   const seed = createSeedState();
   const profile = seed.profiles.find((p) => p.email.toLowerCase() === email);
 
   if (!profile) {
-    return fail(req, roleRaw, "E-mail não encontrado.");
+    return fail(req, area, "E-mail não encontrado.");
   }
 
   if (profile.role !== roleRaw) {
     return fail(
       req,
-      roleRaw,
+      area,
       "Esta conta não tem acesso a esta área. Use o e-mail desta aba.",
     );
+  }
+
+  const filhoOk = isFilhoDeSanto(profile);
+
+  if (isFilhoArea(area) && !filhoOk) {
+    return fail(
+      req,
+      area,
+      "Esta conta não é de Filho de Santo. Use a marcação pública ou outra aba.",
+    );
+  }
+
+  if (area === "cliente" && filhoOk) {
+    return fail(req, area, "Conta de Filho de Santo — entre em /entrar/filho.");
   }
 
   return redirectWithDemoSession(req, profile.id, roleRaw, profile.person_kind);
@@ -160,25 +192,25 @@ function loginDemo(req: NextRequest, roleRaw: UserRole, email: string, password:
  */
 export async function POST(req: NextRequest) {
   const form = await req.formData();
-  const roleRaw = String(form.get("role") ?? "");
+  const areaRaw = String(form.get("role") ?? "");
   const email = String(form.get("email") ?? "")
     .trim()
     .toLowerCase();
   const password = String(form.get("password") ?? "");
 
-  if (!isAreaRole(roleRaw)) {
+  if (!isAreaRole(areaRaw)) {
     return NextResponse.redirect(new URL("/", requestOrigin(req)));
   }
 
   if (!email || !password) {
-    return fail(req, roleRaw, "Informe e-mail e senha.");
+    return fail(req, areaRaw, "Informe e-mail e senha.");
   }
 
   if (isSupabaseConfigured()) {
-    return loginWithSupabase(req, roleRaw, email, password);
+    return loginWithSupabase(req, areaRaw, email, password);
   }
 
-  return loginDemo(req, roleRaw, email, password);
+  return loginDemo(req, areaRaw, email, password);
 }
 
 /** GET antigo sem senha → manda para a tela de login da área */

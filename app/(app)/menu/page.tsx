@@ -22,7 +22,17 @@ export default function MenuPage() {
     router.replace("/");
   }
 
+  const isPai = currentUser?.role === "pai_de_santo";
   const links = [
+    // Pai: chat e clientes no topo
+    ...(isPai
+      ? [
+          { href: "/conversas", label: "Conversas (chat)", module: "chat" as const },
+          { href: "/clientes", label: "Clientes de jogo", module: "clients" as const },
+          { href: "/agenda", label: "Agenda", module: "agenda" as const },
+          { href: "/disponibilidade", label: "Horários disponíveis", module: "agenda" as const },
+        ]
+      : []),
     ...(currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador"
       ? [{ href: "/cadastros", label: "Cadastros pendentes", module: "dashboard" as const }]
       : []),
@@ -32,7 +42,14 @@ export default function MenuPage() {
     { href: "/cobrancas", label: "Cobranças", module: "charges" as const },
     { href: "/despesas", label: "Despesas", module: "expenses" as const },
     { href: "/financeiro", label: "Análise financeira", module: "finance" as const },
-    { href: "/clientes", label: "Clientes de jogo", module: "clients" as const },
+    ...(!isPai
+      ? [
+          { href: "/clientes", label: "Clientes de jogo", module: "clients" as const },
+          { href: "/agenda", label: "Agenda", module: "agenda" as const },
+          { href: "/disponibilidade", label: "Horários disponíveis", module: "agenda" as const },
+          { href: "/conversas", label: "Conversas", module: "chat" as const },
+        ]
+      : []),
     { href: "/estoque", label: "Estoque (código de barras)", module: "stock" as const },
     { href: "/biblioteca", label: "Biblioteca (vídeos, cantigas, PDFs)", module: "library" as const },
     { href: "/loja", label: "Loja (produtos à venda)", module: "shop" as const },
@@ -48,9 +65,6 @@ export default function MenuPage() {
     { href: "/ajodun", label: "Ajodun", module: "house_content" as const },
     { href: "/ajodun/liberacoes", label: "Liberações de ajodun", module: "house_content" as const },
     { href: "/fotos", label: "Fotos", module: "house_content" as const },
-    { href: "/agenda", label: "Agenda", module: "agenda" as const },
-    { href: "/disponibilidade", label: "Horários disponíveis", module: "agenda" as const },
-    { href: "/conversas", label: "Conversas", module: "chat" as const },
     { href: "/relatorios", label: "Relatórios", module: "reports" as const },
     { href: "/notificacoes", label: "Notificações", module: "notifications" as const },
   ];
