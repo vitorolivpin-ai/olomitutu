@@ -165,6 +165,8 @@ type AppStore = {
   refreshCloudChat: () => Promise<void>;
   addInternalNote: (client_id: string, body: string) => InternalNote | null;
   markNotificationRead: (id: string) => void;
+  /** Ao abrir a conversa: limpa badge/lista de notificações de chat daquele cliente. */
+  markChatNotificationsRead: (clientId: string) => void;
   addNotification: (n: Omit<AppNotification, "id" | "created_at" | "read">) => void;
   savePaymentRecord: (payment: Payment) => void;
   upsertStockProduct: (
@@ -1555,6 +1557,22 @@ export function AppStoreProvider({
     [commit],
   );
 
+  const markChatNotificationsRead = useCallback(
+    (clientId: string) => {
+      if (!clientId) return;
+      commit((prev) => {
+        let changed = false;
+        const notifications = prev.notifications.map((n) => {
+          if (n.read || n.type !== "chat" || n.related_id !== clientId) return n;
+          changed = true;
+          return { ...n, read: true };
+        });
+        return changed ? { ...prev, notifications } : prev;
+      });
+    },
+    [commit],
+  );
+
   const addNotification = useCallback(
     (n: Omit<AppNotification, "id" | "created_at" | "read">) => {
       commit((prev) => ({
@@ -2485,6 +2503,7 @@ export function AppStoreProvider({
     refreshCloudChat,
     addInternalNote,
     markNotificationRead,
+    markChatNotificationsRead,
     addNotification,
     savePaymentRecord,
     upsertStockProduct,

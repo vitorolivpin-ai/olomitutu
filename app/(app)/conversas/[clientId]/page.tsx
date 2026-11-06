@@ -20,12 +20,19 @@ export default function ChatPage() {
     addInternalNote,
     hideStaffChat,
     refreshCloudChat,
+    markChatNotificationsRead,
   } = useAppStore();
   const [internal, setInternal] = useState(false);
 
   useEffect(() => {
     void refreshCloudChat();
   }, [refreshCloudChat, params.clientId]);
+
+  useEffect(() => {
+    if (typeof params.clientId === "string" && params.clientId) {
+      markChatNotificationsRead(params.clientId);
+    }
+  }, [params.clientId, markChatNotificationsRead]);
 
   const clients = useMemo(
     () => ensureClientsFromMessages(state.clients ?? [], state.messages ?? []),

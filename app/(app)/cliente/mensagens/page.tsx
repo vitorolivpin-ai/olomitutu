@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { ChatRoom } from "@/components/chat/chat-room";
 import { ConversationListPanel } from "@/components/chat/conversation-list-panel";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -8,8 +9,13 @@ import { videoCallRoomUrl } from "@/lib/chat";
 import type { Client } from "@/types";
 
 export default function ClienteMensagensPage() {
-  const { state, currentUser, sendMessage } = useAppStore();
+  const { state, currentUser, sendMessage, markChatNotificationsRead } =
+    useAppStore();
   const clientId = currentUser?.client_id;
+
+  useEffect(() => {
+    if (clientId) markChatNotificationsRead(clientId);
+  }, [clientId, markChatNotificationsRead]);
 
   if (currentUser?.role !== "cliente" || !clientId) {
     return <EmptyState title="Área exclusiva do cliente" />;
