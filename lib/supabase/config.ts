@@ -9,9 +9,12 @@ export function isSupabaseConfigured() {
 }
 
 export function getSupabasePublicEnv() {
+  // Remove /rest/v1 se colaram a URL da Data API por engano
+  const raw = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+  const url = raw.replace(/\/rest\/v1\/?$/i, "").replace(/\/$/, "");
   return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    url,
+    anonKey: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim(),
   };
 }
 
