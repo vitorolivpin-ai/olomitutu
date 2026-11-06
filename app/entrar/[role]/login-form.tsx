@@ -42,12 +42,20 @@ export function LoginForm({ role, initialError }: Props) {
     });
 
     if (signError || !data.user) {
-      const msg = signError?.message?.toLowerCase() ?? "";
-      setError(
-        msg.includes("invalid") || msg.includes("credentials")
-          ? "E-mail ou senha inválidos."
-          : signError?.message || "Não foi possível entrar.",
-      );
+      const host = getSupabasePublicEnv().url.replace(/^https?:\/\//, "") || "?";
+      const raw = signError?.message || "Não foi possível entrar.";
+      const msg = raw.toLowerCase();
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        setError(
+          `E-mail ainda não confirmado (projeto ${host}). No Supabase → Authentication → Users, confirme o e-mail.`,
+        );
+      } else if (msg.includes("invalid") || msg.includes("credentials")) {
+        setError(
+          `E-mail ou senha inválidos (projeto ${host}). No Supabase desse mesmo projeto: Authentication → Users → resele a senha ou crie o usuário de novo com Auto Confirm.`,
+        );
+      } else {
+        setError(`${raw} (${host})`);
+      }
       setPending(false);
       return;
     }
