@@ -6,7 +6,11 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { homePathForRole } from "@/lib/navigation";
 import { getSupabasePublicEnv } from "@/lib/supabase/config";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { fetchProfileRowDetailed, mapProfileRow } from "@/lib/supabase/profile";
+import {
+  ensureClienteLinked,
+  fetchProfileRowDetailed,
+  mapProfileRow,
+} from "@/lib/supabase/profile";
 import type { UserRole } from "@/types";
 
 type Props = {
@@ -64,7 +68,7 @@ export function LoginForm({ role, initialError }: Props) {
       await supabase.auth.setSession(data.session);
     }
 
-    const { row: profile, errorMessage } = await fetchProfileRowDetailed(
+    let { row: profile, errorMessage } = await fetchProfileRowDetailed(
       supabase,
       data.user.id,
     );
@@ -78,6 +82,10 @@ export function LoginForm({ role, initialError }: Props) {
       );
       setPending(false);
       return;
+    }
+
+    if (profile.role === "cliente" && !profile.client_id) {
+      profile = await ensureClienteLinked(supabase, profile);
     }
 
     const status = (profile.approval_status as string | null) ?? "approved";

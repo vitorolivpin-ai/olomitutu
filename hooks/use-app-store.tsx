@@ -21,6 +21,7 @@ import {
 } from "@/lib/storage";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
+  ensureClienteLinked,
   fetchProfileRow,
   mapProfileRow,
   mergeAuthProfile,
@@ -255,7 +256,7 @@ export function AppStoreProvider({
         markReady();
         return;
       }
-      const row = await fetchProfileRow(supabase!, userId);
+      let row = await fetchProfileRow(supabase!, userId);
       if (cancelled) return;
       if (!row) {
         if (!opts.allowClear) {
@@ -270,10 +271,38 @@ export function AppStoreProvider({
         markReady();
         return;
       }
+
+      // Conta Auth de cliente sem ficha → cria clients + client_id
+      if (row.role === "cliente" && !row.client_id) {
+        row = await ensureClienteLinked(supabase!, row);
+      }
+
       const authProfile = mapProfileRow(row);
       setState((prev) => {
         const profiles = mergeAuthProfile(prev.profiles, authProfile);
-        const next = { ...prev, profiles, currentUserId: authProfile.id };
+        let clients = prev.clients;
+        if (authProfile.role === "cliente" && authProfile.client_id) {
+          const exists = clients.some((c) => c.id === authProfile.client_id);
+          if (!exists) {
+            const stamp = new Date().toISOString();
+            const stub: Client = {
+              id: authProfile.client_id,
+              full_name: authProfile.full_name || authProfile.email,
+              phone: "a definir",
+              email: authProfile.email,
+              registration_complete: false,
+              created_at: stamp,
+              updated_at: stamp,
+            };
+            clients = [stub, ...clients];
+          }
+        }
+        const next = {
+          ...prev,
+          profiles,
+          clients,
+          currentUserId: authProfile.id,
+        };
         persistSharedData(stripSession(next));
         persistSessionUserId(authProfile.id);
         return next;

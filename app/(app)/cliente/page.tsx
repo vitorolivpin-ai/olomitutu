@@ -69,6 +69,18 @@ export default function ClienteHomePage() {
       )}
 
       <Card className="border-l-4 border-l-navy">
+        <CardTitle>Horários e jogos</CardTitle>
+        <p className="mt-2 text-sm text-navy/65">
+          Veja horários livres e marque seu atendimento.
+        </p>
+        <Link href="/cliente/horarios" className="mt-4 block">
+          <Button variant="gold" className="w-full">
+            Ver horários
+          </Button>
+        </Link>
+      </Card>
+
+      <Card className="border-l-4 border-l-navy">
         <CardTitle>Falar com o Pai de Santo</CardTitle>
         <p className="mt-2 text-sm text-navy/65">
           Mensagens por texto ou áudio — as respostas aparecem no mesmo chat.

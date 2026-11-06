@@ -56,7 +56,8 @@ export default function NovaSenhaPage() {
       return;
     }
 
-    router.replace("/entrar/cliente");
+    // Após redefinir senha, manda direto ao app do cliente (já autenticado)
+    router.replace("/cliente");
   }
 
   return (

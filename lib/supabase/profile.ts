@@ -74,6 +74,28 @@ export async function fetchProfileRowDetailed(
   };
 }
 
+/**
+ * Garante clients + profiles.client_id no Supabase e devolve o perfil atualizado.
+ * Necessário para o portal do cliente (chat, horários, cadastro).
+ */
+export async function ensureClienteLinked(
+  supabase: SupabaseClient,
+  profile: ProfileRow,
+): Promise<ProfileRow> {
+  if (profile.role !== "cliente") return profile;
+  if (profile.client_id) return profile;
+
+  const { error: rpcError } = await supabase.rpc("ensure_own_client");
+  if (rpcError) {
+    // Fallback local: cria id e tenta gravar (pode falhar por FK/RLS)
+    console.warn("ensure_own_client:", rpcError.message);
+    return profile;
+  }
+
+  const refreshed = await fetchProfileRowDetailed(supabase, profile.id);
+  return refreshed.row ?? profile;
+}
+
 export function mapProfileRow(row: ProfileRow): Profile {
   return {
     id: row.id,
