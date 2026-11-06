@@ -24,27 +24,50 @@ const PROFILE_SELECT_FULL =
 const PROFILE_SELECT_BASE =
   "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, created_at, updated_at";
 
-/** Lê o perfil; faz fallback se colunas novas ainda não existirem no Supabase. */
+const PROFILE_SELECT_MIN = "id, full_name, email, role, created_at, updated_at";
+
+export type FetchProfileResult = {
+  row: ProfileRow | null;
+  errorMessage?: string;
+};
+
+/** Lê o perfil; tenta várias formas (RLS / colunas / RPC). */
 export async function fetchProfileRow(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<ProfileRow | null> {
-  const full = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FULL)
-    .eq("id", userId)
-    .maybeSingle();
+  const result = await fetchProfileRowDetailed(supabase, userId);
+  return result.row;
+}
 
-  if (!full.error && full.data) return full.data as ProfileRow;
+export async function fetchProfileRowDetailed(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<FetchProfileResult> {
+  const errors: string[] = [];
 
-  const base = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_BASE)
-    .eq("id", userId)
-    .maybeSingle();
+  for (const columns of [PROFILE_SELECT_FULL, PROFILE_SELECT_BASE, PROFILE_SELECT_MIN]) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(columns)
+      .eq("id", userId)
+      .maybeSingle();
+    if (!error && data) return { row: data as ProfileRow };
+    if (error) errors.push(error.message);
+  }
 
-  if (!base.error && base.data) return base.data as ProfileRow;
-  return null;
+  // RPC security definer (migration 015) — bypassa RLS problemático
+  const rpc = await supabase.rpc("get_own_profile");
+  if (!rpc.error && rpc.data) {
+    const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    if (row && (row as ProfileRow).id) return { row: row as ProfileRow };
+  }
+  if (rpc.error) errors.push(rpc.error.message);
+
+  return {
+    row: null,
+    errorMessage: errors.filter(Boolean).slice(0, 2).join(" | ") || undefined,
+  };
 }
 
 export function mapProfileRow(row: ProfileRow): Profile {
@@ -68,7 +91,6 @@ export function mapProfileRow(row: ProfileRow): Profile {
 /** Insere ou substitui o perfil Auth na lista local (seed + usuário real). */
 export function mergeAuthProfile(profiles: Profile[], authProfile: Profile): Profile[] {
   const others = profiles.filter((p) => p.id !== authProfile.id);
-  // Remove contas demo da mesma área para a UI refletir o usuário real
   const cleaned =
     authProfile.role === "cliente"
       ? others

@@ -4,8 +4,9 @@ import { FormEvent, useState } from "react";
 import { areaTitle } from "@/lib/demo-accounts";
 import { useAppStore } from "@/hooks/use-app-store";
 import { homePathForRole } from "@/lib/navigation";
+import { getSupabasePublicEnv } from "@/lib/supabase/config";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { fetchProfileRow, mapProfileRow } from "@/lib/supabase/profile";
+import { fetchProfileRowDetailed, mapProfileRow } from "@/lib/supabase/profile";
 import type { UserRole } from "@/types";
 
 type Props = {
@@ -51,12 +52,21 @@ export function LoginForm({ role, initialError }: Props) {
       return;
     }
 
-    const profile = await fetchProfileRow(supabase, data.user.id);
+    if (data.session) {
+      await supabase.auth.setSession(data.session);
+    }
+
+    const { row: profile, errorMessage } = await fetchProfileRowDetailed(
+      supabase,
+      data.user.id,
+    );
 
     if (!profile) {
       await supabase.auth.signOut();
+      const host = getSupabasePublicEnv().url.replace(/^https?:\/\//, "");
       setError(
-        "Perfil não encontrado. No Supabase SQL Editor, rode o script que cria o perfil (Auth → Users precisa existir antes).",
+        `Perfil não encontrado neste Supabase (${host || "?"} / id ${data.user.id.slice(0, 8)}…). ` +
+          `Rode a migration 015 no SQL Editor. ${errorMessage ? `Detalhe: ${errorMessage}` : ""}`,
       );
       setPending(false);
       return;
