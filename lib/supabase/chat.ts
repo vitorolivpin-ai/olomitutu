@@ -64,6 +64,32 @@ export function mapClientRow(row: ClientRow): Client {
   };
 }
 
+/** Garante ficha local para cada client_id que tem mensagem (senão a lista some o chat). */
+export function ensureClientsFromMessages(
+  clients: Client[],
+  messages: Message[],
+): Client[] {
+  const byId = new Map(clients.map((c) => [c.id, c]));
+  const stamp = new Date().toISOString();
+  for (const msg of messages) {
+    if (!msg.client_id || byId.has(msg.client_id)) continue;
+    const nameFromClient =
+      messages
+        .filter((m) => m.client_id === msg.client_id && m.sender_role === "cliente")
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.sender_name ??
+      "Cliente";
+    byId.set(msg.client_id, {
+      id: msg.client_id,
+      full_name: nameFromClient,
+      phone: "—",
+      registration_complete: false,
+      created_at: stamp,
+      updated_at: stamp,
+    });
+  }
+  return Array.from(byId.values());
+}
+
 function dataUrlToBlob(dataUrl: string): { blob: Blob; contentType: string } {
   const comma = dataUrl.indexOf(",");
   const meta = comma >= 0 ? dataUrl.slice(0, comma) : "";

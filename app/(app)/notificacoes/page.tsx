@@ -20,7 +20,9 @@ const typeLabel: Record<string, string> = {
 
 export default function NotificationsPage() {
   const { state, currentUser, markNotificationRead } = useAppStore();
-  const items = notificationsForRole(state.notifications, currentUser?.role);
+  const items = notificationsForRole(state.notifications, currentUser?.role, {
+    clientId: currentUser?.client_id,
+  });
 
   return (
     <div className="animate-rise space-y-5">

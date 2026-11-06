@@ -72,6 +72,26 @@ export function BottomNav() {
             n.type === "chat" &&
             (n.audience?.includes(currentUser.role) || !n.audience),
         ).length
+      : currentUser?.role === "cliente"
+        ? (state.notifications ?? []).filter(
+            (n) =>
+              !n.read &&
+              n.type === "chat" &&
+              n.audience?.includes("cliente") &&
+              (!n.related_id || n.related_id === currentUser.client_id),
+          ).length
+        : 0;
+
+  const clientNotifUnread =
+    currentUser?.role === "cliente"
+      ? (state.notifications ?? []).filter(
+          (n) =>
+            !n.read &&
+            n.audience?.includes("cliente") &&
+            (n.type !== "chat" ||
+              !n.related_id ||
+              n.related_id === currentUser.client_id),
+        ).length
       : 0;
 
   const visible = isClient
@@ -112,7 +132,17 @@ export function BottomNav() {
                 : item.href === "/estoque"
                   ? pathname === "/estoque"
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const showChatBadge = item.href === "/conversas" && chatUnread > 0 && !active;
+          const showChatBadge =
+            (item.href === "/conversas" || item.href === "/cliente/mensagens") &&
+            chatUnread > 0 &&
+            !active;
+          const showMenuBadge =
+            item.href === "/cliente/conta" && clientNotifUnread > 0 && !active;
+          const badgeCount = showChatBadge
+            ? chatUnread
+            : showMenuBadge
+              ? clientNotifUnread
+              : 0;
           return (
             <li key={item.href} className="flex-1">
               <Link
@@ -124,9 +154,9 @@ export function BottomNav() {
               >
                 <span className="relative">
                   <Icon className={cn("h-5 w-5", active && "text-gold-deep")} />
-                  {showChatBadge ? (
+                  {badgeCount > 0 ? (
                     <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-semibold text-white">
-                      {chatUnread > 9 ? "9+" : chatUnread}
+                      {badgeCount > 9 ? "9+" : badgeCount}
                     </span>
                   ) : null}
                 </span>

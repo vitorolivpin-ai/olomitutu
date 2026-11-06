@@ -35,10 +35,10 @@ export default function EducacaoPage() {
     return <EmptyState title="Acesso negado" />;
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const result = upsertEducationItem({
+    const result = await upsertEducationItem({
       title,
       description,
       kind,
@@ -161,7 +161,7 @@ export default function EducacaoPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      if (confirm("Remover?")) removeEducationItem(item.id);
+                      if (confirm("Remover?")) void removeEducationItem(item.id);
                     }}
                   >
                     Remover

@@ -1,10 +1,41 @@
-/* Service worker — PWA instalável + alertas de conversa */
+/* Service worker — PWA + notificações com logo do app */
+const SW_VERSION = "oloroke-notif-v3";
+
+function appOrigin() {
+  return self.location.origin;
+}
+
+/** URLs absolutas — Android/iOS só mostram a logo assim (como no WhatsApp). */
+function brandIcons() {
+  const base = appOrigin();
+  return {
+    icon: `${base}/icon-192.png`,
+    badge: `${base}/icon-192.png`,
+    image: `${base}/icon-512.png`,
+  };
+}
+
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches
+      .open(SW_VERSION)
+      .then((cache) =>
+        cache.addAll(["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/logo.jpg"]),
+      )
+      .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== SW_VERSION).map((k) => caches.delete(k))),
+      )
+      .then(() => self.clients.claim()),
+  );
 });
 
 /** Necessário para o Chrome considerar o app instalável */
@@ -12,10 +43,27 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
 
+function showAppNotification(data) {
+  const brand = brandIcons();
+  const title = data.title || "OLÓMÌ TÚTÙ";
+  return self.registration.showNotification(title, {
+    body: data.body || "Abra o app para ver.",
+    icon: data.icon || brand.icon,
+    badge: data.badge || brand.badge,
+    // Imagem grande na notificação expandida (Android)
+    image: data.image || undefined,
+    tag: data.tag || "chat",
+    renotify: true,
+    silent: false,
+    data: { url: data.url || "/" },
+    vibrate: [120, 60, 120],
+  });
+}
+
 self.addEventListener("push", (event) => {
   let data = {
-    title: "Nova mensagem",
-    body: "Um cliente escreveu no chat.",
+    title: "OLÓMÌ TÚTÙ",
+    body: "Nova mensagem no app.",
     url: "/conversas",
   };
   try {
@@ -32,22 +80,16 @@ self.addEventListener("push", (event) => {
     }
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || "Nova mensagem", {
-      body: data.body || "Abra Conversas no app.",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      tag: data.tag || "chat",
-      renotify: true,
-      data: { url: data.url || "/conversas" },
-      vibrate: [120, 60, 120],
-    }),
-  );
+  const brand = brandIcons();
+  if (!data.icon) data.icon = brand.icon;
+  if (!data.badge) data.badge = brand.badge;
+
+  event.waitUntil(showAppNotification(data));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification?.data?.url || "/conversas";
+  const url = event.notification?.data?.url || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
@@ -64,15 +106,16 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("message", (event) => {
   const msg = event.data;
   if (!msg || msg.type !== "SHOW_NOTIFICATION") return;
+  const brand = brandIcons();
   event.waitUntil(
-    self.registration.showNotification(msg.title || "Nova mensagem", {
+    showAppNotification({
+      title: msg.title || "OLÓMÌ TÚTÙ",
       body: msg.body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      url: msg.url || "/",
       tag: msg.tag || "chat",
-      renotify: true,
-      data: { url: msg.url || "/conversas" },
-      vibrate: [120, 60, 120],
+      icon: msg.icon || brand.icon,
+      badge: msg.badge || brand.badge,
+      image: msg.image,
     }),
   );
 });

@@ -86,9 +86,11 @@ const libraryAppLinks = [
 const clientLinks = [
   { href: "/cliente", label: "Quem somos", icon: LayoutDashboard, external: false },
   { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen, external: false },
+  { href: "/cliente/educacao", label: "Educação", icon: BookOpen, external: false },
   { href: "/cliente/loja", label: "Loja", icon: Package, external: false },
   { href: "/cliente/horarios", label: "Horários", icon: CalendarDays, external: false },
   { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
+  { href: "/cliente/notificacoes", label: "Notificações", icon: Bell, external: false },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound, external: false },
   {
     href: CLIENT_WHATSAPP.duvidas.href,
@@ -118,7 +120,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
   const unread = mounted
-    ? unreadCountForRole(state.notifications, currentUser?.role)
+    ? unreadCountForRole(state.notifications, currentUser?.role, {
+        clientId: currentUser?.client_id,
+      })
     : 0;
 
   useEffect(() => {
@@ -190,7 +194,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             <>
               <Icon className={cn("h-5 w-5 shrink-0", active ? "text-gold" : "text-gold-deep")} />
               <span className="flex-1 leading-snug">{link.label}</span>
-              {link.href === "/notificacoes" && unread > 0 ? (
+              {(link.href === "/notificacoes" || link.href === "/cliente/notificacoes") &&
+              unread > 0 ? (
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold",

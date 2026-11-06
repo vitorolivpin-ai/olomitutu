@@ -47,14 +47,23 @@ export function canSeeNotification(
 export function notificationsForRole(
   list: AppNotification[],
   role: UserRole | null | undefined,
+  opts?: { clientId?: string | null },
 ) {
   if (!role) return [];
-  return list.filter((n) => canSeeNotification(n, role));
+  return list.filter((n) => {
+    if (!canSeeNotification(n, role)) return false;
+    // Cliente só vê chat da própria conversa
+    if (role === "cliente" && n.type === "chat" && opts?.clientId) {
+      if (n.related_id && n.related_id !== opts.clientId) return false;
+    }
+    return true;
+  });
 }
 
 export function unreadCountForRole(
   list: AppNotification[],
   role: UserRole | null | undefined,
+  opts?: { clientId?: string | null },
 ) {
-  return notificationsForRole(list, role).filter((n) => !n.read).length;
+  return notificationsForRole(list, role, opts).filter((n) => !n.read).length;
 }

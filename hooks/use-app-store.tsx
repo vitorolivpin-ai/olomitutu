@@ -71,7 +71,20 @@ import {
   insertMessageRemote,
   updateClientRegistrationRemote,
   uploadChatMedia,
+  ensureClientsFromMessages,
 } from "@/lib/supabase/chat";
+import {
+  deleteBlogPostRemote,
+  deleteEducationRemote,
+  deleteShopRemote,
+  fetchBlogPostsRemote,
+  fetchEducationRemote,
+  fetchShopRemote,
+  mergeById,
+  upsertBlogPostRemote,
+  upsertEducationRemote,
+  upsertShopRemote,
+} from "@/lib/supabase/house-content";
 import { freedSlotMessage, isSlotOccupied } from "@/lib/slots";
 import { findProductByBarcode, pickLotsForWithdrawal } from "@/lib/stock";
 
@@ -140,6 +153,8 @@ type AppStore = {
   /** Oculta conversa só na visão da casa; cliente mantém o histórico. */
   hideStaffChat: (clientId: string) => void;
   unhideStaffChat: (clientId: string) => void;
+  /** Recarrega mensagens/clientes da nuvem (Conversas). */
+  refreshCloudChat: () => Promise<void>;
   addInternalNote: (client_id: string, body: string) => InternalNote | null;
   markNotificationRead: (id: string) => void;
   addNotification: (n: Omit<AppNotification, "id" | "created_at" | "read">) => void;
@@ -179,12 +194,12 @@ type AppStore = {
       id?: string;
       author_name?: string;
     },
-  ) => { ok: true; item: BlogPost } | { ok: false; error: string };
-  removeBlogPost: (id: string) => void;
+  ) => Promise<{ ok: true; item: BlogPost } | { ok: false; error: string }>;
+  removeBlogPost: (id: string) => Promise<void>;
   upsertEducationItem: (
     input: Omit<EducationItem, "id" | "created_at" | "updated_at"> & { id?: string },
-  ) => { ok: true; item: EducationItem } | { ok: false; error: string };
-  removeEducationItem: (id: string) => void;
+  ) => Promise<{ ok: true; item: EducationItem } | { ok: false; error: string }>;
+  removeEducationItem: (id: string) => Promise<void>;
   upsertHierarchyPerson: (
     input: Omit<HierarchyPerson, "id" | "created_at" | "updated_at"> & { id?: string },
   ) => { ok: true; item: HierarchyPerson } | { ok: false; error: string };
@@ -205,8 +220,8 @@ type AppStore = {
   removePhotoAlbum: (id: string) => void;
   upsertShopProduct: (
     input: Omit<ShopProduct, "id" | "created_at" | "updated_at"> & { id?: string },
-  ) => { ok: true; item: ShopProduct } | { ok: false; error: string };
-  removeShopProduct: (id: string) => void;
+  ) => Promise<{ ok: true; item: ShopProduct } | { ok: false; error: string }>;
+  removeShopProduct: (id: string) => Promise<void>;
 };
 
 const AppStoreContext = createContext<AppStore | null>(null);
@@ -401,6 +416,108 @@ export function AppStoreProvider({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  const refreshCloudChat = useCallback(async () => {
+    if (!authMode) return;
+    const supabase = createBrowserClient();
+    if (!supabase) return;
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.warn("[sync] sem sessão Auth — RLS bloquearia a leitura");
+      return;
+    }
+
+    const [libRes, msgRes, clientsRes, blogRes, eduRes, shopRes] = await Promise.all([
+      fetchLibraryItems(supabase),
+      fetchChatMessages(supabase),
+      fetchClientsRemote(supabase),
+      fetchBlogPostsRemote(supabase),
+      fetchEducationRemote(supabase),
+      fetchShopRemote(supabase),
+    ]);
+
+    setState((prev) => {
+      let next = { ...prev };
+      if (libRes.ok) {
+        next = {
+          ...next,
+          libraryItems: mergeById(libRes.items, prev.libraryItems ?? []),
+        };
+      } else {
+        console.warn("[biblioteca] sync:", libRes.error);
+      }
+      if (blogRes.ok) {
+        next = {
+          ...next,
+          blogPosts: mergeById(blogRes.items, prev.blogPosts ?? []),
+        };
+      } else {
+        console.warn("[blog] sync:", blogRes.error);
+      }
+      if (eduRes.ok) {
+        next = {
+          ...next,
+          educationItems: mergeById(eduRes.items, prev.educationItems ?? []),
+        };
+      } else {
+        console.warn("[educacao] sync:", eduRes.error);
+      }
+      if (shopRes.ok) {
+        next = {
+          ...next,
+          shopProducts: mergeById(shopRes.items, prev.shopProducts ?? []),
+        };
+      } else {
+        console.warn("[loja] sync:", shopRes.error);
+      }
+      if (msgRes.ok) {
+        const prevIds = new Set((prev.messages ?? []).map((m) => m.id));
+        const localOnly = (prev.messages ?? []).filter((m) => !isUuid(m.id));
+        const byId = new Map<string, Message>();
+        for (const m of msgRes.items) byId.set(m.id, m);
+        for (const m of localOnly) byId.set(m.id, m);
+        const mergedMessages = Array.from(byId.values()).sort((a, b) =>
+          a.created_at.localeCompare(b.created_at),
+        );
+        // Nova mensagem do cliente → conversa volta para a lista do Pai
+        const arrivedClientIds = new Set(
+          msgRes.items
+            .filter((m) => !prevIds.has(m.id) && m.sender_role === "cliente")
+            .map((m) => m.client_id),
+        );
+        const staffHiddenClientIds = (prev.staffHiddenClientIds ?? []).filter(
+          (id) => !arrivedClientIds.has(id),
+        );
+        next = {
+          ...next,
+          messages: mergedMessages,
+          staffHiddenClientIds,
+        };
+      } else {
+        console.warn("[chat] sync:", msgRes.error);
+      }
+      if (clientsRes.ok) {
+        const remoteIds = new Set(clientsRes.items.map((c) => c.id));
+        const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
+        const merged = [
+          ...clientsRes.items,
+          ...localOnly.filter((c) => !remoteIds.has(c.id)),
+          ...(prev.clients ?? []).filter((c) => isUuid(c.id) && !remoteIds.has(c.id)),
+        ];
+        const dedup = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+        next = { ...next, clients: dedup };
+      } else {
+        console.warn("[clients] sync:", clientsRes.error);
+      }
+      next = {
+        ...next,
+        clients: ensureClientsFromMessages(next.clients ?? [], next.messages ?? []),
+      };
+      persistSharedData(stripSession(next));
+      return next;
+    });
+  }, [authMode]);
+
   // Biblioteca + chat + clientes na nuvem (Supabase)
   useEffect(() => {
     if (!ready || !authMode || !state.currentUserId) return;
@@ -410,56 +527,8 @@ export function AppStoreProvider({
     let cancelled = false;
 
     async function pullCloud() {
-      const { data: sessionData } = await supabase!.auth.getSession();
       if (cancelled) return;
-      if (!sessionData.session) {
-        console.warn("[sync] sem sessão Auth — RLS bloquearia a leitura");
-        return;
-      }
-
-      const [libRes, msgRes, clientsRes] = await Promise.all([
-        fetchLibraryItems(supabase!),
-        fetchChatMessages(supabase!),
-        fetchClientsRemote(supabase!),
-      ]);
-      if (cancelled) return;
-
-      setState((prev) => {
-        let next = { ...prev };
-        if (libRes.ok) {
-          const localOnly = (prev.libraryItems ?? []).filter((i) => !isUuid(i.id));
-          next = { ...next, libraryItems: [...libRes.items, ...localOnly] };
-        } else {
-          console.warn("[biblioteca] sync:", libRes.error);
-        }
-        if (msgRes.ok) {
-          const localOnly = (prev.messages ?? []).filter((m) => !isUuid(m.id));
-          const byId = new Map<string, Message>();
-          for (const m of msgRes.items) byId.set(m.id, m);
-          for (const m of localOnly) byId.set(m.id, m);
-          next = {
-            ...next,
-            messages: Array.from(byId.values()).sort((a, b) =>
-              a.created_at.localeCompare(b.created_at),
-            ),
-          };
-        } else {
-          console.warn("[chat] sync:", msgRes.error);
-        }
-        if (clientsRes.ok) {
-          const remoteIds = new Set(clientsRes.items.map((c) => c.id));
-          const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
-          const merged = [
-            ...clientsRes.items,
-            ...localOnly.filter((c) => !remoteIds.has(c.id)),
-          ];
-          next = { ...next, clients: merged };
-        } else {
-          console.warn("[clients] sync:", clientsRes.error);
-        }
-        persistSharedData(stripSession(next));
-        return next;
-      });
+      await refreshCloudChat();
     }
 
     void pullCloud();
@@ -493,6 +562,27 @@ export function AppStoreProvider({
           void pullCloud();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blog_posts" },
+        () => {
+          void pullCloud();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "education_items" },
+        () => {
+          void pullCloud();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shop_products" },
+        () => {
+          void pullCloud();
+        },
+      )
       .subscribe();
 
     return () => {
@@ -501,7 +591,7 @@ export function AppStoreProvider({
       window.removeEventListener("focus", onVisible);
       void supabase.removeChannel(channel);
     };
-  }, [ready, authMode, state.currentUserId]);
+  }, [ready, authMode, state.currentUserId, refreshCloudChat]);
 
   const commit = useCallback((updater: (prev: AppState) => AppState) => {
     setState((prev) => {
@@ -1260,6 +1350,7 @@ export function AppStoreProvider({
           audience: fromClient
             ? ["pai_de_santo", "administrador"]
             : ["cliente"],
+          related_id: input.client_id,
           read: false,
           href: fromClient ? `/conversas/${input.client_id}` : `/cliente/mensagens`,
           created_at: stamp,
@@ -1339,12 +1430,27 @@ export function AppStoreProvider({
               ),
             }));
 
-            // Avisa o Pai no celular (Web Push), se estiver inscrito
+            // Web Push: cliente → Pai | Pai/casa → cliente
             if (currentUser.role === "cliente") {
               void fetch("/api/push/notify-chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                  audience: "staff",
+                  client_id: input.client_id,
+                  preview: body,
+                  sender_name: currentUser.full_name,
+                }),
+              }).catch(() => null);
+            } else if (
+              currentUser.role === "pai_de_santo" ||
+              currentUser.role === "administrador"
+            ) {
+              void fetch("/api/push/notify-chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  audience: "cliente",
                   client_id: input.client_id,
                   preview: body,
                   sender_name: currentUser.full_name,
@@ -1820,7 +1926,7 @@ export function AppStoreProvider({
   );
 
   const upsertBlogPost: AppStore["upsertBlogPost"] = useCallback(
-    (input) => {
+    async (input) => {
       if (!currentUser || !canManageHouseContent(currentUser.role)) {
         return { ok: false, error: "Sem permissão para editar Quem Somos." };
       }
@@ -1830,46 +1936,67 @@ export function AppStoreProvider({
         return { ok: false, error: "Título e texto são obrigatórios." };
       }
       const stamp = nowIso();
-      let saved!: BlogPost;
+      const cloud = isSupabaseConfigured();
+      const existing = input.id
+        ? (state.blogPosts ?? []).find((p) => p.id === input.id)
+        : undefined;
+      if (input.id && !existing) return { ok: false, error: "Post não encontrado." };
+
+      let saved: BlogPost = {
+        id: existing?.id ?? (cloud ? crypto.randomUUID() : uid("blog")),
+        title,
+        body,
+        excerpt: input.excerpt?.trim() || undefined,
+        category: input.category,
+        cover_url: input.cover_url,
+        author_name:
+          input.author_name?.trim() || existing?.author_name || currentUser.full_name,
+        published: input.published,
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      };
+
+      if (cloud) {
+        const supabase = createBrowserClient();
+        if (!supabase) return { ok: false, error: "Supabase não configurado." };
+        const remote = await upsertBlogPostRemote(supabase, saved);
+        if (!remote.ok) {
+          return {
+            ok: false,
+            error:
+              remote.error.includes("row-level security") || remote.error.includes("RLS")
+                ? "Sem permissão no banco. Rode a migration 021_house_content_sync.sql no Supabase."
+                : remote.error,
+          };
+        }
+        saved = remote.item;
+      }
+
       commit((prev) => {
         const list = prev.blogPosts ?? [];
-        if (input.id) {
-          const cur = list.find((p) => p.id === input.id);
-          if (!cur) return prev;
-          saved = {
-            ...cur,
-            ...input,
-            id: cur.id,
-            title,
-            body,
-            excerpt: input.excerpt?.trim() || undefined,
-            author_name: input.author_name?.trim() || cur.author_name,
-            updated_at: stamp,
-          };
-          return { ...prev, blogPosts: list.map((p) => (p.id === cur.id ? saved : p)) };
-        }
-        saved = {
-          id: uid("blog"),
-          title,
-          body,
-          excerpt: input.excerpt?.trim() || undefined,
-          category: input.category,
-          cover_url: input.cover_url,
-          author_name: input.author_name?.trim() || currentUser.full_name,
-          published: input.published,
-          created_at: stamp,
-          updated_at: stamp,
+        const exists = list.some((p) => p.id === saved.id);
+        return {
+          ...prev,
+          blogPosts: exists
+            ? list.map((p) => (p.id === saved.id ? saved : p))
+            : [saved, ...list],
         };
-        return { ...prev, blogPosts: [saved, ...list] };
       });
       return { ok: true, item: saved };
     },
-    [commit, currentUser],
+    [commit, currentUser, state.blogPosts],
   );
 
   const removeBlogPost: AppStore["removeBlogPost"] = useCallback(
-    (id) => {
+    async (id) => {
       if (!currentUser || !canManageHouseContent(currentUser.role)) return;
+      if (isSupabaseConfigured() && isUuid(id)) {
+        const supabase = createBrowserClient();
+        if (supabase) {
+          const remote = await deleteBlogPostRemote(supabase, id);
+          if (!remote.ok) console.warn("[blog] delete:", remote.error);
+        }
+      }
       commit((prev) => ({
         ...prev,
         blogPosts: (prev.blogPosts ?? []).filter((p) => p.id !== id),
@@ -1879,46 +2006,72 @@ export function AppStoreProvider({
   );
 
   const upsertEducationItem: AppStore["upsertEducationItem"] = useCallback(
-    (input) => {
+    async (input) => {
       if (!currentUser || !canManageHouseContent(currentUser.role)) {
         return { ok: false, error: "Sem permissão para editar Educação." };
       }
       const title = input.title.trim();
       if (title.length < 2) return { ok: false, error: "Informe o título." };
       const stamp = nowIso();
-      let saved!: EducationItem;
-      commit((prev) => {
-        const list = prev.educationItems ?? [];
-        if (input.id) {
-          const cur = list.find((p) => p.id === input.id);
-          if (!cur) return prev;
-          saved = { ...cur, ...input, id: cur.id, title, updated_at: stamp };
+      const cloud = isSupabaseConfigured();
+      const existing = input.id
+        ? (state.educationItems ?? []).find((p) => p.id === input.id)
+        : undefined;
+      if (input.id && !existing) return { ok: false, error: "Item não encontrado." };
+
+      let saved: EducationItem = {
+        id: existing?.id ?? (cloud ? crypto.randomUUID() : uid("edu")),
+        title,
+        description: input.description?.trim() || undefined,
+        kind: input.kind,
+        url: input.url?.trim() || undefined,
+        author_or_source: input.author_or_source?.trim() || undefined,
+        published: input.published,
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      };
+
+      if (cloud) {
+        const supabase = createBrowserClient();
+        if (!supabase) return { ok: false, error: "Supabase não configurado." };
+        const remote = await upsertEducationRemote(supabase, saved);
+        if (!remote.ok) {
           return {
-            ...prev,
-            educationItems: list.map((p) => (p.id === cur.id ? saved : p)),
+            ok: false,
+            error:
+              remote.error.includes("row-level security") || remote.error.includes("RLS")
+                ? "Sem permissão no banco. Rode a migration 021_house_content_sync.sql no Supabase."
+                : remote.error,
           };
         }
-        saved = {
-          id: uid("edu"),
-          title,
-          description: input.description?.trim() || undefined,
-          kind: input.kind,
-          url: input.url?.trim() || undefined,
-          author_or_source: input.author_or_source?.trim() || undefined,
-          published: input.published,
-          created_at: stamp,
-          updated_at: stamp,
+        saved = remote.item;
+      }
+
+      commit((prev) => {
+        const list = prev.educationItems ?? [];
+        const exists = list.some((p) => p.id === saved.id);
+        return {
+          ...prev,
+          educationItems: exists
+            ? list.map((p) => (p.id === saved.id ? saved : p))
+            : [saved, ...list],
         };
-        return { ...prev, educationItems: [saved, ...list] };
       });
       return { ok: true, item: saved };
     },
-    [commit, currentUser],
+    [commit, currentUser, state.educationItems],
   );
 
   const removeEducationItem: AppStore["removeEducationItem"] = useCallback(
-    (id) => {
+    async (id) => {
       if (!currentUser || !canManageHouseContent(currentUser.role)) return;
+      if (isSupabaseConfigured() && isUuid(id)) {
+        const supabase = createBrowserClient();
+        if (supabase) {
+          const remote = await deleteEducationRemote(supabase, id);
+          if (!remote.ok) console.warn("[educacao] delete:", remote.error);
+        }
+      }
       commit((prev) => ({
         ...prev,
         educationItems: (prev.educationItems ?? []).filter((p) => p.id !== id),
@@ -2188,7 +2341,7 @@ export function AppStoreProvider({
   );
 
   const upsertShopProduct: AppStore["upsertShopProduct"] = useCallback(
-    (input) => {
+    async (input) => {
       if (!currentUser || !canAccess(currentUser.role, "shop")) {
         return { ok: false, error: "Sem permissão para editar a loja." };
       }
@@ -2198,49 +2351,66 @@ export function AppStoreProvider({
         return { ok: false, error: "Preço inválido." };
       }
       const stamp = nowIso();
-      let saved!: ShopProduct;
-      commit((prev) => {
-        const list = prev.shopProducts ?? [];
-        if (input.id) {
-          const cur = list.find((p) => p.id === input.id);
-          if (!cur) return prev;
-          saved = {
-            ...cur,
-            ...input,
-            id: cur.id,
-            name,
-            description: input.description?.trim() || undefined,
-            category: input.category?.trim() || undefined,
-            image_url: input.image_url?.trim() || undefined,
-            updated_at: stamp,
-          };
+      const cloud = isSupabaseConfigured();
+      const existing = input.id
+        ? (state.shopProducts ?? []).find((p) => p.id === input.id)
+        : undefined;
+      if (input.id && !existing) return { ok: false, error: "Produto não encontrado." };
+
+      let saved: ShopProduct = {
+        id: existing?.id ?? (cloud ? crypto.randomUUID() : uid("shop")),
+        name,
+        description: input.description?.trim() || undefined,
+        price: input.price,
+        image_url: input.image_url?.trim() || undefined,
+        category: input.category?.trim() || undefined,
+        available: input.available,
+        sort_order: input.sort_order ?? (state.shopProducts?.length ?? 0) + 1,
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      };
+
+      if (cloud) {
+        const supabase = createBrowserClient();
+        if (!supabase) return { ok: false, error: "Supabase não configurado." };
+        const remote = await upsertShopRemote(supabase, saved);
+        if (!remote.ok) {
           return {
-            ...prev,
-            shopProducts: list.map((p) => (p.id === cur.id ? saved : p)),
+            ok: false,
+            error:
+              remote.error.includes("row-level security") || remote.error.includes("RLS")
+                ? "Sem permissão no banco. Rode a migration 021_house_content_sync.sql no Supabase."
+                : remote.error,
           };
         }
-        saved = {
-          id: uid("shop"),
-          name,
-          description: input.description?.trim() || undefined,
-          price: input.price,
-          image_url: input.image_url?.trim() || undefined,
-          category: input.category?.trim() || undefined,
-          available: input.available,
-          sort_order: input.sort_order ?? list.length + 1,
-          created_at: stamp,
-          updated_at: stamp,
+        saved = remote.item;
+      }
+
+      commit((prev) => {
+        const list = prev.shopProducts ?? [];
+        const exists = list.some((p) => p.id === saved.id);
+        return {
+          ...prev,
+          shopProducts: exists
+            ? list.map((p) => (p.id === saved.id ? saved : p))
+            : [saved, ...list],
         };
-        return { ...prev, shopProducts: [saved, ...list] };
       });
       return { ok: true, item: saved };
     },
-    [commit, currentUser],
+    [commit, currentUser, state.shopProducts],
   );
 
   const removeShopProduct: AppStore["removeShopProduct"] = useCallback(
-    (id) => {
+    async (id) => {
       if (!currentUser || !canAccess(currentUser.role, "shop")) return;
+      if (isSupabaseConfigured() && isUuid(id)) {
+        const supabase = createBrowserClient();
+        if (supabase) {
+          const remote = await deleteShopRemote(supabase, id);
+          if (!remote.ok) console.warn("[loja] delete:", remote.error);
+        }
+      }
       commit((prev) => ({
         ...prev,
         shopProducts: (prev.shopProducts ?? []).filter((p) => p.id !== id),
@@ -2277,6 +2447,7 @@ export function AppStoreProvider({
     sendMessage,
     hideStaffChat,
     unhideStaffChat,
+    refreshCloudChat,
     addInternalNote,
     markNotificationRead,
     addNotification,

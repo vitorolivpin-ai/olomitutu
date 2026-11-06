@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { AdminOverview } from "@/components/house/admin-overview";
 import { QuemSomosHome } from "@/components/house/quem-somos-home";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
 import { canAccess } from "@/lib/permissions";
 import type { HomeTrail } from "@/components/house/quem-somos-home";
+
 
 export default function CasaInicioPage() {
   const { currentUser } = useAppStore();
@@ -87,19 +89,22 @@ export default function CasaInicioPage() {
   ].filter(Boolean) as HomeTrail[];
 
   return (
-    <QuemSomosHome
-      eyebrow="Pai de Santo · Quem somos"
-      trailsTitle="Seus caminhos"
-      trails={trails}
-      footer={
-        <div className="mt-3">
-          <Link href="/">
-            <Button variant="ghost" className="w-full">
-              Menu principal
-            </Button>
-          </Link>
-        </div>
-      }
-    />
+    <div className="space-y-4">
+      <EnablePushBanner />
+      <QuemSomosHome
+        eyebrow="Pai de Santo · Quem somos"
+        trailsTitle="Seus caminhos"
+        trails={trails}
+        footer={
+          <div className="mt-3">
+            <Link href="/">
+              <Button variant="ghost" className="w-full">
+                Menu principal
+              </Button>
+            </Link>
+          </div>
+        }
+      />
+    </div>
   );
 }

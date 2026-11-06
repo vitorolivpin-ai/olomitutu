@@ -127,31 +127,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Chat estilo WhatsApp: conversa em tela cheia no mobile; área /conversas também no desktop
+  const isChatThread =
+    pathname.startsWith("/conversas/") || pathname === "/cliente/mensagens";
+  const isChatSection =
+    pathname === "/conversas" ||
+    pathname.startsWith("/conversas/") ||
+    pathname === "/cliente/mensagens";
+
   return (
-    <div className="flex min-h-screen bg-app">
+    <div className={isChatSection ? "flex h-dvh max-h-dvh bg-[#d1d7db]" : "flex min-h-screen bg-app"}>
       <ChatAlertWatcher />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-navy/10 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="rounded-xl p-2 text-navy transition hover:bg-navy/5"
-            aria-label="Abrir menu"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          <BrandMark className="h-12 w-12 shrink-0" />
-          <div className="min-w-0">
-            <p className="font-display text-xs text-gold-deep">
-              {appLabelForRole(currentUser.role)}
-            </p>
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-28 md:px-8 md:pb-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {!isChatSection ? (
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-navy/10 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="rounded-xl p-2 text-navy transition hover:bg-navy/5"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <BrandMark className="h-12 w-12 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-display text-xs text-gold-deep">
+                {appLabelForRole(currentUser.role)}
+              </p>
+            </div>
+          </header>
+        ) : null}
+        <main
+          className={
+            isChatSection
+              ? `flex min-h-0 w-full flex-1 flex-col overflow-hidden p-0 ${
+                  isChatThread ? "" : "pb-[4.5rem] md:pb-0"
+                }`
+              : "mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-28 md:px-8 md:pb-8"
+          }
+        >
           {children}
         </main>
-        <BottomNav />
+        {!isChatThread ? <BottomNav /> : null}
       </div>
     </div>
   );

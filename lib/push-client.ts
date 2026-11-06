@@ -10,12 +10,30 @@ export function isPushSupported() {
   );
 }
 
+/** iPhone/iPad em Safari (aba) — Notification só existe depois de instalar na Tela de Início. */
+export function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+export function isStandaloneDisplay() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // @ts-expect-error iOS Safari
+    Boolean(window.navigator.standalone)
+  );
+}
+
 export async function registerChatServiceWorker() {
   if (!isPushSupported()) return null;
-  return navigator.serviceWorker.register(SW_PATH, {
+  const reg = await navigator.serviceWorker.register(SW_PATH, {
     scope: "/",
     updateViaCache: "none",
   });
+  // Força atualizar o SW para pegar a logo nas notificações
+  void reg.update();
+  return reg;
 }
 
 export async function ensureNotificationPermission(): Promise<NotificationPermission> {
@@ -23,6 +41,15 @@ export async function ensureNotificationPermission(): Promise<NotificationPermis
   if (Notification.permission === "granted") return "granted";
   if (Notification.permission === "denied") return "denied";
   return Notification.requestPermission();
+}
+
+function brandIconUrls() {
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  return {
+    icon: `${base}/icon-192.png`,
+    badge: `${base}/icon-192.png`,
+    image: `${base}/icon-512.png`,
+  };
 }
 
 /** Mostra alerta local (funciona com o app aberto / em 2º plano no Android). */
@@ -34,6 +61,7 @@ export async function showLocalChatNotification(input: {
 }) {
   if (!isPushSupported()) return;
   if (Notification.permission !== "granted") return;
+  const brand = brandIconUrls();
   const reg = await navigator.serviceWorker.ready;
   if (reg.active) {
     reg.active.postMessage({
@@ -42,12 +70,17 @@ export async function showLocalChatNotification(input: {
       body: input.body,
       url: input.url,
       tag: input.tag ?? "chat",
+      icon: brand.icon,
+      badge: brand.badge,
+      image: brand.image,
     });
     return;
   }
   await reg.showNotification(input.title, {
     body: input.body,
-    icon: "/logo.jpg",
+    icon: brand.icon,
+    badge: brand.badge,
+    image: brand.image,
     tag: input.tag ?? "chat",
     data: { url: input.url },
   });

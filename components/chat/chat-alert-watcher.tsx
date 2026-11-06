@@ -29,55 +29,63 @@ function saveSeen(ids: Set<string>) {
   }
 }
 
-/** Quando o Pai está logado, alerta no celular ao chegar mensagem do cliente. */
+/** Alerta no celular ao chegar mensagem (Pai ← cliente e Cliente ← casa). */
 export function ChatAlertWatcher() {
   const { currentUser, state, ready } = useAppStore();
   const pathname = usePathname();
   const primed = useRef(false);
 
+  const isStaffChat =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const isClient = currentUser?.role === "cliente";
+
   useEffect(() => {
     if (!ready) return;
-    if (currentUser?.role !== "pai_de_santo" && currentUser?.role !== "administrador") {
-      return;
-    }
+    if (!isStaffChat && !isClient) return;
     void registerChatServiceWorker();
-  }, [ready, currentUser?.role]);
+  }, [ready, isStaffChat, isClient]);
 
   useEffect(() => {
     if (!ready || !currentUser) return;
-    if (currentUser.role !== "pai_de_santo" && currentUser.role !== "administrador") {
-      return;
-    }
+    if (!isStaffChat && !isClient) return;
 
     const seen = loadSeen();
-    const fromClients = (state.messages ?? []).filter(
-      (m) => m.sender_role === "cliente" && m.id,
-    );
+    const relevant = (state.messages ?? []).filter((m) => {
+      if (!m.id) return false;
+      if (isStaffChat) return m.sender_role === "cliente";
+      // Cliente: mensagens da casa na própria conversa
+      return (
+        m.sender_role !== "cliente" &&
+        Boolean(currentUser.client_id) &&
+        m.client_id === currentUser.client_id
+      );
+    });
 
     if (!primed.current) {
-      for (const m of fromClients) seen.add(m.id);
+      for (const m of relevant) seen.add(m.id);
       saveSeen(seen);
       primed.current = true;
       return;
     }
 
-    const fresh = fromClients.filter((m) => !seen.has(m.id));
+    const fresh = relevant.filter((m) => !seen.has(m.id));
     if (fresh.length === 0) return;
 
     for (const m of fresh) seen.add(m.id);
     saveSeen(seen);
 
-    // Se já está dentro da conversa desse cliente, não dispara alerta
     const newest = fresh.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    if (pathname?.startsWith(`/conversas/${newest.client_id}`)) return;
+
+    if (isStaffChat && pathname?.startsWith(`/conversas/${newest.client_id}`)) return;
+    if (isClient && pathname === "/cliente/mensagens") return;
 
     void showLocalChatNotification({
-      title: "Nova mensagem",
+      title: isClient ? "Mensagem do Pai" : "Nova mensagem",
       body: `${newest.sender_name}: ${newest.body}`.slice(0, 140),
-      url: `/conversas/${newest.client_id}`,
+      url: isClient ? "/cliente/mensagens" : `/conversas/${newest.client_id}`,
       tag: `chat-${newest.client_id}`,
     });
-  }, [ready, currentUser, state.messages, pathname]);
+  }, [ready, currentUser, state.messages, pathname, isStaffChat, isClient]);
 
   return null;
 }

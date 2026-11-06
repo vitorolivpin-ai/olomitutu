@@ -34,7 +34,12 @@ function isStandalone() {
   );
 }
 
-export function InstallAppBanner() {
+type Props = {
+  /** Mostra mesmo se a pessoa tocou “Agora não” antes */
+  force?: boolean;
+};
+
+export function InstallAppBanner({ force = false }: Props) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [ios, setIos] = useState(false);
   const [iosNonSafari, setIosNonSafari] = useState(false);
@@ -44,7 +49,7 @@ export function InstallAppBanner() {
   useEffect(() => {
     void registerChatServiceWorker();
     if (isStandalone()) return;
-    if (localStorage.getItem(DISMISS_KEY) === "1") return;
+    if (!force && localStorage.getItem(DISMISS_KEY) === "1") return;
 
     setIos(isIos());
     setIosNonSafari(isIosChromeOrOther());

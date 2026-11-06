@@ -31,10 +31,10 @@ export default function QuemSomosPage() {
     .filter((p) => canEdit || p.published)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-  function onPublish(e: FormEvent) {
+  async function onPublish(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const result = upsertBlogPost({
+    const result = await upsertBlogPost({
       title,
       excerpt,
       body,
@@ -135,7 +135,7 @@ export default function QuemSomosPage() {
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    if (confirm("Remover este post?")) removeBlogPost(post.id);
+                    if (confirm("Remover este post?")) void removeBlogPost(post.id);
                   }}
                 >
                   Remover

@@ -58,11 +58,11 @@ export default function LojaStaffPage() {
     setError("");
   }
 
-  function onSave(e: FormEvent) {
+  async function onSave(e: FormEvent) {
     e.preventDefault();
     setError("");
     const parsed = Number(price.replace(",", "."));
-    const result = upsertShopProduct({
+    const result = await upsertShopProduct({
       id: editingId ?? undefined,
       name,
       description: description || undefined,
@@ -196,7 +196,7 @@ export default function LojaStaffPage() {
                         size="sm"
                         variant="secondary"
                         onClick={() =>
-                          upsertShopProduct({
+                          void upsertShopProduct({
                             ...p,
                             available: !p.available,
                           })
@@ -208,7 +208,7 @@ export default function LojaStaffPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => {
-                          if (confirm(`Remover “${p.name}”?`)) removeShopProduct(p.id);
+                          if (confirm(`Remover “${p.name}”?`)) void removeShopProduct(p.id);
                         }}
                       >
                         Remover

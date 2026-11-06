@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { BrandMark } from "@/components/brand/logo";
+import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
 import { roleLabel, canAccess } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+
 
 export default function MenuPage() {
   const { currentUser, logout, resetDemo } = useAppStore();
@@ -56,6 +58,8 @@ export default function MenuPage() {
       </div>
 
       <InstallAppBanner />
+      {(currentUser?.role === "pai_de_santo" ||
+        currentUser?.role === "administrador") && <EnablePushBanner />}
 
       <Card>
         <div className="flex items-center gap-4">

@@ -1,66 +1,41 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { Send, Video } from "lucide-react";
-import { AudioRecorder } from "@/components/chat/audio-recorder";
-import { MessageBubble } from "@/components/chat/message-bubble";
-import { VideoAttach } from "@/components/chat/video-attach";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { ChatRoom } from "@/components/chat/chat-room";
+import { ConversationListPanel } from "@/components/chat/conversation-list-panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { videoCallRoomUrl } from "@/lib/chat";
+import type { Client } from "@/types";
 
 export default function ClienteMensagensPage() {
   const { state, currentUser, sendMessage } = useAppStore();
-  const [body, setBody] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
   const clientId = currentUser?.client_id;
-
-  const messages = state.messages
-    .filter((m) => m.client_id === clientId)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
 
   if (currentUser?.role !== "cliente" || !clientId) {
     return <EmptyState title="Área exclusiva do cliente" />;
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!body.trim() || !clientId) return;
-    sendMessage({ client_id: clientId, body: body.trim() });
-    setBody("");
-  }
+  const messages = state.messages.filter((m) => m.client_id === clientId);
+  const pai =
+    state.profiles.find((u) => u.role === "pai_de_santo") ??
+    state.profiles.find((u) => u.role === "administrador");
 
-  function onSendAudio(payload: { dataUrl: string; durationSec: number }) {
-    if (!clientId) return;
-    sendMessage({
-      client_id: clientId,
-      kind: "audio",
-      audio_data_url: payload.dataUrl,
-      audio_duration_sec: payload.durationSec,
-    });
-  }
+  const paiAsClient: Client = {
+    id: "pai-thread",
+    full_name: pai?.full_name ?? "Pai de Santo",
+    phone: "—",
+    registration_complete: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
-  function onSendVideo(payload: { dataUrl: string }) {
-    if (!clientId) return;
-    sendMessage({
-      client_id: clientId,
-      kind: "video",
-      video_data_url: payload.dataUrl,
-    });
-  }
+  // Lista desktop precisa de client_id das mensagens = stub id → remap preview
+  const listMessages = messages.map((m) => ({ ...m, client_id: "pai-thread" }));
 
   function startVideoCall() {
-    if (!clientId) return;
-    const url = videoCallRoomUrl(clientId);
+    const url = videoCallRoomUrl(clientId!);
     sendMessage({
-      client_id: clientId,
+      client_id: clientId!,
       kind: "call",
       call_url: url,
       body: "Chamada de vídeo iniciada — toque para entrar.",
@@ -68,60 +43,53 @@ export default function ClienteMensagensPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  const room = (
+    <ChatRoom
+      title={pai?.full_name ?? "Pai de Santo"}
+      subtitle="Casa · ILÉ OLÓRÒKÈ ÀṢẸ"
+      backHref="/cliente"
+      hideBackOnDesktop
+      avatarName={pai?.full_name ?? "Pai de Santo"}
+      avatarSrc={pai?.avatar_url}
+      messages={messages}
+      isMine={(msg) => msg.sender_role === "cliente"}
+      onSendText={(body) => sendMessage({ client_id: clientId, body })}
+      onSendAudio={(payload) =>
+        sendMessage({
+          client_id: clientId,
+          kind: "audio",
+          audio_data_url: payload.dataUrl,
+          audio_duration_sec: payload.durationSec,
+        })
+      }
+      onSendVideo={(payload) =>
+        sendMessage({
+          client_id: clientId,
+          kind: "video",
+          video_data_url: payload.dataUrl,
+        })
+      }
+      onStartCall={startVideoCall}
+      placeholder="Digite uma mensagem"
+    />
+  );
+
   return (
-    <div className="animate-rise flex min-h-[70vh] flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-gold-deep">Área do cliente</p>
-          <h1 className="font-display text-3xl text-navy">Chat com o Pai de Santo</h1>
-          <p className="text-sm text-navy/60">
-            Conversa direta com o Pai. Seu histórico (texto, áudio e vídeo) fica guardado aqui.
-          </p>
-        </div>
-        <Button size="sm" variant="gold" onClick={startVideoCall}>
-          <Video className="mr-1.5 h-4 w-4" />
-          Chamada de vídeo
-        </Button>
+    <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#d1d7db]">
+      {/* Desktop: lista | chat */}
+      <div className="hidden h-full w-[38%] max-w-[420px] shrink-0 md:flex md:flex-col">
+        <ConversationListPanel
+          messages={listMessages}
+          clients={[paiAsClient]}
+          activeId="pai-thread"
+          hrefFor={() => "/cliente/mensagens"}
+          title="Conversas"
+          subtitle="App do Cliente"
+          onlyWithMessages={false}
+          className="h-full"
+        />
       </div>
-
-      <Card className="flex flex-1 flex-col overflow-hidden p-0">
-        <div className="max-h-[55vh] flex-1 space-y-3 overflow-y-auto bg-mist/40 p-4">
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              mine={msg.sender_role === "cliente"}
-            />
-          ))}
-          {messages.length === 0 ? (
-            <p className="text-center text-sm text-navy/55">Envie a primeira mensagem.</p>
-          ) : null}
-          <div ref={bottomRef} />
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-2 border-t border-navy/10 bg-white p-3">
-          <div className="flex items-end gap-2">
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={2}
-              placeholder="Escreva sua mensagem..."
-              className="min-h-12"
-            />
-            {body.trim() ? (
-              <Button type="submit" className="h-12 w-12 shrink-0 rounded-full p-0" aria-label="Enviar">
-                <Send className="h-5 w-5" />
-              </Button>
-            ) : (
-              <AudioRecorder onSend={onSendAudio} />
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <VideoAttach onSend={onSendVideo} />
-            <p className="text-[11px] text-navy/45">Segure o microfone para gravar áudio</p>
-          </div>
-        </form>
-      </Card>
+      <div className="flex h-full min-w-0 flex-1 flex-col">{room}</div>
     </div>
   );
 }

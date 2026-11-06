@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
+import { EnablePushBanner } from "@/components/chat/enable-push-banner";
+import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -11,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import { isClientRegistrationComplete } from "@/lib/client-registration";
-import { BLOG_CATEGORY_LABEL } from "@/lib/house-content";
+import { BLOG_CATEGORY_LABEL, EDUCATION_KIND_LABEL } from "@/lib/house-content";
 import { LIBRARY_KIND_LABEL, sortLibrary } from "@/lib/library";
 function StoryBlock({
   title,
@@ -57,11 +59,22 @@ function StoryBlock({
 }
 
 export default function ClienteHomePage() {
-  const { state, currentUser } = useAppStore();
+  const { state, currentUser, refreshCloudChat } = useAppStore();
+
+  useEffect(() => {
+    void refreshCloudChat();
+  }, [refreshCloudChat]);
 
   const posts = useMemo(
     () => (state.blogPosts ?? []).filter((p) => p.published),
     [state.blogPosts],
+  );
+  const educationPreview = useMemo(
+    () =>
+      (state.educationItems ?? [])
+        .filter((i) => i.published)
+        .slice(0, 3),
+    [state.educationItems],
   );
   const libraryPreview = useMemo(
     () => sortLibrary(state.libraryItems ?? []).filter((i) => i.visible_to_clients).slice(0, 3),
@@ -109,6 +122,9 @@ export default function ClienteHomePage() {
           </p>
         </div>
       </div>
+
+      <InstallAppBanner force />
+      <EnablePushBanner forClient />
 
       {!registered ? (
         <Card className="border-l-4 border-l-gold">
@@ -177,10 +193,36 @@ export default function ClienteHomePage() {
               </li>
             ))}
           </ul>
-        ) : null}
+        ) : (
+          <p className="mt-2 text-xs text-navy/45">Nenhum material visível ainda.</p>
+        )}
         <Link href="/cliente/biblioteca" className="mt-4 block">
           <Button variant="secondary" className="w-full">
             Abrir biblioteca
+          </Button>
+        </Link>
+      </Card>
+
+      <Card className="border-l-4 border-l-leaf">
+        <CardTitle>Educação</CardTitle>
+        <p className="mt-2 text-sm text-navy/65">
+          Livros, vídeos e indicações publicadas pelo Pai.
+        </p>
+        {educationPreview.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {educationPreview.map((item) => (
+              <li key={item.id} className="rounded-xl bg-mist/60 px-3 py-2 text-sm text-navy/80">
+                <span className="font-medium">{item.title}</span>
+                <span className="text-navy/45"> · {EDUCATION_KIND_LABEL[item.kind]}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs text-navy/45">Nenhum material publicado ainda.</p>
+        )}
+        <Link href="/cliente/educacao" className="mt-4 block">
+          <Button variant="secondary" className="w-full">
+            Ver educação
           </Button>
         </Link>
       </Card>

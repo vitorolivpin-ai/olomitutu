@@ -225,6 +225,8 @@ export interface AppNotification {
   type: string;
   audience?: UserRole[];
   user_id?: string;
+  /** Ex.: client_id da conversa, para filtrar avisos do App do Cliente. */
+  related_id?: string;
   read: boolean;
   href?: string;
   created_at: string;

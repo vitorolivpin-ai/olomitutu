@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileText, Music2, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,12 @@ function KindIcon({ kind }: { kind: LibraryKind }) {
 }
 
 export default function ClienteBibliotecaPage() {
-  const { state, currentUser } = useAppStore();
+  const { state, currentUser, refreshCloudChat } = useAppStore();
   const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refreshCloudChat();
+  }, [refreshCloudChat]);
 
   const items = useMemo(
     () =>

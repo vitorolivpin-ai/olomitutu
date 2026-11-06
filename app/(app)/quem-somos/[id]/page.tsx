@@ -65,7 +65,7 @@ export default function QuemSomosPostPage() {
           variant="danger"
           onClick={() => {
             if (!confirm("Remover este post?")) return;
-            removeBlogPost(post.id);
+            void removeBlogPost(post.id);
           }}
         >
           Remover post
