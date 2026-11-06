@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { areaTitle } from "@/lib/demo-accounts";
+import { useAppStore } from "@/hooks/use-app-store";
 import { homePathForRole } from "@/lib/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { fetchProfileRow } from "@/lib/supabase/profile";
+import { fetchProfileRow, mapProfileRow } from "@/lib/supabase/profile";
 import type { UserRole } from "@/types";
 
 type Props = {
@@ -14,11 +14,10 @@ type Props = {
 };
 
 /**
- * Login no browser — grava a sessão Auth nos cookies que o app lê.
- * O POST /api/entrar no servidor às vezes não repassa a sessão ao cliente.
+ * Login no browser — grava a sessão Auth e o perfil no store antes de abrir a área.
  */
 export function LoginForm({ role, initialError }: Props) {
-  const router = useRouter();
+  const { hydrateAuthProfile } = useAppStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -82,14 +81,16 @@ export function LoginForm({ role, initialError }: Props) {
 
     if (profile.role !== role) {
       await supabase.auth.signOut();
-      setError("Esta conta não tem acesso a esta área. Use o e-mail desta aba.");
+      setError(
+        `Esta conta é "${profile.role}", não tem acesso a esta aba. Entre na aba correspondente.`,
+      );
       setPending(false);
       return;
     }
 
-    document.cookie = `ile-oloroke-sid=${encodeURIComponent(profile.id)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-    router.replace(homePathForRole(role));
-    router.refresh();
+    hydrateAuthProfile(mapProfileRow(profile));
+    // Navegação completa: garante cookies Auth + store hidratado na área
+    window.location.assign(homePathForRole(role));
   }
 
   return (

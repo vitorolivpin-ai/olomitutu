@@ -69,6 +69,8 @@ type AppStore = {
     error?: string;
     role?: UserRole;
   };
+  /** Após signIn no browser: grava o perfil antes de ir pra área logada. */
+  hydrateAuthProfile: (profile: Profile) => void;
   logout: () => void;
   resetDemo: () => void;
   updateProfile: (input: {
@@ -233,9 +235,17 @@ export function AppStoreProvider({
       }
     }
 
-    async function applyUser(userId: string | null) {
+    async function applyUser(
+      userId: string | null,
+      opts: { allowClear?: boolean } = {},
+    ) {
       if (cancelled) return;
       if (!userId) {
+        // Não limpar em eventos espúrios do Auth (ex.: INITIAL_SESSION null)
+        if (!opts.allowClear) {
+          markReady();
+          return;
+        }
         setState((prev) => {
           const next = { ...prev, currentUserId: null };
           persistSessionUserId(null);
@@ -247,7 +257,10 @@ export function AppStoreProvider({
       const row = await fetchProfileRow(supabase!, userId);
       if (cancelled) return;
       if (!row) {
-        // Sessão Auth sem linha em profiles → não fica preso no loading
+        if (!opts.allowClear) {
+          markReady();
+          return;
+        }
         setState((prev) => {
           const next = { ...prev, currentUserId: null };
           persistSessionUserId(null);
@@ -267,13 +280,20 @@ export function AppStoreProvider({
       markReady();
     }
 
-    // getUser valida no servidor Auth; getSession sozinho às vezes vem vazio no 1º paint
+    // Se houver JWT, sincroniza o perfil. Se não, NÃO limpa o sid local —
+    // o login grava o perfil no storage; limpar aqui mandava todo mundo de volta ao menu.
     supabase.auth.getUser().then(({ data }) => {
-      void applyUser(data.user?.id ?? null);
+      if (data.user?.id) void applyUser(data.user.id);
+      else markReady();
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      void applyUser(session?.user?.id ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+      if (event === "SIGNED_OUT") {
+        void applyUser(null, { allowClear: true });
+        return;
+      }
+      if (session?.user?.id) void applyUser(session.user.id);
     });
 
     return () => {
@@ -320,6 +340,17 @@ export function AppStoreProvider({
     },
     [commit],
   );
+
+  const hydrateAuthProfile = useCallback((profile: Profile) => {
+    setState((prev) => {
+      const profiles = mergeAuthProfile(prev.profiles, profile);
+      const next = { ...prev, profiles, currentUserId: profile.id };
+      persistSharedData(stripSession(next));
+      persistSessionUserId(profile.id);
+      return next;
+    });
+    setReady(true);
+  }, []);
 
   const login = useCallback(
     (email: string, password: string) => {
@@ -1671,6 +1702,7 @@ export function AppStoreProvider({
     state,
     currentUser,
     loginDemo,
+    hydrateAuthProfile,
     updateProfile,
     login,
     logout,
