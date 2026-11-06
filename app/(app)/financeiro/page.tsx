@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -10,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/hooks/use-app-store";
 import { dashboardMetrics, monthHistory } from "@/lib/finance";
@@ -38,9 +40,14 @@ export default function FinancePage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Análise financeira</h1>
-        <p className="text-sm text-navy/60">{formatCompetence(competence)}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl text-navy">Análise financeira</h1>
+          <p className="text-sm text-navy/60">{formatCompetence(competence)}</p>
+        </div>
+        <Link href="/loja/liberacoes">
+          <Button variant="gold">Liberações da loja</Button>
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

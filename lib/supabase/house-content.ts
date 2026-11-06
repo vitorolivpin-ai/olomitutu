@@ -158,11 +158,18 @@ type ShopRow = {
   category: string | null;
   available: boolean;
   sort_order: number;
+  kind?: string | null;
+  file_url?: string | null;
+  requires_payment?: boolean | null;
   created_at: string;
   updated_at: string;
 };
 
 export function mapShopRow(row: ShopRow): ShopProduct {
+  const kind =
+    row.kind === "pdf" || row.kind === "curso" || row.kind === "fisico"
+      ? row.kind
+      : "fisico";
   return {
     id: row.id,
     name: row.name,
@@ -172,6 +179,9 @@ export function mapShopRow(row: ShopRow): ShopProduct {
     category: row.category ?? undefined,
     available: row.available,
     sort_order: row.sort_order,
+    kind,
+    file_url: row.file_url ?? undefined,
+    requires_payment: Boolean(row.requires_payment),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -199,6 +209,9 @@ export async function upsertShopRemote(supabase: SupabaseClient, item: ShopProdu
     category: item.category ?? null,
     available: item.available,
     sort_order: item.sort_order,
+    kind: item.kind ?? "fisico",
+    file_url: item.file_url ?? null,
+    requires_payment: item.requires_payment ?? false,
     created_at: item.created_at,
     updated_at: item.updated_at,
   };

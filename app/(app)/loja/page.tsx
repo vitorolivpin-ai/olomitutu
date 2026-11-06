@@ -1,20 +1,26 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
-import { ShoppingBag } from "lucide-react";
+import { Lock, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { PixPanel } from "@/components/shop/pix-panel";
 import { useAppStore } from "@/hooks/use-app-store";
 import { canAccess } from "@/lib/permissions";
-import type { ShopProduct } from "@/types";
+import type { ShopProduct, ShopProductKind } from "@/types";
 
 export default function LojaStaffPage() {
   const { state, currentUser, upsertShopProduct, removeShopProduct } = useAppStore();
   const canEdit =
     currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const canSeeReleases =
+    currentUser?.role === "tesouraria" ||
+    currentUser?.role === "administrador" ||
+    currentUser?.role === "pai_de_santo";
 
   const [writing, setWriting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,6 +29,9 @@ export default function LojaStaffPage() {
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
   const [available, setAvailable] = useState(true);
+  const [kind, setKind] = useState<ShopProductKind>("fisico");
+  const [fileUrl, setFileUrl] = useState("");
+  const [requiresPayment, setRequiresPayment] = useState(false);
   const [error, setError] = useState("");
 
   const products = useMemo(
@@ -44,6 +53,9 @@ export default function LojaStaffPage() {
     setPrice("");
     setCategory("");
     setAvailable(true);
+    setKind("fisico");
+    setFileUrl("");
+    setRequiresPayment(false);
     setError("");
   }
 
@@ -55,6 +67,9 @@ export default function LojaStaffPage() {
     setPrice(String(p.price));
     setCategory(p.category ?? "");
     setAvailable(p.available);
+    setKind(p.kind ?? "fisico");
+    setFileUrl(p.file_url ?? "");
+    setRequiresPayment(p.requires_payment ?? false);
     setError("");
   }
 
@@ -69,6 +84,9 @@ export default function LojaStaffPage() {
       price: parsed,
       category: category || undefined,
       available,
+      kind,
+      file_url: fileUrl || undefined,
+      requires_payment: requiresPayment || kind === "pdf" || kind === "curso",
       sort_order: editingId
         ? products.find((p) => p.id === editingId)?.sort_order ?? products.length + 1
         : products.length + 1,
@@ -88,26 +106,38 @@ export default function LojaStaffPage() {
           <p className="text-sm font-medium text-gold-deep">App da Casa</p>
           <h1 className="font-display text-3xl text-navy">Loja</h1>
           <p className="text-sm text-navy/60">
-            Produtos visíveis no App do Cliente
+            Vitrine pública e App do Cliente · Pix em cada produto
           </p>
         </div>
-        {canEdit ? (
-          <Button
-            variant={writing ? "secondary" : "primary"}
-            onClick={() => {
-              if (writing) {
-                resetForm();
-                setWriting(false);
-              } else {
-                resetForm();
-                setWriting(true);
-              }
-            }}
-          >
-            {writing ? "Fechar" : "Novo produto"}
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {canSeeReleases ? (
+            <Link href="/loja/liberacoes">
+              <Button variant="secondary">Liberações</Button>
+            </Link>
+          ) : null}
+          {canEdit ? (
+            <Button
+              variant={writing ? "secondary" : "primary"}
+              onClick={() => {
+                if (writing) {
+                  resetForm();
+                  setWriting(false);
+                } else {
+                  resetForm();
+                  setWriting(true);
+                }
+              }}
+            >
+              {writing ? "Fechar" : "Novo produto"}
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      <PixPanel
+        pixKey={state.houseSettings?.pix_key}
+        holderName={state.houseSettings?.pix_holder_name}
+      />
 
       {writing && canEdit ? (
         <Card>
@@ -116,6 +146,22 @@ export default function LojaStaffPage() {
             <div>
               <Label>Nome</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div>
+              <Label>Tipo</Label>
+              <select
+                value={kind}
+                onChange={(e) => {
+                  const k = e.target.value as ShopProductKind;
+                  setKind(k);
+                  if (k === "pdf" || k === "curso") setRequiresPayment(true);
+                }}
+                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy"
+              >
+                <option value="fisico">Físico</option>
+                <option value="pdf">PDF</option>
+                <option value="curso">Curso</option>
+              </select>
             </div>
             <div>
               <Label>Preço (R$)</Label>
@@ -132,9 +178,19 @@ export default function LojaStaffPage() {
               <Input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="Velas, Banho…"
+                placeholder="Velas, Cursos…"
               />
             </div>
+            {(kind === "pdf" || kind === "curso") && (
+              <div>
+                <Label>URL do arquivo / curso (após liberação)</Label>
+                <Input
+                  value={fileUrl}
+                  onChange={(e) => setFileUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+            )}
             <div>
               <Label>Descrição</Label>
               <Textarea
@@ -149,13 +205,30 @@ export default function LojaStaffPage() {
                 checked={available}
                 onChange={(e) => setAvailable(e.target.checked)}
               />
-              Disponível na vitrine do cliente
+              Disponível na vitrine
+            </label>
+            <label className="flex items-center gap-2 text-sm text-navy/80">
+              <input
+                type="checkbox"
+                checked={requiresPayment}
+                onChange={(e) => setRequiresPayment(e.target.checked)}
+              />
+              Bloqueado até o Financeiro liberar (cadeado)
             </label>
             {error ? <ErrorMessage message={error} /> : null}
             <Button type="submit" variant="gold" className="w-full">
               {editingId ? "Salvar alterações" : "Publicar produto"}
             </Button>
           </form>
+          <div className="mt-4">
+            <p className="mb-2 text-xs text-navy/50">Prévia do Pix neste produto</p>
+            <PixPanel
+              pixKey={state.houseSettings?.pix_key}
+              holderName={state.houseSettings?.pix_holder_name}
+              amount={Number(price.replace(",", ".")) || undefined}
+              description={name || "Produto"}
+            />
+          </div>
         </Card>
       ) : null}
 
@@ -166,8 +239,13 @@ export default function LojaStaffPage() {
           {products.map((p) => (
             <Card key={p.id}>
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mist">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mist">
                   <ShoppingBag className="h-5 w-5 text-gold-deep" />
+                  {p.requires_payment ? (
+                    <span className="absolute -right-1 -top-1 rounded-full bg-navy p-0.5 text-cream">
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -181,9 +259,11 @@ export default function LojaStaffPage() {
                       {p.available ? "À venda" : "Oculto"}
                     </Badge>
                   </div>
-                  {p.category ? (
-                    <p className="mt-1 text-xs text-navy/50">{p.category}</p>
-                  ) : null}
+                  <p className="mt-1 text-xs text-navy/50">
+                    {p.kind ?? "fisico"}
+                    {p.category ? ` · ${p.category}` : ""}
+                    {p.requires_payment ? " · bloqueado" : ""}
+                  </p>
                   {p.description ? (
                     <p className="mt-2 text-sm text-navy/70">{p.description}</p>
                   ) : null}
@@ -198,6 +278,8 @@ export default function LojaStaffPage() {
                         onClick={() =>
                           void upsertShopProduct({
                             ...p,
+                            kind: p.kind ?? "fisico",
+                            requires_payment: p.requires_payment ?? false,
                             available: !p.available,
                           })
                         }

@@ -23,6 +23,13 @@ export default function HubPage() {
           section: "geral",
         },
         {
+          id: "loja",
+          label: "Loja",
+          hint: "Produtos e Pix — sem login",
+          href: "/loja",
+          section: "geral",
+        },
+        {
           id: "admin",
           label: "Administrador",
           hint: "Login restrito",

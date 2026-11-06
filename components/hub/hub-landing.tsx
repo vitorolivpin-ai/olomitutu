@@ -1,4 +1,4 @@
-import { BookOpen, Menu, X } from "lucide-react";
+import { BookOpen, Menu, ShoppingBag, X } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 
 export type HubEntry = {
@@ -48,6 +48,18 @@ export function HubLanding({ entries }: Props) {
             </span>
             <span className="text-center text-[11px] leading-tight text-navy/70 sm:text-xs">
               Quem somos
+            </span>
+          </a>
+
+          <a
+            href="/loja"
+            className="group flex w-[4.75rem] flex-col items-center gap-2 sm:w-20"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-navy shadow-soft ring-1 ring-navy/10 transition group-hover:bg-white group-hover:ring-gold/40 sm:h-16 sm:w-16">
+              <ShoppingBag className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.75} />
+            </span>
+            <span className="text-center text-[11px] leading-tight text-navy/70 sm:text-xs">
+              Loja
             </span>
           </a>
 

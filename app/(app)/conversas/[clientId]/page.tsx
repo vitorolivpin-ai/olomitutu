@@ -64,6 +64,7 @@ export default function ChatPage() {
   const messages = state.messages.filter((m) => m.client_id === currentClient.id);
   const canNotes = canAccess(currentUser?.role, "internal_notes");
   const isStaff = currentUser?.role !== "cliente";
+  const clientProfile = state.profiles.find((p) => p.client_id === currentClient.id);
 
   function startVideoCall() {
     const url = videoCallRoomUrl(currentClient.id);
@@ -94,7 +95,7 @@ export default function ChatPage() {
       subtitle="online"
       backHref="/conversas"
       avatarName={currentClient.full_name}
-      avatarSrc={null}
+      avatarSrc={clientProfile?.avatar_url ?? null}
       messages={messages}
       isMine={(msg) =>
         (currentUser?.role === "cliente" && msg.sender_role === "cliente") ||

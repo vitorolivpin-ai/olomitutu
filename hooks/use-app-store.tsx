@@ -114,6 +114,19 @@ type AppStore = {
     phone?: string;
     avatar_url?: string | null;
   }) => { ok: true; profile: Profile } | { ok: false; error: string };
+  updateHouseSettings: (input: {
+    pix_key?: string;
+    pix_holder_name?: string;
+  }) => { ok: true } | { ok: false; error: string };
+  requestShopPurchase: (productId: string) =>
+    | { ok: true }
+    | { ok: false; error: string };
+  releaseShopPurchase: (purchaseId: string) =>
+    | { ok: true }
+    | { ok: false; error: string };
+  rejectShopPurchase: (purchaseId: string) =>
+    | { ok: true }
+    | { ok: false; error: string };
   upsertMember: (member: Omit<Member, "id" | "created_at" | "updated_at"> & { id?: string }) => Member;
   generateFee: (memberId: string, competence: string) => MonthlyFee | null;
   confirmFeePayment: (
@@ -751,8 +764,15 @@ export function AppStoreProvider({
         if (input.avatar_url === null || input.avatar_url === "") {
           saved = { ...saved, avatar_url: undefined };
         }
+        // Atualiza nome nas mensagens já enviadas (chat deixa de mostrar rótulo antigo)
+        const messages = (prev.messages ?? []).map((m) =>
+          m.sender_id === currentUser.id
+            ? { ...m, sender_name: full_name }
+            : m,
+        );
         return {
           ...prev,
+          messages,
           profiles: prev.profiles.map((p) => (p.id === currentUser.id ? saved! : p)),
         };
       });
@@ -775,6 +795,220 @@ export function AppStoreProvider({
       }
 
       return { ok: true, profile: profileSaved };
+    },
+    [commit, currentUser],
+  );
+
+  const updateHouseSettings: AppStore["updateHouseSettings"] = useCallback(
+    (input) => {
+      if (
+        !currentUser ||
+        (currentUser.role !== "pai_de_santo" && currentUser.role !== "administrador")
+      ) {
+        return { ok: false, error: "Só o Pai ou Admin altera o Pix da casa." };
+      }
+      const stamp = nowIso();
+      commit((prev) => ({
+        ...prev,
+        houseSettings: {
+          ...(prev.houseSettings ?? {}),
+          pix_key: input.pix_key?.trim() ?? prev.houseSettings?.pix_key,
+          pix_holder_name:
+            input.pix_holder_name?.trim() ?? prev.houseSettings?.pix_holder_name,
+          updated_at: stamp,
+        },
+      }));
+      if (isSupabaseConfigured()) {
+        const supabase = createBrowserClient();
+        void supabase?.from("house_settings").upsert({
+          id: "casa",
+          pix_key: input.pix_key?.trim() || null,
+          pix_holder_name: input.pix_holder_name?.trim() || null,
+          updated_at: stamp,
+        });
+      }
+      return { ok: true };
+    },
+    [commit, currentUser],
+  );
+
+  const requestShopPurchase: AppStore["requestShopPurchase"] = useCallback(
+    (productId) => {
+      if (!currentUser || currentUser.role !== "cliente" || !currentUser.client_id) {
+        return { ok: false, error: "Entre no App do Cliente para comprar." };
+      }
+      const product = (state.shopProducts ?? []).find((p) => p.id === productId);
+      if (!product || !product.available) {
+        return { ok: false, error: "Produto indisponível." };
+      }
+      const clientId = currentUser.client_id;
+      const existing = (state.shopPurchases ?? []).find(
+        (p) =>
+          p.product_id === productId &&
+          p.client_id === clientId &&
+          (p.status === "solicitado" || p.status === "pago_liberado"),
+      );
+      if (existing?.status === "pago_liberado") {
+        return { ok: false, error: "Você já tem este conteúdo liberado." };
+      }
+      if (existing?.status === "solicitado") {
+        return { ok: false, error: "Compra já solicitada — aguarde o Financeiro." };
+      }
+      const stamp = nowIso();
+      const purchase = {
+        id: isSupabaseConfigured() ? crypto.randomUUID() : uid("buy"),
+        product_id: productId,
+        client_id: clientId,
+        status: "solicitado" as const,
+        created_at: stamp,
+        updated_at: stamp,
+      };
+      const staffNote = {
+        id: uid("ntf"),
+        title: "Nova compra na loja",
+        body: `${currentUser.full_name} pediu: ${product.name} (R$ ${product.price.toFixed(2)}).`,
+        type: "financeiro" as const,
+        audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+        related_id: purchase.id,
+        read: false,
+        href: "/loja/liberacoes",
+        created_at: stamp,
+      };
+      commit((prev) => ({
+        ...prev,
+        shopPurchases: [purchase, ...(prev.shopPurchases ?? [])],
+        notifications: [staffNote, ...prev.notifications],
+      }));
+      if (isSupabaseConfigured() && isUuid(productId) && isUuid(clientId)) {
+        const supabase = createBrowserClient();
+        void supabase?.from("shop_purchases").insert({
+          id: purchase.id,
+          product_id: productId,
+          client_id: clientId,
+          status: "solicitado",
+          created_at: stamp,
+          updated_at: stamp,
+        });
+      }
+      return { ok: true };
+    },
+    [commit, currentUser, state.shopProducts, state.shopPurchases],
+  );
+
+  const releaseShopPurchase: AppStore["releaseShopPurchase"] = useCallback(
+    (purchaseId) => {
+      if (
+        !currentUser ||
+        (currentUser.role !== "tesouraria" &&
+          currentUser.role !== "administrador" &&
+          currentUser.role !== "pai_de_santo")
+      ) {
+        return { ok: false, error: "Só o Financeiro (ou Admin) libera compras." };
+      }
+      // Preferência do plano: Financeiro libera; Pai/Admin também podem em emergência
+      if (currentUser.role === "pai_de_santo") {
+        // Pai vê, mas liberação oficial é tesouraria — ainda permite Admin/tesouraria;
+        // pai_de_santo bloqueado de liberar
+        return {
+          ok: false,
+          error: "Peça ao Financeiro para liberar após confirmar o pagamento.",
+        };
+      }
+      let ok = false;
+      commit((prev) => {
+        const purchase = (prev.shopPurchases ?? []).find((p) => p.id === purchaseId);
+        if (!purchase || purchase.status !== "solicitado") return prev;
+        ok = true;
+        const stamp = nowIso();
+        const product = (prev.shopProducts ?? []).find((p) => p.id === purchase.product_id);
+        const clientNote = {
+          id: uid("ntf"),
+          title: "Conteúdo liberado",
+          body: `${product?.name ?? "Produto"} está disponível na loja.`,
+          type: "financeiro" as const,
+          audience: ["cliente"] as UserRole[],
+          related_id: purchase.client_id,
+          read: false,
+          href: "/cliente/loja",
+          created_at: stamp,
+        };
+        return {
+          ...prev,
+          shopPurchases: (prev.shopPurchases ?? []).map((p) =>
+            p.id === purchaseId
+              ? {
+                  ...p,
+                  status: "pago_liberado" as const,
+                  released_by: currentUser.id,
+                  updated_at: stamp,
+                }
+              : p,
+          ),
+          notifications: [clientNote, ...prev.notifications],
+        };
+      });
+      if (!ok) return { ok: false, error: "Pedido não encontrado ou já tratado." };
+      if (isSupabaseConfigured() && isUuid(purchaseId)) {
+        const supabase = createBrowserClient();
+        void supabase
+          ?.from("shop_purchases")
+          .update({
+            status: "pago_liberado",
+            released_by: currentUser.id,
+            updated_at: nowIso(),
+          })
+          .eq("id", purchaseId);
+      }
+      return { ok: true };
+    },
+    [commit, currentUser],
+  );
+
+  const rejectShopPurchase: AppStore["rejectShopPurchase"] = useCallback(
+    (purchaseId) => {
+      if (
+        !currentUser ||
+        (currentUser.role !== "tesouraria" && currentUser.role !== "administrador")
+      ) {
+        return { ok: false, error: "Só o Financeiro pode recusar." };
+      }
+      let ok = false;
+      commit((prev) => {
+        const purchase = (prev.shopPurchases ?? []).find((p) => p.id === purchaseId);
+        if (!purchase || purchase.status !== "solicitado") return prev;
+        ok = true;
+        const stamp = nowIso();
+        const product = (prev.shopProducts ?? []).find((p) => p.id === purchase.product_id);
+        const clientNote = {
+          id: uid("ntf"),
+          title: "Compra não liberada",
+          body: `${product?.name ?? "Produto"}: fale com a casa pelo chat.`,
+          type: "financeiro" as const,
+          audience: ["cliente"] as UserRole[],
+          related_id: purchase.client_id,
+          read: false,
+          href: "/cliente/mensagens",
+          created_at: stamp,
+        };
+        return {
+          ...prev,
+          shopPurchases: (prev.shopPurchases ?? []).map((p) =>
+            p.id === purchaseId
+              ? { ...p, status: "recusado" as const, updated_at: stamp }
+              : p,
+          ),
+          notifications: [clientNote, ...prev.notifications],
+        };
+      });
+      if (!ok) return { ok: false, error: "Pedido não encontrado." };
+      if (isSupabaseConfigured() && isUuid(purchaseId)) {
+        const supabase = createBrowserClient();
+        void supabase
+          ?.from("shop_purchases")
+          .update({ status: "recusado", updated_at: nowIso() })
+          .eq("id", purchaseId);
+      }
+      return { ok: true };
     },
     [commit, currentUser],
   );
@@ -1085,10 +1319,11 @@ export function AppStoreProvider({
         const client = prev.clients.find((c) => c.id === input.client_id);
         const notification: AppNotification = {
           id: uid("ntf"),
-          title: "Novo agendamento recebido",
-          body: `${client?.full_name ?? "Cliente"} solicitou atendimento.`,
+          title: "Novo jogo na agenda",
+          body: `${client?.full_name ?? "Cliente"} solicitou atendimento em ${new Date(input.scheduled_at).toLocaleString("pt-BR")}.`,
           type: "agenda",
           audience: ["pai_de_santo", "administrador"],
+          related_id: input.client_id,
           read: false,
           href: "/agenda",
           created_at: stamp,
@@ -1111,10 +1346,51 @@ export function AppStoreProvider({
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
         if (!current) return prev;
-        updated = { ...current, status, updated_at: nowIso() };
+        const stamp = nowIso();
+        updated = { ...current, status, updated_at: stamp };
+        const client = prev.clients.find((c) => c.id === current.client_id);
+        const statusLabel: Record<string, string> = {
+          CONFIRMADO: "confirmou seu jogo",
+          CANCELADO: "cancelou seu jogo",
+          EM_ATENDIMENTO: "iniciou seu atendimento",
+          REALIZADO: "concluiu seu atendimento",
+          NAO_COMPARECEU: "registrou falta no horário",
+          SOLICITADO: "atualizou seu pedido",
+        };
+        const label = statusLabel[status] ?? "atualizou seu agendamento";
+        const clientNote: AppNotification = {
+          id: uid("ntf"),
+          title: "Atualização na agenda",
+          body: `A casa ${label} (${new Date(current.scheduled_at).toLocaleString("pt-BR")}).`,
+          type: "agenda",
+          audience: ["cliente"],
+          related_id: current.client_id,
+          read: false,
+          href: "/cliente/horarios",
+          created_at: stamp,
+        };
+        const staffExtra: AppNotification | null =
+          status === "CONFIRMADO"
+            ? {
+                id: uid("ntf"),
+                title: "Jogo confirmado",
+                body: `${client?.full_name ?? "Cliente"} — ${new Date(current.scheduled_at).toLocaleString("pt-BR")}`,
+                type: "agenda",
+                audience: ["pai_de_santo", "administrador"],
+                related_id: current.client_id,
+                read: false,
+                href: "/agenda",
+                created_at: stamp,
+              }
+            : null;
         return {
           ...prev,
           appointments: prev.appointments.map((a) => (a.id === id ? updated! : a)),
+          notifications: [
+            clientNote,
+            ...(staffExtra ? [staffExtra] : []),
+            ...prev.notifications,
+          ],
         };
       });
       return updated;
@@ -1141,6 +1417,18 @@ export function AppStoreProvider({
           body: freedSlotMessage(current.scheduled_at),
           type: "agenda",
           audience: ["cliente"],
+          related_id: current.client_id,
+          read: false,
+          href: "/cliente/horarios",
+          created_at: stamp,
+        };
+        const clientCancel: AppNotification = {
+          id: uid("ntf"),
+          title: "Jogo cancelado",
+          body: `Seu atendimento em ${new Date(current.scheduled_at).toLocaleString("pt-BR")} foi cancelado.`,
+          type: "agenda",
+          audience: ["cliente"],
+          related_id: current.client_id,
           read: false,
           href: "/cliente/horarios",
           created_at: stamp,
@@ -1158,7 +1446,7 @@ export function AppStoreProvider({
         return {
           ...prev,
           appointments: prev.appointments.map((a) => (a.id === id ? updated! : a)),
-          notifications: [broadcast, staffNote, ...prev.notifications],
+          notifications: [clientCancel, broadcast, staffNote, ...prev.notifications],
         };
       });
       return updated;
@@ -1563,7 +1851,13 @@ export function AppStoreProvider({
       commit((prev) => {
         let changed = false;
         const notifications = prev.notifications.map((n) => {
-          if (n.read || n.type !== "chat" || n.related_id !== clientId) return n;
+          if (n.read || n.type !== "chat") return n;
+          // Thread certa, ou chat antigo sem related_id (seed / legado)
+          const match =
+            n.related_id === clientId ||
+            !n.related_id ||
+            (typeof n.href === "string" && n.href.includes(clientId));
+          if (!match) return n;
           changed = true;
           return { ...n, read: true };
         });
@@ -2418,6 +2712,9 @@ export function AppStoreProvider({
         category: input.category?.trim() || undefined,
         available: input.available,
         sort_order: input.sort_order ?? (state.shopProducts?.length ?? 0) + 1,
+        kind: input.kind ?? existing?.kind ?? "fisico",
+        file_url: input.file_url?.trim() || existing?.file_url,
+        requires_payment: input.requires_payment ?? existing?.requires_payment ?? false,
         created_at: existing?.created_at ?? stamp,
         updated_at: stamp,
       };
@@ -2478,6 +2775,10 @@ export function AppStoreProvider({
     loginDemo,
     hydrateAuthProfile,
     updateProfile,
+    updateHouseSettings,
+    requestShopPurchase,
+    releaseShopPurchase,
+    rejectShopPurchase,
     login,
     logout,
     resetDemo,

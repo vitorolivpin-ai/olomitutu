@@ -153,18 +153,21 @@ export default function CadastrosPendentesPage() {
                   <div className="min-w-0">
                     <CardTitle className="truncate">{row.full_name}</CardTitle>
                     <p className="mt-1 text-sm text-navy/65">{row.email}</p>
-                    <p className="mt-2 text-sm font-semibold text-gold-deep">
-                      Tipo: {personKindLabel(row.person_kind)}
+                    <p className="mt-2 text-base font-semibold text-navy">
+                      Libera aba:{" "}
+                      <span className="text-gold-deep">
+                        {areaTitle(area)} ({roleLabel(
+                          roleGrantedOnApproval({
+                            requested_role: row.requested_role,
+                            signup_area: row.signup_area,
+                            person_kind: row.person_kind,
+                          }),
+                        )})
+                      </span>
                     </p>
                     <p className="mt-0.5 text-xs text-navy/50">
-                      Cadastrou pela aba {areaTitle(area)} · ao aceitar libera:{" "}
-                      {roleLabel(
-                        roleGrantedOnApproval({
-                          requested_role: row.requested_role,
-                          signup_area: row.signup_area,
-                          person_kind: row.person_kind,
-                        }),
-                      )}
+                      Tipo informado: {personKindLabel(row.person_kind)} (só
+                      referência — não muda a aba)
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">

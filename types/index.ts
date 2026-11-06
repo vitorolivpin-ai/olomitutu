@@ -404,6 +404,8 @@ export interface AppState {
   ajodunEvents: AjodunEvent[];
   photoAlbums: PhotoAlbum[];
   shopProducts: ShopProduct[];
+  shopPurchases: ShopPurchase[];
+  houseSettings: HouseSettings;
   /**
    * @deprecated Preferir staffHiddenAt — mantido para migração local.
    */
@@ -415,7 +417,18 @@ export interface AppState {
   staffHiddenAt: Record<string, string>;
 }
 
-/** Produto da loja (visível no App do Cliente). */
+export type ShopProductKind = "fisico" | "pdf" | "curso";
+
+export type ShopPurchaseStatus = "solicitado" | "pago_liberado" | "recusado";
+
+/** Pix e dados públicos da casa (chave única para a loja). */
+export interface HouseSettings {
+  pix_key?: string;
+  pix_holder_name?: string;
+  updated_at?: string;
+}
+
+/** Produto da loja (hub público + App do Cliente). */
 export interface ShopProduct {
   id: string;
   name: string;
@@ -425,6 +438,23 @@ export interface ShopProduct {
   category?: string;
   available: boolean;
   sort_order: number;
+  /** físico = entrega; pdf/curso = digital (pode exigir pagamento). */
+  kind: ShopProductKind;
+  /** URL do PDF/curso após liberação. */
+  file_url?: string;
+  /** Se true, mostra cadeado até o Financeiro liberar a compra. */
+  requires_payment: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Pedido de compra na loja (PDF/curso bloqueado ou físico). */
+export interface ShopPurchase {
+  id: string;
+  product_id: string;
+  client_id: string;
+  status: ShopPurchaseStatus;
+  created_at: string;
+  updated_at: string;
+  released_by?: string;
 }

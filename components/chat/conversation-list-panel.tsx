@@ -28,6 +28,8 @@ type Props = {
   title?: string;
   subtitle?: string;
   className?: string;
+  /** clientId → URL da foto (perfil do cliente) */
+  avatarByClientId?: Record<string, string | undefined>;
   /** Só mostra quem já tem mensagem */
   onlyWithMessages?: boolean;
 };
@@ -80,6 +82,7 @@ export function ConversationListPanel({
   title = "Conversas",
   subtitle,
   className,
+  avatarByClientId,
   onlyWithMessages = true,
 }: Props) {
   const [q, setQ] = useState("");
@@ -141,7 +144,12 @@ export function ConversationListPanel({
                 href={hrefFor(clientId)}
                 className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3"
               >
-                <UserAvatar name={client.full_name} size="sm" className="h-12 w-12 shrink-0" />
+                <UserAvatar
+                  name={client.full_name}
+                  src={avatarByClientId?.[clientId]}
+                  size="sm"
+                  className="h-12 w-12 shrink-0"
+                />
                 <div className="min-w-0 flex-1 border-b-0">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-[16px] font-medium text-navy">

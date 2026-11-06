@@ -26,6 +26,7 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
     hideStaffChat,
     refreshCloudChat,
     syncStaffChatVisibility,
+    markChatNotificationsRead,
   } = useAppStore();
 
   const isStaff = currentUser?.role !== "cliente";
@@ -52,6 +53,10 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
     syncStaffChatVisibility();
   }, [isStaff, syncStaffChatVisibility, state.messages]);
 
+  useEffect(() => {
+    if (activeId) markChatNotificationsRead(activeId);
+  }, [activeId, markChatNotificationsRead]);
+
   if (!canAccess(currentUser?.role, "chat")) {
     return <>{children}</>;
   }
@@ -68,6 +73,14 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
     if (activeId === clientId) router.push("/conversas");
   }
 
+  const avatarByClientId = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const p of state.profiles ?? []) {
+      if (p.client_id && p.avatar_url) map[p.client_id] = p.avatar_url;
+    }
+    return map;
+  }, [state.profiles]);
+
   const list = (
     <ConversationListPanel
       messages={state.messages}
@@ -79,6 +92,7 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
       onHide={isStaff ? onHide : undefined}
       title="Conversas"
       subtitle="ILÉ OLÓRÒKÈ ÀṢẸ"
+      avatarByClientId={avatarByClientId}
       onlyWithMessages
       className="h-full min-h-0"
     />

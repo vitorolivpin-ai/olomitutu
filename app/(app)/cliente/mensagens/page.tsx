@@ -25,10 +25,11 @@ export default function ClienteMensagensPage() {
   const pai =
     state.profiles.find((u) => u.role === "pai_de_santo") ??
     state.profiles.find((u) => u.role === "administrador");
+  const paiDisplayName = pai?.full_name?.trim() || "Casa";
 
   const paiAsClient: Client = {
     id: "pai-thread",
-    full_name: pai?.full_name ?? "Pai de Santo",
+    full_name: paiDisplayName,
     phone: "—",
     registration_complete: true,
     created_at: new Date().toISOString(),
@@ -51,11 +52,11 @@ export default function ClienteMensagensPage() {
 
   const room = (
     <ChatRoom
-      title={pai?.full_name ?? "Pai de Santo"}
+      title={paiDisplayName}
       subtitle="Casa · ILÉ OLÓRÒKÈ ÀṢẸ"
       backHref="/cliente"
       hideBackOnDesktop
-      avatarName={pai?.full_name ?? "Pai de Santo"}
+      avatarName={paiDisplayName}
       avatarSrc={pai?.avatar_url}
       messages={messages}
       isMine={(msg) => msg.sender_role === "cliente"}

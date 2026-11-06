@@ -230,7 +230,8 @@ export default function ClienteHomePage() {
       <Card className="border-l-4 border-l-gold">
         <CardTitle>Loja da casa</CardTitle>
         <p className="mt-2 text-sm text-navy/65">
-          Produtos à venda — combine a retirada ou entrega pelo chat com o Pai.
+          Produtos, PDFs e cursos — Pix na hora. Conteúdo bloqueado libera após o
+          Financeiro confirmar o pagamento.
         </p>
         {shopPreview.length > 0 ? (
           <ul className="mt-3 space-y-2">
@@ -239,7 +240,10 @@ export default function ClienteHomePage() {
                 key={p.id}
                 className="flex items-center justify-between gap-2 rounded-xl bg-mist/60 px-3 py-2 text-sm"
               >
-                <span className="font-medium text-navy">{p.name}</span>
+                <span className="font-medium text-navy">
+                  {p.requires_payment ? "[bloqueado] " : ""}
+                  {p.name}
+                </span>
                 <span className="shrink-0 text-gold-deep">
                   R$ {p.price.toFixed(2).replace(".", ",")}
                 </span>

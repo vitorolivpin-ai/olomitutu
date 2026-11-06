@@ -46,7 +46,17 @@ export function loadSharedData(): SharedData {
       checklistProgress: parsed.checklistProgress ?? seed.checklistProgress,
       ajodunEvents: parsed.ajodunEvents ?? seed.ajodunEvents,
       photoAlbums: parsed.photoAlbums ?? seed.photoAlbums,
-      shopProducts: parsed.shopProducts ?? seed.shopProducts,
+      shopProducts: (parsed.shopProducts ?? seed.shopProducts).map((p) => ({
+        ...p,
+        kind: p.kind ?? "fisico",
+        requires_payment: p.requires_payment ?? false,
+        file_url: p.file_url,
+      })),
+      shopPurchases: parsed.shopPurchases ?? seed.shopPurchases ?? [],
+      houseSettings: {
+        ...(seed.houseSettings ?? {}),
+        ...(parsed.houseSettings ?? {}),
+      },
       staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
       staffHiddenAt: {
         ...Object.fromEntries(

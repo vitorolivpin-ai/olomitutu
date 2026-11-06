@@ -45,6 +45,7 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "expenses",
     "finance",
     "notifications",
+    "shop",
   ],
   pai_de_santo: [
     "dashboard",

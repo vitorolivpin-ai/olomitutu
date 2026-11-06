@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/hooks/use-app-store";
+import { unreadChatCountForRole } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
 
 const staffItems = [
@@ -64,23 +65,11 @@ export function BottomNav() {
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
 
-  const chatUnread =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador"
-      ? (state.notifications ?? []).filter(
-          (n) =>
-            !n.read &&
-            n.type === "chat" &&
-            (n.audience?.includes(currentUser.role) || !n.audience),
-        ).length
-      : currentUser?.role === "cliente"
-        ? (state.notifications ?? []).filter(
-            (n) =>
-              !n.read &&
-              n.type === "chat" &&
-              n.audience?.includes("cliente") &&
-              (!n.related_id || n.related_id === currentUser.client_id),
-          ).length
-        : 0;
+  const chatUnread = unreadChatCountForRole(
+    state.notifications ?? [],
+    currentUser?.role,
+    { clientId: currentUser?.client_id },
+  );
 
   const clientNotifUnread =
     currentUser?.role === "cliente"

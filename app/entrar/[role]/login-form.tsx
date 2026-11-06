@@ -97,15 +97,21 @@ export function LoginForm({ role, initialError }: Props) {
 
     const status = (profile.approval_status as string | null) ?? "approved";
     const requested = (profile.requested_role as string | null) ?? profile.role;
+    const signupArea = (profile.signup_area as string | null) ?? requested;
 
-    if (status === "pending" && (requested === role || profile.role === role)) {
+    if (
+      status === "pending" &&
+      (requested === role || profile.role === role || signupArea === role)
+    ) {
       await supabase.auth.signOut();
-      setError("Cadastro aguardando aprovação do Pai de Santo.");
+      setError(
+        "Cadastro aguardando aprovação do Pai de Santo. Quando aceito, entre de novo nesta mesma aba.",
+      );
       setPending(false);
       return;
     }
 
-    if (status === "rejected" && requested === role) {
+    if (status === "rejected" && (requested === role || signupArea === role)) {
       await supabase.auth.signOut();
       setError("Este cadastro foi recusado. Fale com a casa.");
       setPending(false);
@@ -114,13 +120,13 @@ export function LoginForm({ role, initialError }: Props) {
 
     if (profile.role !== role) {
       await supabase.auth.signOut();
-      const area =
-        (profile.signup_area as string | null) ||
-        (profile.requested_role as string | null) ||
-        profile.role;
-      setError(
-        `Esta conta é da área "${area}", não desta aba. Entre em /entrar/${area}.`,
-      );
+      if (status === "pending" && (signupArea === role || requested === role)) {
+        setError("Cadastro ainda pendente — o Pai precisa aceitar antes do acesso.");
+      } else {
+        setError(
+          `Esta conta é da área "${signupArea || profile.role}", não desta aba. Entre em /entrar/${signupArea || profile.role}.`,
+        );
+      }
       setPending(false);
       return;
     }

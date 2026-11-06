@@ -13,15 +13,20 @@ import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { roleLabel } from "@/lib/permissions";
 
 export default function PerfilPage() {
-  const { currentUser, updateProfile } = useAppStore();
+  const { currentUser, state, updateProfile, updateHouseSettings } = useAppStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const [pixKey, setPixKey] = useState("");
+  const [pixHolder, setPixHolder] = useState("");
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const canEditPix =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
   useEffect(() => {
     if (!currentUser) return;
@@ -29,7 +34,9 @@ export default function PerfilPage() {
     setEmail(currentUser.email);
     setPhone(currentUser.phone ?? "");
     setAvatarUrl(currentUser.avatar_url);
-  }, [currentUser]);
+    setPixKey(state.houseSettings?.pix_key ?? "");
+    setPixHolder(state.houseSettings?.pix_holder_name ?? "");
+  }, [currentUser, state.houseSettings]);
 
   if (!currentUser) {
     return <EmptyState title="Faça login para editar o perfil" />;
@@ -76,6 +83,16 @@ export default function PerfilPage() {
     if (!result.ok) {
       setError(result.error);
       return;
+    }
+    if (canEditPix) {
+      const pixResult = updateHouseSettings({
+        pix_key: pixKey,
+        pix_holder_name: pixHolder,
+      });
+      if (!pixResult.ok) {
+        setError(pixResult.error);
+        return;
+      }
     }
     setOk("Perfil salvo. Nome e foto passam a aparecer nas conversas e no menu.");
   }
@@ -153,6 +170,28 @@ export default function PerfilPage() {
               placeholder="(11) 90000-0000"
             />
           </div>
+          {canEditPix ? (
+            <>
+              <div>
+                <Label htmlFor="pix_key">Chave Pix da casa (aleatória ou e-mail/CPF)</Label>
+                <Input
+                  id="pix_key"
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value)}
+                  placeholder="Cole a chave Pix usada na loja"
+                />
+              </div>
+              <div>
+                <Label htmlFor="pix_holder">Nome no Pix (opcional)</Label>
+                <Input
+                  id="pix_holder"
+                  value={pixHolder}
+                  onChange={(e) => setPixHolder(e.target.value)}
+                  placeholder="ILÉ OLÓRÒKÈ ÀṢẸ"
+                />
+              </div>
+            </>
+          ) : null}
           {error ? <ErrorMessage message={error} /> : null}
           {ok ? <p className="text-sm text-success">{ok}</p> : null}
           <Button type="submit" className="w-full" disabled={saving}>

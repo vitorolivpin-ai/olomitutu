@@ -67,3 +67,22 @@ export function unreadCountForRole(
 ) {
   return notificationsForRole(list, role, opts).filter((n) => !n.read).length;
 }
+
+/** Badge de chat no menu — só conta o que ainda não foi aberto. */
+export function unreadChatCountForRole(
+  list: AppNotification[],
+  role: UserRole | null | undefined,
+  opts?: { clientId?: string | null },
+) {
+  if (!role) return 0;
+  return list.filter((n) => {
+    if (n.read || n.type !== "chat") return false;
+    if (n.audience?.length && !n.audience.includes(role)) return false;
+    if (role === "cliente") {
+      if (opts?.clientId && n.related_id && n.related_id !== opts.clientId) {
+        return false;
+      }
+    }
+    return true;
+  }).length;
+}
