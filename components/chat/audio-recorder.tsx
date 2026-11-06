@@ -1,35 +1,45 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Square, Trash2, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mic } from "lucide-react";
 import { blobToDataUrl, formatAudioDuration, pickAudioMimeType } from "@/lib/chat";
-import { AudioPlayer } from "@/components/chat/audio-player";
+import { cn } from "@/lib/utils";
 
 const MAX_SECONDS = 60;
+const MIN_MS = 350;
 
 type Props = {
   onSend: (payload: { dataUrl: string; durationSec: number }) => void;
   disabled?: boolean;
+  className?: string;
 };
 
-export function AudioRecorder({ onSend, disabled }: Props) {
-  const [phase, setPhase] = useState<"idle" | "recording" | "preview">("idle");
+/**
+ * Estilo WhatsApp: segura o microfone → grava; solta → envia sozinho.
+ * Usa touch + pointer para funcionar no iPhone/Android.
+ */
+export function AudioRecorder({ onSend, disabled, className }: Props) {
+  const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewDuration, setPreviewDuration] = useState(0);
   const [error, setError] = useState("");
+  const [armed, setArmed] = useState(false);
 
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
+  const holdingRef = useRef(false);
+  const cancelRef = useRef(false);
+  const startingRef = useRef(false);
+  const sendRef = useRef(onSend);
+  const activePointerRef = useRef<number | null>(null);
+  sendRef.current = onSend;
 
   useEffect(() => {
     return () => {
       cleanupStream();
-      if (timerRef.current) clearInterval(timerRef.current);
+      clearTimer();
     };
   }, []);
 
@@ -46,132 +56,209 @@ export function AudioRecorder({ onSend, disabled }: Props) {
     }
   }
 
-  async function startRecording() {
+  async function ensureMicPermission() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Mantém o stream para a gravação seguinte (evita diálogo no meio do “segurar”)
+    streamRef.current = stream;
+    setArmed(true);
+    return stream;
+  }
+
+  async function beginRecord() {
+    if (startingRef.current || (mediaRef.current && mediaRef.current.state !== "inactive")) {
+      return;
+    }
+    startingRef.current = true;
     setError("");
-    setPreviewUrl(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      let stream = streamRef.current;
+      if (!stream || stream.getTracks().some((t) => t.readyState !== "live")) {
+        stream = await ensureMicPermission();
+      }
+      if (!holdingRef.current || cancelRef.current) {
+        startingRef.current = false;
+        return;
+      }
+
       const mime = pickAudioMimeType();
       const recorder = mime
         ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 24000 })
         : new MediaRecorder(stream);
+
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = async () => {
         clearTimer();
-        const durationSec = Math.max(
-          1,
-          Math.round((Date.now() - startedAtRef.current) / 1000),
-        );
+        const durationMs = Date.now() - startedAtRef.current;
+        const durationSec = Math.max(1, Math.round(durationMs / 1000));
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
-        cleanupStream();
-        if (blob.size < 200) {
-          setError("Áudio muito curto. Tente de novo.");
-          setPhase("idle");
+        // Para o recorder, mas mantém tracks vivas para a próxima gravação
+        mediaRef.current = null;
+        setRecording(false);
+        setElapsed(0);
+        startingRef.current = false;
+        activePointerRef.current = null;
+
+        if (cancelRef.current) return;
+        if (durationMs < MIN_MS || blob.size < 200) {
+          setError("Segure o botão para gravar.");
           return;
         }
         try {
           const dataUrl = await blobToDataUrl(blob);
-          setPreviewUrl(dataUrl);
-          setPreviewDuration(durationSec);
-          setPhase("preview");
+          sendRef.current({ dataUrl, durationSec });
+          setError("");
         } catch {
-          setError("Não foi possível preparar o áudio.");
-          setPhase("idle");
+          setError("Não foi possível enviar o áudio.");
         }
       };
+
       mediaRef.current = recorder;
       startedAtRef.current = Date.now();
       setElapsed(0);
-      setPhase("recording");
-      recorder.start(250);
+      setRecording(true);
+      recorder.start(100);
       timerRef.current = setInterval(() => {
         const sec = Math.round((Date.now() - startedAtRef.current) / 1000);
         setElapsed(sec);
-        if (sec >= MAX_SECONDS) {
-          stopRecording();
-        }
-      }, 250);
+        if (sec >= MAX_SECONDS) stopAndSend();
+      }, 200);
     } catch {
-      setError("Permita o microfone no navegador para gravar áudio.");
-      setPhase("idle");
+      setError("Permita o microfone e segure de novo.");
+      setRecording(false);
+      setArmed(false);
       cleanupStream();
+    } finally {
+      startingRef.current = false;
     }
   }
 
-  function stopRecording() {
+  function stopAndSend() {
     const recorder = mediaRef.current;
     if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.requestData?.();
+      } catch {
+        // ignore
+      }
       recorder.stop();
     } else {
-      cleanupStream();
       clearTimer();
-      setPhase("idle");
+      setRecording(false);
+      setElapsed(0);
+      startingRef.current = false;
     }
   }
 
-  function cancelPreview() {
-    setPreviewUrl(null);
-    setPreviewDuration(0);
-    setPhase("idle");
-    setElapsed(0);
+  function pressStart(pointerId: number, target: HTMLElement) {
+    if (disabled) return;
+    if (activePointerRef.current !== null && activePointerRef.current !== pointerId) return;
+    activePointerRef.current = pointerId;
+    try {
+      target.setPointerCapture(pointerId);
+    } catch {
+      // ignore
+    }
+    holdingRef.current = true;
+    cancelRef.current = false;
+    setError("");
+    void beginRecord();
   }
 
-  function sendPreview() {
-    if (!previewUrl) return;
-    onSend({ dataUrl: previewUrl, durationSec: previewDuration });
-    cancelPreview();
+  function pressEnd(pointerId: number) {
+    if (activePointerRef.current !== null && activePointerRef.current !== pointerId) return;
+    holdingRef.current = false;
+    if (mediaRef.current && mediaRef.current.state !== "inactive") {
+      stopAndSend();
+    } else if (startingRef.current) {
+      // Soltou durante getUserMedia / start — cancela se ainda não gravou
+      // (se gravar começar depois e holding já for false, beginRecord sai cedo)
+    }
   }
 
-  if (phase === "recording") {
-    return (
-      <div className="flex items-center gap-2 rounded-2xl border border-danger/20 bg-danger/5 px-3 py-2">
-        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
-        <p className="flex-1 text-sm font-medium text-navy">
-          Gravando {formatAudioDuration(elapsed)}
-          <span className="ml-1 text-navy/45">/ {formatAudioDuration(MAX_SECONDS)}</span>
-        </p>
-        <Button type="button" variant="danger" onClick={stopRecording} aria-label="Parar gravação">
-          <Square className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
-
-  if (phase === "preview" && previewUrl) {
-    return (
-      <div className="space-y-2 rounded-2xl border border-navy/10 bg-mist/60 p-3">
-        <AudioPlayer src={previewUrl} durationSec={previewDuration} />
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" onClick={cancelPreview} className="flex-1">
-            <Trash2 className="h-4 w-4" /> Descartar
-          </Button>
-          <Button type="button" onClick={sendPreview} className="flex-1">
-            <Send className="h-4 w-4" /> Enviar áudio
-          </Button>
-        </div>
-      </div>
-    );
+  function pressCancel(pointerId: number) {
+    if (activePointerRef.current !== null && activePointerRef.current !== pointerId) return;
+    holdingRef.current = false;
+    cancelRef.current = true;
+    stopAndSend();
+    activePointerRef.current = null;
   }
 
   return (
-    <div className="space-y-1">
-      <Button
+    <div className={cn("relative flex flex-col items-center", className)}>
+      {recording ? (
+        <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-danger px-3 py-1.5 text-xs font-semibold text-white shadow-soft">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+          {formatAudioDuration(elapsed)} · solte p/ enviar
+        </div>
+      ) : null}
+      <button
         type="button"
-        variant="secondary"
-        onClick={startRecording}
         disabled={disabled}
-        aria-label="Gravar áudio"
-        className="w-full sm:w-auto"
+        aria-label="Segure para gravar áudio; solte para enviar"
+        // Pointer cobre mouse + touch moderno
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pressStart(e.pointerId, e.currentTarget);
+        }}
+        onPointerUp={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pressEnd(e.pointerId);
+        }}
+        onPointerCancel={(e) => {
+          e.preventDefault();
+          pressCancel(e.pointerId);
+        }}
+        onLostPointerCapture={(e) => {
+          pressEnd(e.pointerId);
+        }}
+        // Fallback só se não houver Pointer Events (evita double-fire no iOS)
+        onTouchStart={(e) => {
+          if (typeof window !== "undefined" && "PointerEvent" in window) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const t = e.changedTouches[0];
+          if (!t) return;
+          pressStart(t.identifier, e.currentTarget);
+        }}
+        onTouchEnd={(e) => {
+          if (typeof window !== "undefined" && "PointerEvent" in window) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const t = e.changedTouches[0];
+          if (!t) return;
+          pressEnd(t.identifier);
+        }}
+        onTouchCancel={(e) => {
+          if (typeof window !== "undefined" && "PointerEvent" in window) return;
+          const t = e.changedTouches[0];
+          if (!t) return;
+          pressCancel(t.identifier);
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+        className={cn(
+          "flex h-14 w-14 shrink-0 touch-none select-none items-center justify-center rounded-full transition [-webkit-touch-callout:none] [-webkit-user-select:none]",
+          recording
+            ? "scale-110 bg-danger text-white shadow-soft"
+            : "bg-navy text-white hover:bg-navy/90 disabled:opacity-40",
+        )}
       >
-        <Mic className="h-4 w-4" /> Áudio
-      </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+        <Mic className="h-6 w-6" />
+      </button>
+      {!recording ? (
+        <p className="mt-1 max-w-[7.5rem] text-center text-[10px] leading-tight text-navy/50">
+          {armed ? "Segure p/ gravar" : "Segure o microfone"}
+        </p>
+      ) : null}
+      {error && !recording ? (
+        <p className="mt-1 max-w-[9rem] text-center text-[10px] text-danger">{error}</p>
+      ) : null}
     </div>
   );
 }

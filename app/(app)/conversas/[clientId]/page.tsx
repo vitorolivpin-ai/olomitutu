@@ -152,7 +152,7 @@ export default function ChatPage() {
               Anotação interna (não aparece para o cliente)
             </label>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -160,14 +160,18 @@ export default function ChatPage() {
               placeholder={internal ? "Anotação interna..." : "Mensagem..."}
               className="min-h-12"
             />
-            <Button type="submit" className="shrink-0 self-end" aria-label="Enviar">
-              <Send className="h-5 w-5" />
-            </Button>
+            {body.trim() || internal ? (
+              <Button type="submit" className="h-12 w-12 shrink-0 rounded-full p-0" aria-label="Enviar">
+                <Send className="h-5 w-5" />
+              </Button>
+            ) : (
+              <AudioRecorder onSend={onSendAudio} />
+            )}
           </div>
           {!internal ? (
-            <div className="flex flex-wrap gap-2">
-              <AudioRecorder onSend={onSendAudio} />
+            <div className="flex flex-wrap items-center gap-2">
               <VideoAttach onSend={onSendVideo} />
+              <p className="text-[11px] text-navy/45">Segure o microfone para gravar áudio</p>
             </div>
           ) : (
             <p className="text-xs text-navy/45">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,12 +11,17 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { formatDate } from "@/lib/format";
 
 export default function ClientsPage() {
-  const { state, upsertClient, currentUser } = useAppStore();
+  const { state, upsertClient, removeClient, currentUser } = useAppStore();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const canManage =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
   const clients =
     currentUser?.role === "cliente"
@@ -38,6 +43,21 @@ export default function ClientsPage() {
     setNotes("");
   }
 
+  async function onDelete(clientId: string, name: string) {
+    if (
+      !confirm(
+        `Excluir “${name}” da lista de clientes?\n\nIsso remove jogos, mensagens e anotações ligados a esta pessoa.`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setDeletingId(clientId);
+    const result = await removeClient(clientId);
+    setDeletingId(null);
+    if (!result.ok) setError(result.error);
+  }
+
   return (
     <div className="animate-rise space-y-5">
       <div className="flex items-start justify-between gap-3">
@@ -51,6 +71,8 @@ export default function ClientsPage() {
           </Button>
         ) : null}
       </div>
+
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       {open ? (
         <Card>
@@ -73,7 +95,9 @@ export default function ClientsPage() {
             </div>
             <div className="sm:col-span-2 flex gap-2">
               <Button type="submit">Salvar</Button>
-              <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
             </div>
           </form>
         </Card>
@@ -85,14 +109,28 @@ export default function ClientsPage() {
             (a) => a.client_id === client.id && a.status === "REALIZADO",
           ).length;
           return (
-            <Link key={client.id} href={`/clientes/${client.id}`}>
-              <Card className="hover:border-gold/40">
-                <p className="font-display text-xl text-navy">{client.full_name}</p>
-                <p className="text-sm text-navy/60">
-                  {client.phone} · desde {formatDate(client.created_at)} · {games} jogos
-                </p>
-              </Card>
-            </Link>
+            <Card key={client.id} className="hover:border-gold/40">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <Link href={`/clientes/${client.id}`} className="min-w-0 flex-1">
+                  <p className="font-display text-xl text-navy">{client.full_name}</p>
+                  <p className="text-sm text-navy/60">
+                    {client.phone} · desde {formatDate(client.created_at)} · {games} jogos
+                  </p>
+                </Link>
+                {canManage ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    disabled={deletingId === client.id}
+                    onClick={() => void onDelete(client.id, client.full_name)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingId === client.id ? "Excluindo…" : "Excluir"}
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
           );
         })}
         {clients.length === 0 ? <EmptyState title="Nenhum cliente" /> : null}

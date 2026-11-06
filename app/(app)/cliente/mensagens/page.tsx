@@ -100,7 +100,7 @@ export default function ClienteMensagensPage() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-2 border-t border-navy/10 bg-white p-3">
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -108,13 +108,17 @@ export default function ClienteMensagensPage() {
               placeholder="Escreva sua mensagem..."
               className="min-h-12"
             />
-            <Button type="submit" className="shrink-0 self-end" aria-label="Enviar">
-              <Send className="h-5 w-5" />
-            </Button>
+            {body.trim() ? (
+              <Button type="submit" className="h-12 w-12 shrink-0 rounded-full p-0" aria-label="Enviar">
+                <Send className="h-5 w-5" />
+              </Button>
+            ) : (
+              <AudioRecorder onSend={onSendAudio} />
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <AudioRecorder onSend={onSendAudio} />
+          <div className="flex flex-wrap items-center gap-2">
             <VideoAttach onSend={onSendVideo} />
+            <p className="text-[11px] text-navy/45">Segure o microfone para gravar áudio</p>
           </div>
         </form>
       </Card>

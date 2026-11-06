@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Menu } from "lucide-react";
 import { BottomNav } from "./bottom-nav";
 import { Sidebar } from "./sidebar";
+import { ChatAlertWatcher } from "@/components/chat/chat-alert-watcher";
 import { useAppStore } from "@/hooks/use-app-store";
 import { LoadingBlock } from "@/components/ui/empty-state";
 import { appLabelForRole, canAccess, type AppModule } from "@/lib/permissions";
@@ -73,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const sessionId = state.currentUserId;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -126,11 +129,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-app">
-      <Sidebar />
+      <ChatAlertWatcher />
+      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-navy/10 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="rounded-xl p-2 text-navy transition hover:bg-navy/5"
+            aria-label="Abrir menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
           <BrandMark className="h-12 w-12 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="font-display text-xs text-gold-deep">
               {appLabelForRole(currentUser.role)}
             </p>

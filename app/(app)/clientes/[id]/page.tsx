@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
@@ -14,9 +15,12 @@ import { canAccess } from "@/lib/permissions";
 
 export default function ClientDetailPage() {
   const params = useParams<{ id: string }>();
-  const { state, currentUser, addInternalNote } = useAppStore();
+  const router = useRouter();
+  const { state, currentUser, addInternalNote, removeClient } = useAppStore();
   const client = state.clients.find((c) => c.id === params.id);
   const [note, setNote] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   if (!client) {
     return <EmptyState title="Cliente não encontrado" />;
@@ -40,6 +44,8 @@ export default function ClientDetailPage() {
   const messages = state.messages.filter((m) => m.client_id === currentClient.id);
   const notes = state.internalNotes.filter((n) => n.client_id === currentClient.id);
   const canSeeNotes = canAccess(currentUser?.role, "internal_notes");
+  const canManage =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
   function onNote(e: FormEvent) {
     e.preventDefault();
@@ -48,17 +54,52 @@ export default function ClientDetailPage() {
     setNote("");
   }
 
+  async function onDelete() {
+    if (
+      !confirm(
+        `Excluir “${currentClient.full_name}”?\n\nRemove jogos, mensagens e anotações ligados a esta pessoa.`,
+      )
+    ) {
+      return;
+    }
+    setDeleteError("");
+    setDeleting(true);
+    const result = await removeClient(currentClient.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      return;
+    }
+    router.replace("/clientes");
+  }
+
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/clientes" className="text-sm text-navy/55 hover:text-navy">
-          ← Clientes
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{currentClient.full_name}</h1>
-        <p className="text-sm text-navy/60">
-          {currentClient.phone}
-          {currentClient.email ? ` · ${currentClient.email}` : ""} · desde {formatDate(currentClient.created_at)}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link href="/clientes" className="text-sm text-navy/55 hover:text-navy">
+            ← Clientes
+          </Link>
+          <h1 className="font-display text-3xl text-navy">{currentClient.full_name}</h1>
+          <p className="text-sm text-navy/60">
+            {currentClient.phone}
+            {currentClient.email ? ` · ${currentClient.email}` : ""} · desde{" "}
+            {formatDate(currentClient.created_at)}
+          </p>
+          {deleteError ? <p className="mt-2 text-sm text-danger">{deleteError}</p> : null}
+        </div>
+        {canManage ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            disabled={deleting}
+            onClick={() => void onDelete()}
+          >
+            <Trash2 className="h-4 w-4" />
+            {deleting ? "Excluindo…" : "Excluir cliente"}
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

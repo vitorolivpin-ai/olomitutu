@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { EnablePushBanner } from "@/components/chat/enable-push-banner";
+import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -24,6 +26,8 @@ export default function ConversationsPage() {
   }
 
   const isStaff = currentUser?.role !== "cliente";
+  const showPushBanner =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
   const hidden = new Set(state.staffHiddenClientIds ?? []);
 
   const clientIds =
@@ -66,6 +70,13 @@ export default function ConversationsPage() {
           histórico.
         </p>
       </div>
+
+      {showPushBanner ? (
+        <>
+          <InstallAppBanner />
+          <EnablePushBanner />
+        </>
+      ) : null}
 
       <div className="grid gap-3">
         {threads.map(({ client, last, count, clientId }) => (

@@ -20,12 +20,13 @@ import {
   UserRound,
   Wallet,
   Bell,
+  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
-import { CLIENT_WHATSAPP } from "@/lib/client-whatsapp";
+import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import { unreadCountForRole } from "@/lib/notifications";
 import { appLabelForRole, canAccess, roleLabel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -103,7 +104,12 @@ const clientLinks = [
   },
 ];
 
-export function Sidebar() {
+type SidebarProps = {
+  open?: boolean;
+  onClose?: () => void;
+};
+
+export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { currentUser, state } = useAppStore();
   const [mounted, setMounted] = useState(false);
@@ -111,7 +117,6 @@ export function Sidebar() {
   const isStockApp = currentUser?.role === "estoque";
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
-  // Badge só depois do mount — localStorage ≠ seed do SSR (evita hydration mismatch)
   const unread = mounted
     ? unreadCountForRole(state.notifications, currentUser?.role)
     : 0;
@@ -119,6 +124,20 @@ export function Sidebar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fecha o drawer ao trocar de página no celular
+  useEffect(() => {
+    onClose?.();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   const links = isClient
     ? clientLinks
@@ -130,15 +149,25 @@ export function Sidebar() {
           ? paiLinks
           : staffLinks.filter((l) => canAccess(currentUser?.role, l.module) || l.href === "/menu");
 
-  return (
-    <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-navy/10 md:bg-white/80 md:backdrop-blur">
+  const panel = (
+    <>
       <div className="flex items-center gap-3 border-b border-navy/10 px-5 py-5">
         <BrandMark className="h-16 w-16 shrink-0" />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
             {appLabelForRole(currentUser?.role)}
           </p>
         </div>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-navy/55 transition hover:bg-navy/5 hover:text-navy md:hidden"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        ) : null}
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {links.map((link) => {
@@ -175,19 +204,27 @@ export function Sidebar() {
           );
           if (external) {
             return (
-              <a
+              <button
                 key={`${link.href}-${link.label}`}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={className}
+                type="button"
+                className={cn(className, "w-full text-left")}
+                onClick={() => {
+                  // Fecha depois — se fechar antes, o iOS cancela o WhatsApp
+                  openWhatsApp(link.href);
+                  window.setTimeout(() => onClose?.(), 300);
+                }}
               >
                 {content}
-              </a>
+              </button>
             );
           }
           return (
-            <Link key={`${link.href}-${link.label}`} href={link.href} className={className}>
+            <Link
+              key={`${link.href}-${link.label}`}
+              href={link.href}
+              className={className}
+              onClick={() => onClose?.()}
+            >
               {content}
             </Link>
           );
@@ -197,6 +234,7 @@ export function Sidebar() {
         <Link
           href={isClient ? "/cliente/cadastro" : "/perfil"}
           className="flex items-center gap-3 border-t border-navy/10 p-4 text-sm transition hover:bg-navy/5"
+          onClick={() => onClose?.()}
         >
           <UserAvatar
             name={currentUser.full_name}
@@ -209,6 +247,42 @@ export function Sidebar() {
           </div>
         </Link>
       ) : null}
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: coluna fixa */}
+      <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-navy/10 md:bg-white/80 md:backdrop-blur">
+        {panel}
+      </aside>
+
+      {/* Mobile: drawer lateral */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 md:hidden",
+          open ? "pointer-events-auto" : "pointer-events-none",
+        )}
+        aria-hidden={!open}
+      >
+        <button
+          type="button"
+          className={cn(
+            "absolute inset-0 bg-navy/40 transition-opacity",
+            open ? "opacity-100" : "opacity-0",
+          )}
+          aria-label="Fechar menu"
+          onClick={onClose}
+        />
+        <aside
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-navy/10 bg-white shadow-soft transition-transform duration-300 ease-out",
+            open ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          {panel}
+        </aside>
+      </div>
+    </>
   );
 }

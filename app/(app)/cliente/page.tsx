@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
-import { CLIENT_WHATSAPP } from "@/lib/client-whatsapp";
+import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import { isClientRegistrationComplete } from "@/lib/client-registration";
 import { BLOG_CATEGORY_LABEL } from "@/lib/house-content";
 import { LIBRARY_KIND_LABEL, sortLibrary } from "@/lib/library";
@@ -244,16 +244,14 @@ export default function ClienteHomePage() {
             <p className="mt-2 text-sm text-navy/65">
               Fale direto com o Pai de Santo pelo WhatsApp.
             </p>
-            <a
-              href={CLIENT_WHATSAPP.duvidas.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 block"
+            <Button
+              variant="gold"
+              className="mt-4 w-full"
+              type="button"
+              onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
             >
-              <Button variant="gold" className="w-full">
-                Abrir WhatsApp
-              </Button>
-            </a>
+              Abrir WhatsApp
+            </Button>
           </div>
         </div>
       </Card>
@@ -268,16 +266,14 @@ export default function ClienteHomePage() {
             <p className="mt-2 text-sm text-navy/65">
               Entre no grupo da casa no WhatsApp, se quiser.
             </p>
-            <a
-              href={CLIENT_WHATSAPP.grupo.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 block"
+            <Button
+              variant="secondary"
+              className="mt-4 w-full"
+              type="button"
+              onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
             >
-              <Button variant="secondary" className="w-full">
-                Entrar no grupo
-              </Button>
-            </a>
+              Entrar no grupo
+            </Button>
           </div>
         </div>
       </Card>

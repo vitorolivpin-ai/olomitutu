@@ -38,10 +38,12 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
 
 export function pickAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
+  // iPhone/Safari costuma só aceitar mp4; Chrome prefere webm
   const candidates = [
+    "audio/mp4",
+    "audio/aac",
     "audio/webm;codecs=opus",
     "audio/webm",
-    "audio/mp4",
     "audio/ogg;codecs=opus",
   ];
   return candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";

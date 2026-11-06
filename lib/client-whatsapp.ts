@@ -9,3 +9,12 @@ export const CLIENT_WHATSAPP = {
     href: "https://chat.whatsapp.com/C7B3qnLoDbTDPna2SBQ6MX",
   },
 } as const;
+
+/**
+ * Abre WhatsApp de forma confiável no celular.
+ * `target=_blank` + fechar drawer no mesmo clique costuma cancelar a navegação no iOS.
+ */
+export function openWhatsApp(href: string) {
+  if (typeof window === "undefined") return;
+  window.location.assign(href);
+}

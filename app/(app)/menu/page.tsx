@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { BrandMark } from "@/components/brand/logo";
+import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
 import { roleLabel, canAccess } from "@/lib/permissions";
@@ -53,6 +54,8 @@ export default function MenuPage() {
           <p className="text-sm text-navy/60">ILÉ OLÓRÒKÈ ÀṢẸ · OLÓMÌ TÚTÙ</p>
         </div>
       </div>
+
+      <InstallAppBanner />
 
       <Card>
         <div className="flex items-center gap-4">

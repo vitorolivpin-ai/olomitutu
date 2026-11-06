@@ -12,10 +12,11 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
+import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
-import { CLIENT_WHATSAPP } from "@/lib/client-whatsapp";
+import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 
 const appLinks = [
   { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
@@ -46,6 +47,8 @@ export default function ClienteContaPage() {
         </div>
       </div>
 
+      <InstallAppBanner />
+
       <nav className="space-y-1">
         {appLinks.map((link) => {
           const Icon = link.icon;
@@ -61,25 +64,23 @@ export default function ClienteContaPage() {
           );
         })}
 
-        <a
-          href={CLIENT_WHATSAPP.duvidas.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-navy/70 transition hover:bg-navy/5"
+        <button
+          type="button"
+          onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-navy/70 transition hover:bg-navy/5"
         >
           <WhatsAppIcon className="h-5 w-5 text-gold-deep" />
           <span>{CLIENT_WHATSAPP.duvidas.label}</span>
-        </a>
+        </button>
 
-        <a
-          href={CLIENT_WHATSAPP.grupo.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-navy/70 transition hover:bg-navy/5"
+        <button
+          type="button"
+          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-navy/70 transition hover:bg-navy/5"
         >
           <WhatsAppIcon className="h-5 w-5 shrink-0 text-gold-deep" />
           <span className="leading-snug">{CLIENT_WHATSAPP.grupo.label}</span>
-        </a>
+        </button>
       </nav>
 
       <Button

@@ -103,6 +103,7 @@ type AppStore = {
   ) => MonthlyFee | null;
   upsertExpense: (expense: Omit<Expense, "id" | "created_at" | "updated_at"> & { id?: string }) => Expense;
   upsertClient: (client: Omit<Client, "id" | "created_at" | "updated_at"> & { id?: string }) => Client;
+  removeClient: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   saveClientRegistration: (input: {
     full_name: string;
     birth_date: string;
@@ -831,6 +832,48 @@ export function AppStoreProvider({
     [commit],
   );
 
+  const removeClient: AppStore["removeClient"] = useCallback(
+    async (id) => {
+      if (
+        !currentUser ||
+        (currentUser.role !== "pai_de_santo" && currentUser.role !== "administrador")
+      ) {
+        return { ok: false, error: "Sem permissão para excluir cliente." };
+      }
+
+      if (isSupabaseConfigured() && isUuid(id)) {
+        const supabase = createBrowserClient();
+        if (!supabase) {
+          return { ok: false, error: "Supabase não configurado." };
+        }
+        const { error } = await supabase.from("clients").delete().eq("id", id);
+        if (error) {
+          return {
+            ok: false,
+            error:
+              error.message.includes("row-level security") || error.message.includes("RLS")
+                ? "Sem permissão no banco para excluir este cliente."
+                : error.message,
+          };
+        }
+      }
+
+      commit((prev) => ({
+        ...prev,
+        clients: prev.clients.filter((c) => c.id !== id),
+        messages: prev.messages.filter((m) => m.client_id !== id),
+        appointments: prev.appointments.filter((a) => a.client_id !== id),
+        internalNotes: prev.internalNotes.filter((n) => n.client_id !== id),
+        staffHiddenClientIds: (prev.staffHiddenClientIds ?? []).filter((x) => x !== id),
+        profiles: prev.profiles.map((p) =>
+          p.client_id === id ? { ...p, client_id: undefined } : p,
+        ),
+      }));
+      return { ok: true };
+    },
+    [commit, currentUser],
+  );
+
   const saveClientRegistration: AppStore["saveClientRegistration"] = useCallback(
     (input) => {
       if (!currentUser || currentUser.role !== "cliente" || !currentUser.client_id) {
@@ -1295,6 +1338,19 @@ export function AppStoreProvider({
                   : m,
               ),
             }));
+
+            // Avisa o Pai no celular (Web Push), se estiver inscrito
+            if (currentUser.role === "cliente") {
+              void fetch("/api/push/notify-chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  client_id: input.client_id,
+                  preview: body,
+                  sender_name: currentUser.full_name,
+                }),
+              }).catch(() => null);
+            }
           })();
         }
       } else if (isSupabaseConfigured() && !isUuid(input.client_id)) {
@@ -2208,6 +2264,7 @@ export function AppStoreProvider({
     confirmFeePayment,
     upsertExpense,
     upsertClient,
+    removeClient,
     saveClientRegistration,
     createAppointment,
     updateAppointmentStatus,

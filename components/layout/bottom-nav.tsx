@@ -58,11 +58,21 @@ const clientItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { currentUser } = useAppStore();
+  const { currentUser, state } = useAppStore();
   const isClient = currentUser?.role === "cliente";
   const isStockApp = currentUser?.role === "estoque";
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
+
+  const chatUnread =
+    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador"
+      ? (state.notifications ?? []).filter(
+          (n) =>
+            !n.read &&
+            n.type === "chat" &&
+            (n.audience?.includes(currentUser.role) || !n.audience),
+        ).length
+      : 0;
 
   const visible = isClient
     ? clientItems
@@ -102,16 +112,24 @@ export function BottomNav() {
                 : item.href === "/estoque"
                   ? pathname === "/estoque"
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const showChatBadge = item.href === "/conversas" && chatUnread > 0 && !active;
           return (
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
                 className={cn(
-                  "flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium",
+                  "relative flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium",
                   active ? "text-navy" : "text-navy/45",
                 )}
               >
-                <Icon className={cn("h-5 w-5", active && "text-gold-deep")} />
+                <span className="relative">
+                  <Icon className={cn("h-5 w-5", active && "text-gold-deep")} />
+                  {showChatBadge ? (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-semibold text-white">
+                      {chatUnread > 9 ? "9+" : chatUnread}
+                    </span>
+                  ) : null}
+                </span>
                 {item.label}
               </Link>
             </li>
