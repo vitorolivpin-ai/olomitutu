@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile, UserRole } from "@/types";
 
 export type ProfileRow = {
@@ -15,6 +16,36 @@ export type ProfileRow = {
   created_at?: string;
   updated_at?: string;
 };
+
+const PROFILE_SELECT_FULL =
+  "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, person_kind, signup_area, created_at, updated_at";
+
+/** Sem colunas da migration 014 — se o banco ainda não tiver person_kind. */
+const PROFILE_SELECT_BASE =
+  "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, created_at, updated_at";
+
+/** Lê o perfil; faz fallback se colunas novas ainda não existirem no Supabase. */
+export async function fetchProfileRow(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ProfileRow | null> {
+  const full = await supabase
+    .from("profiles")
+    .select(PROFILE_SELECT_FULL)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!full.error && full.data) return full.data as ProfileRow;
+
+  const base = await supabase
+    .from("profiles")
+    .select(PROFILE_SELECT_BASE)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!base.error && base.data) return base.data as ProfileRow;
+  return null;
+}
 
 export function mapProfileRow(row: ProfileRow): Profile {
   return {

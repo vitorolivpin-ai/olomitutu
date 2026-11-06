@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { areaTitle } from "@/lib/demo-accounts";
 import { homePathForRole } from "@/lib/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { fetchProfileRow } from "@/lib/supabase/profile";
 import type { UserRole } from "@/types";
 
 type Props = {
@@ -51,16 +52,12 @@ export function LoginForm({ role, initialError }: Props) {
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, role, requested_role, approval_status")
-      .eq("id", data.user.id)
-      .maybeSingle();
+    const profile = await fetchProfileRow(supabase, data.user.id);
 
-    if (profileError || !profile) {
+    if (!profile) {
       await supabase.auth.signOut();
       setError(
-        "Perfil não encontrado. No Supabase, rode o SQL que cria o perfil do Pai.",
+        "Perfil não encontrado. No Supabase SQL Editor, rode o script que cria o perfil (Auth → Users precisa existir antes).",
       );
       setPending(false);
       return;

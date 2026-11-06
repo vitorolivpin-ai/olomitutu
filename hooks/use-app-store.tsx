@@ -20,7 +20,11 @@ import {
   type SharedData,
 } from "@/lib/storage";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { mapProfileRow, mergeAuthProfile, type ProfileRow } from "@/lib/supabase/profile";
+import {
+  fetchProfileRow,
+  mapProfileRow,
+  mergeAuthProfile,
+} from "@/lib/supabase/profile";
 import { nowIso, uid } from "@/lib/utils";
 import type {
   AppNotification,
@@ -240,13 +244,7 @@ export function AppStoreProvider({
         markReady();
         return;
       }
-      const { data: row } = await supabase!
-        .from("profiles")
-        .select(
-          "id, full_name, email, role, phone, client_id, avatar_url, requested_role, approval_status, person_kind, signup_area, created_at, updated_at",
-        )
-        .eq("id", userId)
-        .maybeSingle();
+      const row = await fetchProfileRow(supabase!, userId);
       if (cancelled) return;
       if (!row) {
         // Sessão Auth sem linha em profiles → não fica preso no loading
@@ -258,7 +256,7 @@ export function AppStoreProvider({
         markReady();
         return;
       }
-      const authProfile = mapProfileRow(row as ProfileRow);
+      const authProfile = mapProfileRow(row);
       setState((prev) => {
         const profiles = mergeAuthProfile(prev.profiles, authProfile);
         const next = { ...prev, profiles, currentUserId: authProfile.id };
