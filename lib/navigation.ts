@@ -11,3 +11,11 @@ export function homePathForRole(role: UserRole | null | undefined) {
 export function isClientPortalPath(pathname: string) {
   return pathname === "/cliente" || pathname.startsWith("/cliente/");
 }
+
+export function isMemberPortalPath(pathname: string) {
+  return (
+    isClientPortalPath(pathname) ||
+    pathname === "/filho" ||
+    pathname.startsWith("/filho/")
+  );
+}

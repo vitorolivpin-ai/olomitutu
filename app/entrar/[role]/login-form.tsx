@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { areaTitle } from "@/lib/demo-accounts";
 import { useAppStore } from "@/hooks/use-app-store";
+import { homePathForUser } from "@/lib/filho";
 import { homePathForRole } from "@/lib/navigation";
 import { getSupabasePublicEnv } from "@/lib/supabase/config";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -136,9 +137,10 @@ export function LoginForm({ role, initialError }: Props) {
       return;
     }
 
-    hydrateAuthProfile(mapProfileRow(profile));
+    const mapped = mapProfileRow(profile);
+    hydrateAuthProfile(mapped);
     // Navegação completa: garante cookies Auth + store hidratado na área
-    window.location.assign(homePathForRole(role));
+    window.location.assign(homePathForUser(mapped) || homePathForRole(role));
   }
 
   return (

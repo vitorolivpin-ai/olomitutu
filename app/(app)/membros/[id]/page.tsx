@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input, Label, Select } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { memberFinance } from "@/lib/finance";
 import {
@@ -15,17 +17,48 @@ import {
   formatDate,
   formatDateTime,
 } from "@/lib/format";
+import { CHECKLIST_LEVEL_LABEL } from "@/lib/house-content";
+import type { ChecklistLevel } from "@/types";
 
 export default function MemberDetailPage() {
   const params = useParams<{ id: string }>();
-  const { state, generateFee } = useAppStore();
+  const { state, generateFee, upsertMember } = useAppStore();
   const member = state.members.find((m) => m.id === params.id);
+  const [amount, setAmount] = useState("");
+  const [dueDay, setDueDay] = useState("");
+  const [level, setLevel] = useState<ChecklistLevel | "">("");
+  const [saved, setSaved] = useState(false);
 
   if (!member) {
     return <EmptyState title="Membro não encontrado" action={<Link href="/membros"><Button>Voltar</Button></Link>} />;
   }
 
-  const finance = memberFinance(member, state.monthlyFees);
+  const current = member;
+  const finance = memberFinance(current, state.monthlyFees);
+  const amountValue = amount || String(current.monthly_fee_amount);
+  const dueValue = dueDay || String(current.due_day);
+  const levelValue = level || current.checklist_level || "";
+
+  function onSaveFee(e: FormEvent) {
+    e.preventDefault();
+    upsertMember({
+      id: current.id,
+      full_name: current.full_name,
+      phone: current.phone,
+      email: current.email,
+      monthly_fee_amount: Number(amountValue),
+      due_day: Number(dueValue),
+      entry_date: current.entry_date,
+      status: current.status,
+      admin_notes: current.admin_notes,
+      profile_id: current.profile_id,
+      checklist_level: levelValue
+        ? (levelValue as ChecklistLevel)
+        : current.checklist_level,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
 
   return (
     <div className="animate-rise space-y-5">
@@ -34,16 +67,69 @@ export default function MemberDetailPage() {
           <Link href="/membros" className="text-sm text-navy/55 hover:text-navy">
             ← Membros
           </Link>
-          <h1 className="font-display text-3xl text-navy">{member.full_name}</h1>
-          <p className="text-sm text-navy/60">{member.phone}{member.email ? ` · ${member.email}` : ""}</p>
+          <h1 className="font-display text-3xl text-navy">{current.full_name}</h1>
+          <p className="text-sm text-navy/60">{current.phone}{current.email ? ` · ${current.email}` : ""}</p>
+          {current.profile_id ? (
+            <p className="mt-1 text-xs text-leaf">
+              Conta de Filho de Santo vinculada — cobranças notificam no app.
+            </p>
+          ) : null}
         </div>
         <Button
           variant="gold"
-          onClick={() => generateFee(member.id, currentCompetence())}
+          onClick={() => generateFee(current.id, currentCompetence())}
         >
           Gerar mensalidade do mês
         </Button>
       </div>
+
+      <Card>
+        <CardTitle>Valor e nível (Financeiro)</CardTitle>
+        <form onSubmit={onSaveFee} className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div>
+            <Label>Mensalidade (R$)</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountValue}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label>Dia do vencimento</Label>
+            <Input
+              type="number"
+              min="1"
+              max="28"
+              value={dueValue}
+              onChange={(e) => setDueDay(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label>Nível (checklist)</Label>
+            <Select
+              value={levelValue}
+              onChange={(e) => setLevel(e.target.value as ChecklistLevel | "")}
+            >
+              <option value="">—</option>
+              {(Object.keys(CHECKLIST_LEVEL_LABEL) as ChecklistLevel[]).map((k) => (
+                <option key={k} value={k}>
+                  {CHECKLIST_LEVEL_LABEL[k]}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="sm:col-span-3">
+            <Button type="submit">Salvar valor</Button>
+            {saved ? (
+              <span className="ml-3 text-sm text-success">Salvo.</span>
+            ) : null}
+          </div>
+        </form>
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

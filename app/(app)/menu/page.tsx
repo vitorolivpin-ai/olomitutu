@@ -26,6 +26,7 @@ export default function MenuPage() {
     ...(currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador"
       ? [{ href: "/cadastros", label: "Cadastros pendentes", module: "dashboard" as const }]
       : []),
+    { href: "/dashboard", label: "Resumo", module: "dashboard" as const },
     { href: "/membros", label: "Membros", module: "members" as const },
     { href: "/mensalidades", label: "Mensalidades", module: "fees" as const },
     { href: "/cobrancas", label: "Cobranças", module: "charges" as const },
@@ -41,6 +42,12 @@ export default function MenuPage() {
       label: "Conteúdo da casa (blog, educação, hierarquia…)",
       module: "house_content" as const,
     },
+    { href: "/educacao", label: "Educação", module: "house_content" as const },
+    { href: "/hierarquia", label: "Hierarquia", module: "house_content" as const },
+    { href: "/checklist", label: "Checklist", module: "house_content" as const },
+    { href: "/ajodun", label: "Ajodun", module: "house_content" as const },
+    { href: "/ajodun/liberacoes", label: "Liberações de ajodun", module: "house_content" as const },
+    { href: "/fotos", label: "Fotos", module: "house_content" as const },
     { href: "/agenda", label: "Agenda", module: "agenda" as const },
     { href: "/disponibilidade", label: "Horários disponíveis", module: "agenda" as const },
     { href: "/conversas", label: "Conversas", module: "chat" as const },

@@ -45,6 +45,8 @@ export function loadSharedData(): SharedData {
       checklistItems: parsed.checklistItems ?? seed.checklistItems,
       checklistProgress: parsed.checklistProgress ?? seed.checklistProgress,
       ajodunEvents: parsed.ajodunEvents ?? seed.ajodunEvents,
+      ajodunMemberships: parsed.ajodunMemberships ?? seed.ajodunMemberships ?? [],
+      feeReceipts: parsed.feeReceipts ?? seed.feeReceipts ?? [],
       photoAlbums: parsed.photoAlbums ?? seed.photoAlbums,
       shopProducts: (parsed.shopProducts ?? seed.shopProducts).map((p) => ({
         ...p,

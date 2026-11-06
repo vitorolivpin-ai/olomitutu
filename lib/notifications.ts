@@ -30,6 +30,7 @@ export function notificationAudience(n: AppNotification): UserRole[] {
   if (n.audience && n.audience.length > 0) return n.audience;
   const clientFacing =
     n.href?.startsWith("/cliente") ||
+    n.href?.startsWith("/filho") ||
     n.title.toLowerCase().includes("horário liberado") ||
     n.title.toLowerCase().includes("horário disponível") ||
     n.title.toLowerCase().includes("novo horário");

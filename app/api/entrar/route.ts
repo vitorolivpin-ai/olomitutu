@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSeedState, DEMO_PASSWORD } from "@/lib/seed";
+import { homePathForUser } from "@/lib/filho";
 import { homePathForRole } from "@/lib/navigation";
 import { isAreaRole } from "@/lib/demo-accounts";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createRouteHandlerClient, withAuthCookies } from "@/lib/supabase/route";
-import type { UserRole } from "@/types";
+import type { PersonKind, UserRole } from "@/types";
 
 function requestOrigin(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
@@ -13,9 +14,14 @@ function requestOrigin(req: NextRequest) {
   return req.nextUrl.origin;
 }
 
-function redirectWithDemoSession(req: NextRequest, userId: string, role: UserRole) {
+function redirectWithDemoSession(
+  req: NextRequest,
+  userId: string,
+  role: UserRole,
+  personKind?: PersonKind | null,
+) {
   const origin = requestOrigin(req);
-  const home = homePathForRole(role);
+  const home = homePathForUser({ role, person_kind: personKind ?? undefined });
   const res = NextResponse.redirect(new URL(home, origin));
   res.cookies.set("ile-oloroke-sid", userId, {
     path: "/",
@@ -68,7 +74,7 @@ async function loginWithSupabase(
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, role, email, full_name, requested_role, approval_status")
+    .select("id, role, email, full_name, requested_role, approval_status, person_kind")
     .eq("id", data.user.id)
     .maybeSingle();
 
@@ -107,7 +113,10 @@ async function loginWithSupabase(
     );
   }
 
-  const home = homePathForRole(roleRaw);
+  const home = homePathForUser({
+    role: roleRaw,
+    person_kind: (profile.person_kind as PersonKind | null) ?? undefined,
+  });
   const redirect = NextResponse.redirect(new URL(home, origin));
   const res = client.applyCookies
     ? client.applyCookies(redirect)
@@ -142,7 +151,7 @@ function loginDemo(req: NextRequest, roleRaw: UserRole, email: string, password:
     );
   }
 
-  return redirectWithDemoSession(req, profile.id, roleRaw);
+  return redirectWithDemoSession(req, profile.id, roleRaw, profile.person_kind);
 }
 
 /**

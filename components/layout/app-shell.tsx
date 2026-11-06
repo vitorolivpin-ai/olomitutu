@@ -10,7 +10,8 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { LoadingBlock } from "@/components/ui/empty-state";
 import { appLabelForRole, canAccess, type AppModule } from "@/lib/permissions";
 import { BrandMark } from "@/components/brand/logo";
-import { homePathForRole, isClientPortalPath } from "@/lib/navigation";
+import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
+import { isClientPortalPath, isMemberPortalPath } from "@/lib/navigation";
 
 const routeModules: Array<{ prefix: string; module: AppModule }> = [
   { prefix: "/membros", module: "members" },
@@ -43,6 +44,7 @@ const staffOnlyPrefixes = [
   "/dashboard",
   "/menu",
   "/perfil",
+  "/cadastros",
   "/membros",
   "/mensalidades",
   "/cobrancas",
@@ -86,9 +88,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const home = homePathForRole(currentUser.role);
+    const home = homePathForUser(currentUser);
+    const filho = isFilhoDeSanto(currentUser);
 
     if (currentUser.role === "cliente") {
+      if (filho && isClientPortalPath(pathname)) {
+        const rest = pathname === "/cliente" ? "" : pathname.slice("/cliente".length);
+        router.replace(`/filho${rest}`);
+        return;
+      }
+      if (!filho && isFilhoPortalPath(pathname)) {
+        router.replace("/cliente");
+        return;
+      }
       const onStaffArea = staffOnlyPrefixes.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       );
@@ -102,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (isClientPortalPath(pathname)) {
+    if (isMemberPortalPath(pathname)) {
       router.replace(home);
       return;
     }
@@ -129,11 +141,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Chat estilo WhatsApp: conversa em tela cheia no mobile; área /conversas também no desktop
   const isChatThread =
-    pathname.startsWith("/conversas/") || pathname === "/cliente/mensagens";
+    pathname.startsWith("/conversas/") ||
+    pathname === "/cliente/mensagens" ||
+    pathname === "/filho/mensagens" ||
+    pathname === "/cliente/financeiro-chat" ||
+    pathname === "/filho/financeiro-chat";
   const isChatSection =
     pathname === "/conversas" ||
     pathname.startsWith("/conversas/") ||
-    pathname === "/cliente/mensagens";
+    pathname === "/cliente/mensagens" ||
+    pathname === "/filho/mensagens" ||
+    pathname === "/cliente/financeiro-chat" ||
+    pathname === "/filho/financeiro-chat";
 
   return (
     <div className={isChatSection ? "flex h-dvh max-h-dvh bg-[#d1d7db]" : "flex min-h-screen bg-app"}>

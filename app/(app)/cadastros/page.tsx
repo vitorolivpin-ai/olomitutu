@@ -26,7 +26,7 @@ type PendingRow = {
 };
 
 export default function CadastrosPendentesPage() {
-  const { currentUser } = useAppStore();
+  const { currentUser, upsertMember, state } = useAppStore();
   const [rows, setRows] = useState<PendingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -101,6 +101,32 @@ export default function CadastrosPendentesPage() {
       setError(upError.message);
       return;
     }
+
+    if (decision === "approved" && row.person_kind === "filho_de_santo") {
+      const existing = state.members.find((m) => m.profile_id === row.id);
+      if (!existing) {
+        const byEmail = state.members.find(
+          (m) =>
+            m.email?.toLowerCase() === row.email.toLowerCase() && !m.profile_id,
+        );
+        if (byEmail) {
+          upsertMember({ ...byEmail, profile_id: row.id, email: row.email });
+        } else {
+          upsertMember({
+            full_name: row.full_name,
+            phone: "a definir",
+            email: row.email,
+            monthly_fee_amount: 80,
+            due_day: 10,
+            entry_date: new Date().toISOString().slice(0, 10),
+            status: "ativo",
+            profile_id: row.id,
+            checklist_level: "abian",
+          });
+        }
+      }
+    }
+
     setRows((prev) => prev.filter((r) => r.id !== row.id));
   }
 

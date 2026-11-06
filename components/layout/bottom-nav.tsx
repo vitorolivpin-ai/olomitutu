@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/hooks/use-app-store";
+import { isFilhoDeSanto } from "@/lib/filho";
 import { unreadChatCountForRole } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
 
@@ -35,8 +36,8 @@ const financeItems = [
 ];
 
 const paiItems = [
-  { href: "/inicio", label: "Quem somos", icon: LayoutDashboard },
-  { href: "/conteudo", label: "Conteúdo", icon: BookOpen },
+  { href: "/inicio", label: "Início", icon: LayoutDashboard },
+  { href: "/financeiro", label: "Financ.", icon: Wallet },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/conversas", label: "Conversas", icon: MessageCircle },
   { href: "/menu", label: "Menu", icon: Menu },
@@ -64,10 +65,19 @@ const clientItems = [
   { href: "/cliente/conta", label: "Menu", icon: Menu },
 ];
 
+const filhoItems = [
+  { href: "/filho", label: "Início", icon: LayoutDashboard },
+  { href: "/filho/mensalidade", label: "Mensal.", icon: Wallet },
+  { href: "/filho/mensagens", label: "Pai", icon: MessageCircle },
+  { href: "/filho/loja", label: "Loja", icon: Package },
+  { href: "/filho/conta", label: "Menu", icon: Menu },
+];
+
 export function BottomNav() {
   const pathname = usePathname();
   const { currentUser, state } = useAppStore();
   const isClient = currentUser?.role === "cliente";
+  const isFilho = isFilhoDeSanto(currentUser);
   const isStockApp = currentUser?.role === "estoque";
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
@@ -92,7 +102,9 @@ export function BottomNav() {
       : 0;
 
   const visible = isClient
-    ? clientItems
+    ? isFilho
+      ? filhoItems
+      : clientItems
     : isStockApp
       ? stockItems
       : isLibraryApp
@@ -126,17 +138,21 @@ export function BottomNav() {
           const active =
             item.href === "/"
               ? pathname === "/"
-              : item.href === "/cliente"
-                ? pathname === "/cliente"
+              : item.href === "/cliente" || item.href === "/filho"
+                ? pathname === item.href
                 : item.href === "/estoque"
                   ? pathname === "/estoque"
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
           const showChatBadge =
-            (item.href === "/conversas" || item.href === "/cliente/mensagens") &&
+            (item.href === "/conversas" ||
+              item.href === "/cliente/mensagens" ||
+              item.href === "/filho/mensagens") &&
             chatUnread > 0 &&
             !active;
           const showMenuBadge =
-            item.href === "/cliente/conta" && clientNotifUnread > 0 && !active;
+            (item.href === "/cliente/conta" || item.href === "/filho/conta") &&
+            clientNotifUnread > 0 &&
+            !active;
           const badgeCount = showChatBadge
             ? chatUnread
             : showMenuBadge

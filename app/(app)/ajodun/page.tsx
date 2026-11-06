@@ -71,6 +71,15 @@ export default function AjodunPage() {
           <p className="text-sm text-navy/60">
             Organização com tarefas padrão e link da planilha compartilhada
           </p>
+          {currentUser?.role === "administrador" ||
+          currentUser?.role === "pai_de_santo" ? (
+            <Link
+              href="/ajodun/liberacoes"
+              className="mt-2 inline-block text-sm font-medium text-gold-deep"
+            >
+              Ver pedidos de liberação →
+            </Link>
+          ) : null}
         </div>
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>

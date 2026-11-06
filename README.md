@@ -21,6 +21,7 @@ Contas:
 |------|--------|
 | Pai de Santo | pai@ileoloroke.demo |
 | Cliente | cliente@ileoloroke.demo |
+| Filho de Santo | filho@ileoloroke.demo (aba Cliente) |
 | Administrador | admin@ileoloroke.demo |
 | Financeiro | tesouraria@ileoloroke.demo |
 | Estoque | estoque@ileoloroke.demo |
@@ -78,6 +79,8 @@ Enquanto o SMTP não estiver ok: Authentication → Users → usuário → **Con
 - Fica **pendente** até o **Pai de Santo** aceitar em **Cadastros pendentes** (`/cadastros`).
 - Rode as migrations `013`–`015` e **`022_signup_role_from_tab.sql`** (corrige contas gravadas como `cliente` por engano).
 - Loja digital / Pix / liberações: rode **`021_house_content_sync.sql`**, **`023_shop_digital.sql`**. Se salvar produto falhar, rode **`024_shop_repair.sql`**.
+- Portal do Filho de Santo / mensalidade / ajodun: rode **`026_filho_member_link.sql`**, **`027_fee_receipts.sql`**, **`028_ajodun_memberships.sql`**.
+- Comprovante de mensalidade por e-mail: configure `RESEND_API_KEY` e `EMAIL_FROM` no Vercel (sem isso o recibo fica só no app).
 - O primeiro Pai de Santo pode ser liberado no painel (`role = pai_de_santo`, `approval_status = approved`).
 
 ### 6. Google Calendar (App → Google)

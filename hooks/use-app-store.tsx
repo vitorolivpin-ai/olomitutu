@@ -32,12 +32,14 @@ import type {
   AppState,
   Appointment,
   AppointmentStatus,
+  AjodunMembership,
   Client,
   Expense,
   AjodunEvent,
   BlogPost,
   ChecklistItem,
   EducationItem,
+  FeeReceipt,
   HierarchyPerson,
   InternalNote,
   LibraryItem,
@@ -57,6 +59,8 @@ import type {
   StockProduct,
   UserRole,
 } from "@/types";
+import { ensureFilhoMemberState } from "@/lib/ensure-filho-member";
+import { formatCompetence } from "@/lib/format";
 import { canAccess, canManageHouseContent, canManageLibrary } from "@/lib/permissions";
 import { formatAudioDuration } from "@/lib/chat";
 import {
@@ -139,6 +143,13 @@ type AppStore = {
     feeId: string,
     input: { method: PaymentMethod; amount: number; observation?: string },
   ) => MonthlyFee | null;
+  requestAjodunAccess: (ajodunEventId: string) =>
+    | { ok: true; membership: AjodunMembership }
+    | { ok: false; error: string };
+  decideAjodunMembership: (
+    membershipId: string,
+    decision: "approved" | "rejected",
+  ) => { ok: true } | { ok: false; error: string };
   upsertExpense: (expense: Omit<Expense, "id" | "created_at" | "updated_at"> & { id?: string }) => Expense;
   upsertClient: (client: Omit<Client, "id" | "created_at" | "updated_at"> & { id?: string }) => Client;
   removeClient: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -637,6 +648,13 @@ export function AppStoreProvider({
     [state.profiles, state.currentUserId],
   );
 
+  useEffect(() => {
+    if (!ready || !currentUser || currentUser.person_kind !== "filho_de_santo") return;
+    const linked = state.members.some((m) => m.profile_id === currentUser.id);
+    if (linked) return;
+    commit((prev) => ensureFilhoMemberState(prev, currentUser));
+  }, [ready, currentUser, state.members, commit]);
+
   const loginDemo = useCallback(
     (role: UserRole) => {
       commit((prev) => {
@@ -686,13 +704,14 @@ export function AppStoreProvider({
           ];
         }
       }
-      const next = {
+      let next: AppState = {
         ...prev,
         profiles,
         clients,
         messages,
         currentUserId: profile.id,
       };
+      next = ensureFilhoMemberState(next, profile);
       persistSharedData(stripSession(next));
       persistSessionUserId(profile.id);
       return next;
@@ -1170,7 +1189,27 @@ export function AppStoreProvider({
           created_at: stamp,
           updated_at: stamp,
         };
-        return { ...prev, monthlyFees: [created, ...prev.monthlyFees] };
+        const notifications = [...prev.notifications];
+        if (created.status === "AGUARDANDO" && member.profile_id) {
+          notifications.unshift({
+            id: uid("ntf"),
+            title: "Nova mensalidade",
+            body: `Cobrança de ${formatCompetence(competence)} — R$ ${member.monthly_fee_amount
+              .toFixed(2)
+              .replace(".", ",")}.`,
+            type: "financeiro",
+            audience: ["cliente"],
+            related_id: member.profile_id,
+            read: false,
+            href: "/filho/mensalidade",
+            created_at: stamp,
+          });
+        }
+        return {
+          ...prev,
+          monthlyFees: [created, ...prev.monthlyFees],
+          notifications,
+        };
       });
       return created;
     },
@@ -1180,6 +1219,7 @@ export function AppStoreProvider({
   const confirmFeePayment: AppStore["confirmFeePayment"] = useCallback(
     (feeId, input) => {
       let updated: MonthlyFee | null = null;
+      const receiptBox: { current: FeeReceipt | null } = { current: null };
       commit((prev) => {
         const fee = prev.monthlyFees.find((f) => f.id === feeId);
         if (!fee) return prev;
@@ -1194,22 +1234,94 @@ export function AppStoreProvider({
           updated_at: stamp,
         };
         const member = prev.members.find((m) => m.id === fee.member_id);
-        const notification: AppNotification = {
+        const receipt: FeeReceipt = {
+          id: uid("rcp"),
+          monthly_fee_id: fee.id,
+          member_id: fee.member_id,
+          profile_id: member?.profile_id,
+          number: `RC-${fee.id.slice(-8).toUpperCase()}`,
+          payer_name: member?.full_name ?? "Membro",
+          payer_email: member?.email,
+          competence: fee.competence,
+          amount: input.amount,
+          payment_method: input.method,
+          paid_at: stamp,
+          email_sent: false,
+          created_at: stamp,
+        };
+        receiptBox.current = receipt;
+        const staffNote: AppNotification = {
           id: uid("ntf"),
           title: "Pagamento confirmado",
-          body: `${member?.full_name ?? "Membro"} — ${fee.competence}.`,
+          body: `${member?.full_name ?? "Membro"} — ${formatCompetence(fee.competence)}.`,
           type: "financeiro",
           audience: ["tesouraria", "administrador"],
           read: false,
           href: `/membros/${fee.member_id}`,
           created_at: stamp,
         };
+        const notifications = [staffNote, ...prev.notifications];
+        if (member?.profile_id) {
+          notifications.unshift({
+            id: uid("ntf"),
+            title: "Comprovante disponível",
+            body: `Mensalidade ${formatCompetence(fee.competence)} paga. Recibo ${receipt.number}.`,
+            type: "financeiro",
+            audience: ["cliente"],
+            related_id: member.profile_id,
+            read: false,
+            href: `/filho/mensalidade?recibo=${receipt.id}`,
+            created_at: stamp,
+          });
+        }
         return {
           ...prev,
           monthlyFees: prev.monthlyFees.map((f) => (f.id === feeId ? updated! : f)),
-          notifications: [notification, ...prev.notifications],
+          feeReceipts: [receipt, ...(prev.feeReceipts ?? [])],
+          notifications,
         };
       });
+
+      const snap = receiptBox.current;
+      if (snap?.payer_email) {
+        void fetch("/api/email/fee-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: snap.payer_email,
+            receipt: snap,
+          }),
+        })
+          .then(async (res) => {
+            const data = (await res.json().catch(() => ({}))) as {
+              ok?: boolean;
+              error?: string;
+            };
+            commit((prev) => ({
+              ...prev,
+              feeReceipts: (prev.feeReceipts ?? []).map((r) =>
+                r.id === snap.id
+                  ? {
+                      ...r,
+                      email_sent: Boolean(data.ok),
+                      email_error: data.ok ? undefined : data.error || "Falha no envio",
+                    }
+                  : r,
+              ),
+            }));
+          })
+          .catch(() => {
+            commit((prev) => ({
+              ...prev,
+              feeReceipts: (prev.feeReceipts ?? []).map((r) =>
+                r.id === snap.id
+                  ? { ...r, email_sent: false, email_error: "Falha no envio" }
+                  : r,
+              ),
+            }));
+          });
+      }
+
       return updated;
     },
     [commit],
@@ -2763,6 +2875,105 @@ export function AppStoreProvider({
     [commit, currentUser],
   );
 
+  const requestAjodunAccess: AppStore["requestAjodunAccess"] = useCallback(
+    (ajodunEventId) => {
+      if (!currentUser || currentUser.role !== "cliente") {
+        return { ok: false, error: "Faça login como Filho de Santo." };
+      }
+      const event = state.ajodunEvents?.find((e) => e.id === ajodunEventId);
+      if (!event || !event.published) {
+        return { ok: false, error: "Ajodun não encontrado." };
+      }
+      const existing = (state.ajodunMemberships ?? []).find(
+        (m) => m.user_id === currentUser.id && m.ajodun_event_id === ajodunEventId,
+      );
+      if (existing?.status === "approved") {
+        return { ok: false, error: "Você já tem acesso a este ajodun." };
+      }
+      if (existing?.status === "requested") {
+        return { ok: false, error: "Pedido já enviado — aguardando liberação." };
+      }
+      const stamp = nowIso();
+      const membership: AjodunMembership = {
+        id: existing?.id ?? uid("ajm"),
+        user_id: currentUser.id,
+        ajodun_event_id: ajodunEventId,
+        status: "requested",
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      };
+      commit((prev) => {
+        const list = prev.ajodunMemberships ?? [];
+        const without = list.filter((m) => m.id !== membership.id);
+        const staffNote: AppNotification = {
+          id: uid("ntf"),
+          title: "Pedido de ajodun",
+          body: `${currentUser.full_name} pediu acesso a “${event.title}”.`,
+          type: "sistema",
+          audience: ["administrador", "pai_de_santo"],
+          read: false,
+          href: "/ajodun/liberacoes",
+          created_at: stamp,
+        };
+        return {
+          ...prev,
+          ajodunMemberships: [membership, ...without],
+          notifications: [staffNote, ...prev.notifications],
+        };
+      });
+      return { ok: true, membership };
+    },
+    [commit, currentUser, state.ajodunEvents, state.ajodunMemberships],
+  );
+
+  const decideAjodunMembership: AppStore["decideAjodunMembership"] = useCallback(
+    (membershipId, decision) => {
+      if (
+        !currentUser ||
+        (currentUser.role !== "administrador" && currentUser.role !== "pai_de_santo")
+      ) {
+        return { ok: false, error: "Só Admin ou Pai liberam ajodun." };
+      }
+      let ok = false;
+      commit((prev) => {
+        const row = (prev.ajodunMemberships ?? []).find((m) => m.id === membershipId);
+        if (!row) return prev;
+        ok = true;
+        const stamp = nowIso();
+        const event = (prev.ajodunEvents ?? []).find((e) => e.id === row.ajodun_event_id);
+        const updated: AjodunMembership = {
+          ...row,
+          status: decision,
+          updated_at: stamp,
+          decided_by: currentUser.id,
+        };
+        const note: AppNotification = {
+          id: uid("ntf"),
+          title: decision === "approved" ? "Ajodun liberado" : "Ajodun recusado",
+          body:
+            decision === "approved"
+              ? `Acesso liberado a “${event?.title ?? "ajodun"}”. Veja a planilha no app.`
+              : `Pedido para “${event?.title ?? "ajodun"}” não foi liberado.`,
+          type: "sistema",
+          audience: ["cliente"],
+          related_id: row.user_id,
+          read: false,
+          href: "/filho/ajodun",
+          created_at: stamp,
+        };
+        return {
+          ...prev,
+          ajodunMemberships: (prev.ajodunMemberships ?? []).map((m) =>
+            m.id === membershipId ? updated : m,
+          ),
+          notifications: [note, ...prev.notifications],
+        };
+      });
+      return ok ? { ok: true } : { ok: false, error: "Pedido não encontrado." };
+    },
+    [commit, currentUser],
+  );
+
   const upsertPhotoAlbum: AppStore["upsertPhotoAlbum"] = useCallback(
     (input) => {
       if (!currentUser || !canManageHouseContent(currentUser.role)) {
@@ -2964,6 +3175,8 @@ export function AppStoreProvider({
     upsertAjodunEvent,
     removeAjodunEvent,
     toggleAjodunTask,
+    requestAjodunAccess,
+    decideAjodunMembership,
     upsertPhotoAlbum,
     removePhotoAlbum,
     upsertShopProduct,

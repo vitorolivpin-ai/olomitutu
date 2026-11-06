@@ -90,8 +90,43 @@ export interface Member {
   entry_date: string;
   status: MemberStatus;
   admin_notes?: string;
+  /** Perfil logado (filho de santo) vinculado a este membro financeiro. */
+  profile_id?: string;
+  /** Nível para checklist / hierarquia do filho. */
+  checklist_level?: ChecklistLevel;
   created_at: string;
   updated_at: string;
+}
+
+/** Comprovante de mensalidade (recibo no app + e-mail). */
+export interface FeeReceipt {
+  id: string;
+  monthly_fee_id: string;
+  member_id: string;
+  profile_id?: string;
+  number: string;
+  payer_name: string;
+  payer_email?: string;
+  competence: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  paid_at: string;
+  email_sent: boolean;
+  email_error?: string;
+  created_at: string;
+}
+
+export type AjodunMembershipStatus = "requested" | "approved" | "rejected";
+
+/** Pedido do filho para participar de um ajodun (Admin libera a planilha). */
+export interface AjodunMembership {
+  id: string;
+  user_id: string;
+  ajodun_event_id: string;
+  status: AjodunMembershipStatus;
+  created_at: string;
+  updated_at: string;
+  decided_by?: string;
 }
 
 export interface MonthlyFee {
@@ -402,6 +437,8 @@ export interface AppState {
   checklistItems: ChecklistItem[];
   checklistProgress: ChecklistProgress[];
   ajodunEvents: AjodunEvent[];
+  ajodunMemberships: AjodunMembership[];
+  feeReceipts: FeeReceipt[];
   photoAlbums: PhotoAlbum[];
   shopProducts: ShopProduct[];
   shopPurchases: ShopPurchase[];

@@ -27,6 +27,7 @@ import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
+import { isFilhoDeSanto, portalLabelForUser } from "@/lib/filho";
 import { unreadCountForRole } from "@/lib/notifications";
 import { appLabelForRole, canAccess, roleLabel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ const staffLinks = [
   { href: "/estoque", label: "Estoque", icon: Package, module: "stock" as const },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen, module: "library" as const },
   { href: "/loja", label: "Loja", icon: Package, module: "shop" as const },
+  { href: "/ajodun/liberacoes", label: "Ajodun liberações", icon: CalendarDays, module: "house_content" as const },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" as const },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock, module: "agenda" as const },
   { href: "/conversas", label: "Conversas", icon: MessageCircle, module: "chat" as const },
@@ -51,16 +53,33 @@ const staffLinks = [
   { href: "/menu", label: "Conta", icon: Settings2, module: "dashboard" as const },
 ];
 
+/** Pai: atalho direto a todas as abas da casa (exceto App do Cliente / Filho). */
 const paiLinks = [
   { href: "/inicio", label: "Quem somos", icon: LayoutDashboard },
   { href: "/perfil", label: "Meu perfil", icon: UserRound },
-  { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen },
+  { href: "/cadastros", label: "Cadastros pendentes", icon: UserRound },
+  { href: "/dashboard", label: "Resumo", icon: ChartColumn },
+  { href: "/membros", label: "Membros", icon: Users },
+  { href: "/mensalidades", label: "Mensalidades", icon: Receipt },
+  { href: "/cobrancas", label: "Cobranças", icon: CreditCard },
+  { href: "/despesas", label: "Despesas", icon: Wallet },
+  { href: "/financeiro", label: "Análise financeira", icon: ChartColumn },
+  { href: "/clientes", label: "Clientes de jogo", icon: UserRound },
+  { href: "/estoque", label: "Estoque", icon: Package },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
   { href: "/loja", label: "Loja", icon: Package },
-  { href: "/clientes", label: "Clientes", icon: UserRound },
+  { href: "/loja/liberacoes", label: "Liberações da loja", icon: Package },
+  { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen },
+  { href: "/educacao", label: "Educação", icon: BookOpen },
+  { href: "/hierarquia", label: "Hierarquia", icon: Users },
+  { href: "/checklist", label: "Checklist", icon: Receipt },
+  { href: "/ajodun", label: "Ajodun", icon: CalendarDays },
+  { href: "/ajodun/liberacoes", label: "Ajodun liberações", icon: CalendarDays },
+  { href: "/fotos", label: "Fotos", icon: BookOpen },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock },
   { href: "/conversas", label: "Conversas", icon: MessageCircle },
+  { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
   { href: "/notificacoes", label: "Notificações", icon: Bell },
   { href: "/menu", label: "Conta", icon: Settings2 },
 ];
@@ -106,6 +125,32 @@ const clientLinks = [
   },
 ];
 
+const filhoLinks = [
+  { href: "/filho", label: "Início", icon: LayoutDashboard, external: false },
+  { href: "/filho/mensalidade", label: "Mensalidade", icon: Wallet, external: false },
+  { href: "/filho/educacao", label: "Educação", icon: BookOpen, external: false },
+  { href: "/filho/biblioteca", label: "Biblioteca", icon: BookOpen, external: false },
+  { href: "/filho/ajodun", label: "Ajodun", icon: CalendarDays, external: false },
+  { href: "/filho/hierarquia", label: "Hierarquia", icon: Users, external: false },
+  { href: "/filho/checklist", label: "O que fazer", icon: Receipt, external: false },
+  { href: "/filho/loja", label: "Loja", icon: Package, external: false },
+  { href: "/filho/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
+  {
+    href: "/filho/financeiro-chat",
+    label: "Chat com o Financeiro",
+    icon: Wallet,
+    external: false,
+  },
+  { href: "/filho/notificacoes", label: "Notificações", icon: Bell, external: false },
+  { href: "/filho/conta", label: "Menu / conta", icon: Settings2, external: false },
+  {
+    href: CLIENT_WHATSAPP.duvidas.href,
+    label: CLIENT_WHATSAPP.duvidas.label,
+    icon: WhatsAppIcon,
+    external: true,
+  },
+];
+
 type SidebarProps = {
   open?: boolean;
   onClose?: () => void;
@@ -116,6 +161,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { currentUser, state } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const isClient = currentUser?.role === "cliente";
+  const isFilho = isFilhoDeSanto(currentUser);
   const isStockApp = currentUser?.role === "estoque";
   const isLibraryApp = currentUser?.role === "biblioteca";
   const isPai = currentUser?.role === "pai_de_santo";
@@ -144,7 +190,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   }, [open]);
 
   const links = isClient
-    ? clientLinks
+    ? isFilho
+      ? filhoLinks
+      : clientLinks
     : isStockApp
       ? stockLinks
       : isLibraryApp
@@ -159,7 +207,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <BrandMark className="h-16 w-16 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
-            {appLabelForRole(currentUser?.role)}
+            {portalLabelForUser(currentUser) ?? appLabelForRole(currentUser?.role)}
           </p>
         </div>
         {onClose ? (
@@ -181,8 +229,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             ? false
             : link.href === "/"
               ? pathname === "/"
-              : link.href === "/cliente"
-                ? pathname === "/cliente"
+              : link.href === "/cliente" || link.href === "/filho"
+                ? pathname === link.href
                 : link.href === "/estoque"
                   ? pathname === "/estoque"
                   : pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -194,7 +242,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             <>
               <Icon className={cn("h-5 w-5 shrink-0", active ? "text-gold" : "text-gold-deep")} />
               <span className="flex-1 leading-snug">{link.label}</span>
-              {(link.href === "/notificacoes" || link.href === "/cliente/notificacoes") &&
+              {(link.href === "/notificacoes" ||
+                link.href === "/cliente/notificacoes" ||
+                link.href === "/filho/notificacoes") &&
               unread > 0 ? (
                 <span
                   className={cn(
