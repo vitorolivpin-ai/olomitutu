@@ -95,4 +95,7 @@ body {
 
 .hub-emblem {
   animation: rise-in 0.7s ease-out both, emblem-breathe 6s ease-in-out 0.8s infinite;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }

@@ -50,6 +50,13 @@ export default function HubPage() {
           section: "restrito",
         },
         {
+          id: "cliente",
+          label: "Cliente",
+          hint: "Cursos, agenda e chat — com conta",
+          href: "/entrar/cliente",
+          section: "restrito",
+        },
+        {
           id: "admin",
           label: "Administrador",
           hint: "Login restrito",

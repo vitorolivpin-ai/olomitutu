@@ -104,7 +104,8 @@ const libraryAppLinks = [
 
 const clientLinks = [
   { href: "/cliente", label: "Início", icon: LayoutDashboard, external: false },
-  { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays, external: false },
+  { href: "/cliente/cursos", label: "Meus cursos", icon: BookOpen, external: false },
+  { href: "/cliente/horarios", label: "Agenda", icon: CalendarDays, external: false },
   {
     href: "/cliente/mensagens",
     label: "Chat com Vitor Cardozo - Ògún Yande",
@@ -113,6 +114,7 @@ const clientLinks = [
   },
   { href: "/cliente/notificacoes", label: "Notificações", icon: Bell, external: false },
   { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound, external: false },
+  { href: "/cliente/conta", label: "Menu / conta", icon: Settings2, external: false },
 ];
 
 const filhoLinks = [

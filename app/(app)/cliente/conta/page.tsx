@@ -2,19 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, CalendarDays, MessageCircle, UserRound } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  CalendarDays,
+  MessageCircle,
+  UserRound,
+} from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
-import { isFilhoDeSanto } from "@/lib/filho";
+import { isClienteDeJogo, isFilhoDeSanto } from "@/lib/filho";
 import { unreadCountForRole } from "@/lib/notifications";
 
 const appLinks = [
   { href: "/cliente", label: "Início", icon: CalendarDays },
-  { href: "/cliente/horarios", label: "Marcar horário (Pix)", icon: CalendarDays },
+  { href: "/cliente/cursos", label: "Meus cursos", icon: BookOpen },
+  { href: "/cliente/horarios", label: "Agenda", icon: CalendarDays },
   {
     href: "/cliente/mensagens",
     label: "Chat com Vitor Cardozo - Ògún Yande",
@@ -28,7 +35,11 @@ export default function ClienteContaPage() {
   const { currentUser, state, logout } = useAppStore();
   const router = useRouter();
 
-  if (currentUser?.role !== "cliente" || isFilhoDeSanto(currentUser)) {
+  if (
+    currentUser?.role !== "cliente" ||
+    isFilhoDeSanto(currentUser) ||
+    !isClienteDeJogo(currentUser)
+  ) {
     return <EmptyState title="Área exclusiva do cliente" />;
   }
 

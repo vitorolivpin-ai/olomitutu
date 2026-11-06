@@ -7,19 +7,31 @@ import { cn } from "@/lib/utils";
 export function BrandMark({
   className,
   priority = false,
+  /** Em fundo claro, remove o quadrado branco do JPG (multiply). */
+  blendOnLight = false,
 }: {
   className?: string;
   priority?: boolean;
+  blendOnLight?: boolean;
 }) {
   return (
-    <div className={cn("relative overflow-hidden", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden bg-transparent",
+        blendOnLight && "isolate",
+        className,
+      )}
+    >
       <Image
         src="/logo.jpg"
         alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
         fill
         priority={priority}
-        className="object-contain"
-        sizes="(max-width: 768px) 96px, 128px"
+        className={cn(
+          "object-contain",
+          blendOnLight && "mix-blend-multiply",
+        )}
+        sizes="(max-width: 768px) 160px, 200px"
       />
     </div>
   );
