@@ -26,7 +26,7 @@ export default function HubPage() {
           id: "loja",
           label: "Loja",
           hint: "Produtos e Pix — sem login",
-          href: "/loja",
+          href: "/vitrine",
           section: "geral",
         },
         {
