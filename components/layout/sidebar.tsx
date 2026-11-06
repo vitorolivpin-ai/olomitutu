@@ -22,8 +22,10 @@ import {
   Bell,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
+import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
+import { CLIENT_WHATSAPP } from "@/lib/client-whatsapp";
 import { unreadCountForRole } from "@/lib/notifications";
 import { appLabelForRole, canAccess, roleLabel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -81,12 +83,24 @@ const libraryAppLinks = [
 ];
 
 const clientLinks = [
-  { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
-  { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/cliente/loja", label: "Loja", icon: Package },
-  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
-  { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle },
-  { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound },
+  { href: "/cliente", label: "Quem somos", icon: LayoutDashboard, external: false },
+  { href: "/cliente/biblioteca", label: "Biblioteca", icon: BookOpen, external: false },
+  { href: "/cliente/loja", label: "Loja", icon: Package, external: false },
+  { href: "/cliente/horarios", label: "Horários", icon: CalendarDays, external: false },
+  { href: "/cliente/mensagens", label: "Falar com o Pai", icon: MessageCircle, external: false },
+  { href: "/cliente/cadastro", label: "Meu cadastro", icon: UserRound, external: false },
+  {
+    href: CLIENT_WHATSAPP.duvidas.href,
+    label: CLIENT_WHATSAPP.duvidas.label,
+    icon: WhatsAppIcon,
+    external: true,
+  },
+  {
+    href: CLIENT_WHATSAPP.grupo.href,
+    label: CLIENT_WHATSAPP.grupo.label,
+    icon: WhatsAppIcon,
+    external: true,
+  },
 ];
 
 export function Sidebar() {
@@ -129,25 +143,24 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {links.map((link) => {
           const Icon = link.icon;
-          const active =
-            link.href === "/"
+          const external = "external" in link && link.external;
+          const active = external
+            ? false
+            : link.href === "/"
               ? pathname === "/"
               : link.href === "/cliente"
                 ? pathname === "/cliente"
                 : link.href === "/estoque"
                   ? pathname === "/estoque"
                   : pathname === link.href || pathname.startsWith(`${link.href}/`);
-          return (
-            <Link
-              key={`${link.href}-${link.label}`}
-              href={link.href}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
-                active ? "bg-navy text-white shadow-soft" : "text-navy/70 hover:bg-navy/5",
-              )}
-            >
-              <Icon className={cn("h-5 w-5", active ? "text-gold" : "text-gold-deep")} />
-              <span className="flex-1">{link.label}</span>
+          const className = cn(
+            "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
+            active ? "bg-navy text-white shadow-soft" : "text-navy/70 hover:bg-navy/5",
+          );
+          const content = (
+            <>
+              <Icon className={cn("h-5 w-5 shrink-0", active ? "text-gold" : "text-gold-deep")} />
+              <span className="flex-1 leading-snug">{link.label}</span>
               {link.href === "/notificacoes" && unread > 0 ? (
                 <span
                   className={cn(
@@ -158,13 +171,31 @@ export function Sidebar() {
                   {unread}
                 </span>
               ) : null}
+            </>
+          );
+          if (external) {
+            return (
+              <a
+                key={`${link.href}-${link.label}`}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+              >
+                {content}
+              </a>
+            );
+          }
+          return (
+            <Link key={`${link.href}-${link.label}`} href={link.href} className={className}>
+              {content}
             </Link>
           );
         })}
       </nav>
       {currentUser ? (
         <Link
-          href={isClient ? "/cliente/conta" : "/perfil"}
+          href={isClient ? "/cliente/cadastro" : "/perfil"}
           className="flex items-center gap-3 border-t border-navy/10 p-4 text-sm transition hover:bg-navy/5"
         >
           <UserAvatar

@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BrandMark } from "@/components/brand/logo";
+import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import { CLIENT_WHATSAPP } from "@/lib/client-whatsapp";
 import { isClientRegistrationComplete } from "@/lib/client-registration";
 import { BLOG_CATEGORY_LABEL } from "@/lib/house-content";
 import { LIBRARY_KIND_LABEL, sortLibrary } from "@/lib/library";
@@ -232,6 +234,52 @@ export default function ClienteHomePage() {
             Abrir chat com o Pai
           </Button>
         </Link>
+      </Card>
+
+      <Card className="border-l-4 border-l-leaf">
+        <div className="flex items-start gap-3">
+          <WhatsAppIcon className="mt-0.5 h-6 w-6 text-gold-deep" />
+          <div className="min-w-0 flex-1">
+            <CardTitle>{CLIENT_WHATSAPP.duvidas.label}</CardTitle>
+            <p className="mt-2 text-sm text-navy/65">
+              Fale direto com o Pai de Santo pelo WhatsApp.
+            </p>
+            <a
+              href={CLIENT_WHATSAPP.duvidas.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block"
+            >
+              <Button variant="gold" className="w-full">
+                Abrir WhatsApp
+              </Button>
+            </a>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="border-l-4 border-l-leaf">
+        <div className="flex items-start gap-3">
+          <WhatsAppIcon className="mt-0.5 h-6 w-6 text-gold-deep" />
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-lg leading-snug">
+              {CLIENT_WHATSAPP.grupo.label}
+            </CardTitle>
+            <p className="mt-2 text-sm text-navy/65">
+              Entre no grupo da casa no WhatsApp, se quiser.
+            </p>
+            <a
+              href={CLIENT_WHATSAPP.grupo.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block"
+            >
+              <Button variant="secondary" className="w-full">
+                Entrar no grupo
+              </Button>
+            </a>
+          </div>
+        </div>
       </Card>
 
       {outros.length > 0 ? (
