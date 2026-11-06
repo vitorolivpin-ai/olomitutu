@@ -2724,11 +2724,24 @@ export function AppStoreProvider({
         if (!supabase) return { ok: false, error: "Supabase não configurado." };
         const remote = await upsertShopRemote(supabase, saved);
         if (!remote.ok) {
+          const err = remote.error.toLowerCase();
+          const missingCol =
+            err.includes("schema cache") ||
+            err.includes("could not find") ||
+            (err.includes("column") &&
+              (err.includes("kind") ||
+                err.includes("file_url") ||
+                err.includes("requires_payment")));
+          const rls =
+            err.includes("row-level security") ||
+            err.includes("rls") ||
+            err.includes("permission denied");
           return {
             ok: false,
-            error:
-              remote.error.includes("row-level security") || remote.error.includes("RLS")
-                ? "Sem permissão no banco. Rode a migration 021_house_content_sync.sql no Supabase."
+            error: missingCol
+              ? "Faltam colunas da loja digital. No Supabase → SQL Editor, rode 023_shop_digital.sql (ou 024_shop_repair.sql)."
+              : rls
+                ? "Sem permissão no banco (RLS). Confirme role pai_de_santo/administrador no profiles e rode 021 + 024_shop_repair.sql."
                 : remote.error,
           };
         }

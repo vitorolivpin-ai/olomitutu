@@ -72,7 +72,7 @@ Em **Authentication → Emails / SMTP**:
 - **Cadastro nas abas** Admin, Estoque, Financeiro e Biblioteca: a **aba** define o papel liberado (estoque, biblioteca…). O tipo (Filho de Santo / Cliente / Admin) é só referência para o Pai.
 - Fica **pendente** até o **Pai de Santo** aceitar em **Cadastros pendentes** (`/cadastros`).
 - Rode as migrations `013`–`015` e **`022_signup_role_from_tab.sql`** (corrige contas gravadas como `cliente` por engano).
-- Loja digital / Pix / liberações: rode também **`023_shop_digital.sql`**.
+- Loja digital / Pix / liberações: rode **`021_house_content_sync.sql`**, **`023_shop_digital.sql`**. Se salvar produto falhar, rode **`024_shop_repair.sql`**.
 - O primeiro Pai de Santo pode ser liberado no painel (`role = pai_de_santo`, `approval_status = approved`).
 
 ### 6. Google Calendar (App → Google)
