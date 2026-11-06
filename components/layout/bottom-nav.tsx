@@ -51,7 +51,7 @@ const libraryAppItems = [
 const clientItems = [
   { href: "/cliente", label: "Quem somos", icon: LayoutDashboard },
   { href: "/cliente/horarios", label: "Horários", icon: CalendarDays },
-  { href: "/cliente/mensagens", label: "Chat", icon: MessageCircle },
+  { href: "/cliente/mensagens", label: "Pai", icon: MessageCircle },
   { href: "/cliente/cadastro", label: "Cadastro", icon: UserRound },
   { href: "/", label: "Menu", icon: Menu },
 ];

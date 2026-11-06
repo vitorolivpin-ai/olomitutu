@@ -81,13 +81,14 @@ export default function ClienteHomePage() {
       </Card>
 
       <Card className="border-l-4 border-l-navy">
-        <CardTitle>Falar com o Pai de Santo</CardTitle>
+        <CardTitle>Chat com o Pai de Santo</CardTitle>
         <p className="mt-2 text-sm text-navy/65">
-          Mensagens por texto ou áudio — as respostas aparecem no mesmo chat.
+          Assim que sua conta é criada, o chat já é direto com o Pai — texto, áudio, vídeo e
+          chamada.
         </p>
         <Link href="/cliente/mensagens" className="mt-4 block">
           <Button variant="secondary" className="w-full">
-            Abrir conversa
+            Abrir chat com o Pai
           </Button>
         </Link>
       </Card>

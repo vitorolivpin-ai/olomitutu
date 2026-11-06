@@ -73,10 +73,9 @@ export default function ClienteMensagensPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-gold-deep">Área do cliente</p>
-          <h1 className="font-display text-3xl text-navy">Mensagens</h1>
+          <h1 className="font-display text-3xl text-navy">Chat com o Pai de Santo</h1>
           <p className="text-sm text-navy/60">
-            Seu histórico fica guardado aqui (texto, áudio e vídeo), mesmo se a casa limpar a
-            lista dela.
+            Conversa direta com o Pai. Seu histórico (texto, áudio e vídeo) fica guardado aqui.
           </p>
         </div>
         <Button size="sm" variant="gold" onClick={startVideoCall}>

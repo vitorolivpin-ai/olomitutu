@@ -286,6 +286,7 @@ export function AppStoreProvider({
       setState((prev) => {
         const profiles = mergeAuthProfile(prev.profiles, authProfile);
         let clients = prev.clients;
+        let messages = prev.messages;
         if (authProfile.role === "cliente" && authProfile.client_id) {
           const exists = clients.some((c) => c.id === authProfile.client_id);
           if (!exists) {
@@ -301,11 +302,33 @@ export function AppStoreProvider({
             };
             clients = [stub, ...clients];
           }
+          // Conversa já nasce com o Pai de Santo
+          const hasThread = messages.some((m) => m.client_id === authProfile.client_id);
+          if (!hasThread) {
+            const pai =
+              profiles.find((p) => p.role === "pai_de_santo") ??
+              prev.profiles.find((p) => p.role === "pai_de_santo");
+            const stamp = new Date().toISOString();
+            messages = [
+              ...messages,
+              {
+                id: uid("msg"),
+                client_id: authProfile.client_id,
+                sender_id: pai?.id,
+                sender_role: "pai_de_santo",
+                sender_name: pai?.full_name || "Pai de Santo",
+                body: "Olá! Este é o seu chat direto com o Pai de Santo. Pode escrever, enviar áudio ou vídeo — e iniciar chamada quando precisar.",
+                kind: "text",
+                created_at: stamp,
+              },
+            ];
+          }
         }
         const next = {
           ...prev,
           profiles,
           clients,
+          messages,
           currentUserId: authProfile.id,
         };
         persistSharedData(stripSession(next));
@@ -379,7 +402,49 @@ export function AppStoreProvider({
   const hydrateAuthProfile = useCallback((profile: Profile) => {
     setState((prev) => {
       const profiles = mergeAuthProfile(prev.profiles, profile);
-      const next = { ...prev, profiles, currentUserId: profile.id };
+      let clients = prev.clients;
+      let messages = prev.messages;
+      if (profile.role === "cliente" && profile.client_id) {
+        if (!clients.some((c) => c.id === profile.client_id)) {
+          const stamp = new Date().toISOString();
+          clients = [
+            {
+              id: profile.client_id,
+              full_name: profile.full_name || profile.email,
+              phone: "a definir",
+              email: profile.email,
+              registration_complete: false,
+              created_at: stamp,
+              updated_at: stamp,
+            },
+            ...clients,
+          ];
+        }
+        if (!messages.some((m) => m.client_id === profile.client_id)) {
+          const pai = profiles.find((p) => p.role === "pai_de_santo");
+          const stamp = new Date().toISOString();
+          messages = [
+            ...messages,
+            {
+              id: uid("msg"),
+              client_id: profile.client_id,
+              sender_id: pai?.id,
+              sender_role: "pai_de_santo",
+              sender_name: pai?.full_name || "Pai de Santo",
+              body: "Olá! Este é o seu chat direto com o Pai de Santo. Pode escrever, enviar áudio ou vídeo — e iniciar chamada quando precisar.",
+              kind: "text",
+              created_at: stamp,
+            },
+          ];
+        }
+      }
+      const next = {
+        ...prev,
+        profiles,
+        clients,
+        messages,
+        currentUserId: profile.id,
+      };
       persistSharedData(stripSession(next));
       persistSessionUserId(profile.id);
       return next;
