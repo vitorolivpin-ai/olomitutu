@@ -172,8 +172,28 @@ type AppStore = {
     ficha: AppointmentGuestFicha;
     amount?: number;
   }) =>
-    | { ok: true; appointment: Appointment; ficha_code: string }
+    | {
+        ok: true;
+        appointment: Appointment;
+        ficha_code: string;
+        client_id: string;
+      }
     | { ok: false; error: string };
+  /** Chat do visitante (sem login) na marcação do jogo. */
+  ensureGuestChatClient: (input: {
+    full_name: string;
+    phone: string;
+  }) => { ok: true; client_id: string } | { ok: false; error: string };
+  sendGuestMessage: (input: {
+    client_id: string;
+    guest_name: string;
+    body?: string;
+    kind?: "text" | "audio" | "video" | "call";
+    audio_data_url?: string;
+    audio_duration_sec?: number;
+    video_data_url?: string;
+    call_url?: string;
+  }) => Message | null;
   updateAppointmentStatus: (id: string, status: AppointmentStatus) => Appointment | null;
   cancelAppointment: (id: string) => Appointment | null;
   patchAppointment: (id: string, patch: Partial<Appointment>) => Appointment | null;
@@ -1640,7 +1660,12 @@ export function AppStoreProvider({
           href: `/atendimentos/${aptId}`,
           created_at: stamp,
         };
-        result = { ok: true, appointment, ficha_code: fichaCode };
+        result = {
+          ok: true,
+          appointment,
+          ficha_code: fichaCode,
+          client_id: clientId,
+        };
         return {
           ...prev,
           clients: [guestClient, ...prev.clients],
@@ -1650,6 +1675,127 @@ export function AppStoreProvider({
       });
 
       return result;
+    },
+    [commit],
+  );
+
+  const ensureGuestChatClient: AppStore["ensureGuestChatClient"] = useCallback(
+    (input) => {
+      const name = input.full_name.trim();
+      const phone = input.phone.trim();
+      if (name.length < 3) return { ok: false, error: "Informe seu nome." };
+      if (phone.length < 8) return { ok: false, error: "Informe um telefone com DDD." };
+
+      let clientId = "";
+      commit((prev) => {
+        const existing = prev.clients.find(
+          (c) =>
+            c.is_guest &&
+            c.phone.replace(/\D/g, "") === phone.replace(/\D/g, "") &&
+            c.full_name.toLowerCase() === name.toLowerCase(),
+        );
+        if (existing) {
+          clientId = existing.id;
+          return prev;
+        }
+        const stamp = nowIso();
+        clientId = uid("cli");
+        const guest: Client = {
+          id: clientId,
+          full_name: name,
+          phone,
+          registration_complete: true,
+          is_guest: true,
+          notes: "Chat na marcação (sem conta)",
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        return { ...prev, clients: [guest, ...prev.clients] };
+      });
+      return { ok: true, client_id: clientId };
+    },
+    [commit],
+  );
+
+  const sendGuestMessage: AppStore["sendGuestMessage"] = useCallback(
+    (input) => {
+      const kind =
+        input.kind ??
+        (input.video_data_url
+          ? "video"
+          : input.audio_data_url
+            ? "audio"
+            : input.call_url
+              ? "call"
+              : "text");
+      if (kind === "audio" && !input.audio_data_url) return null;
+      if (kind === "video" && !input.video_data_url) return null;
+      if (kind === "call" && !input.call_url) return null;
+      if (kind === "text" && !input.body?.trim()) return null;
+
+      const stamp = nowIso();
+      const durationSec = input.audio_duration_sec;
+      const audioLabel =
+        typeof durationSec === "number"
+          ? `Áudio · ${formatAudioDuration(durationSec)}`
+          : "Áudio";
+      const body =
+        kind === "audio"
+          ? audioLabel
+          : kind === "video"
+            ? "Vídeo"
+            : kind === "call"
+              ? input.body?.trim() || "Chamada de vídeo"
+              : input.body!.trim();
+
+      const message: Message = {
+        id: uid("msg"),
+        client_id: input.client_id,
+        sender_role: "cliente",
+        sender_name: input.guest_name.trim() || "Visitante",
+        body,
+        kind,
+        audio_data_url: kind === "audio" ? input.audio_data_url : undefined,
+        audio_duration_sec: kind === "audio" ? durationSec : undefined,
+        video_data_url: kind === "video" ? input.video_data_url : undefined,
+        call_url: kind === "call" ? input.call_url : undefined,
+        created_at: stamp,
+      };
+
+      commit((prev) => {
+        const preview =
+          kind === "audio"
+            ? audioLabel
+            : kind === "video"
+              ? "Vídeo"
+              : kind === "call"
+                ? "Chamada de vídeo"
+                : body;
+        const notification: AppNotification = {
+          id: uid("ntf"),
+          title: "Mensagem na marcação",
+          body: `${message.sender_name}: ${preview}`,
+          type: "chat",
+          audience: ["pai_de_santo", "administrador"],
+          related_id: input.client_id,
+          read: false,
+          href: `/conversas/${input.client_id}`,
+          created_at: stamp,
+        };
+        const hiddenMap = normalizeStaffHidden(
+          prev.staffHiddenClientIds,
+          prev.staffHiddenAt,
+        );
+        const nextHidden = unhideStaffChatInMap(hiddenMap, input.client_id);
+        return {
+          ...prev,
+          messages: [...prev.messages, message],
+          notifications: [notification, ...prev.notifications],
+          staffHiddenAt: nextHidden,
+          staffHiddenClientIds: Object.keys(nextHidden),
+        };
+      });
+      return message;
     },
     [commit],
   );
@@ -1955,6 +2101,7 @@ export function AppStoreProvider({
       commit((prev) => {
         const client = prev.clients.find((c) => c.id === input.client_id);
         const fromClient = currentUser.role === "cliente";
+        const guestThread = Boolean(client?.is_guest);
         const preview =
           kind === "audio"
             ? audioLabel
@@ -1991,7 +2138,9 @@ export function AppStoreProvider({
               : `/cliente/financeiro-chat`
             : fromClient
               ? `/conversas/${input.client_id}`
-              : `/cliente/mensagens`,
+              : guestThread
+                ? `/marcar/chat`
+                : `/cliente/mensagens`,
           created_at: stamp,
         };
         const hiddenMap = normalizeStaffHidden(
@@ -3244,6 +3393,8 @@ export function AppStoreProvider({
     saveClientRegistration,
     createAppointment,
     bookGuestAppointment,
+    ensureGuestChatClient,
+    sendGuestMessage,
     updateAppointmentStatus,
     cancelAppointment,
     patchAppointment,
