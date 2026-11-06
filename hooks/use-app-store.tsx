@@ -189,11 +189,14 @@ export function AppStoreProvider({
   children: ReactNode;
   initialUserId?: string | null;
 }) {
+  const authMode = isSupabaseConfigured();
   // Providers só monta no cliente → podemos ler storage já no 1º render
   const [state, setState] = useState<AppState>(() =>
     toAppState(loadSharedData(), loadSessionUserId() ?? initialUserId),
   );
-  const [ready, setReady] = useState(true);
+  // Com Supabase: não liberar o shell até a 1ª leitura da sessão
+  // (senão o AppShell manda pra / porque o perfil Auth ainda não chegou).
+  const [ready, setReady] = useState(!authMode);
 
   useEffect(() => {
     // Re-sincroniza (outra aba pode ter gravado dados)
@@ -204,16 +207,27 @@ export function AppStoreProvider({
     } catch {
       // ignore
     }
-    setReady(true);
+    if (!isSupabaseConfigured()) setReady(true);
   }, []);
 
   // Sessão Auth Supabase → injeta perfil real e currentUserId
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     const supabase = createBrowserClient();
-    if (!supabase) return;
+    if (!supabase) {
+      setReady(true);
+      return;
+    }
 
     let cancelled = false;
+    let firstDone = false;
+
+    function markReady() {
+      if (!firstDone) {
+        firstDone = true;
+        setReady(true);
+      }
+    }
 
     async function applyUser(userId: string | null) {
       if (cancelled) return;
@@ -223,6 +237,7 @@ export function AppStoreProvider({
           persistSessionUserId(null);
           return next;
         });
+        markReady();
         return;
       }
       const { data: row } = await supabase!
@@ -232,7 +247,17 @@ export function AppStoreProvider({
         )
         .eq("id", userId)
         .maybeSingle();
-      if (cancelled || !row) return;
+      if (cancelled) return;
+      if (!row) {
+        // Sessão Auth sem linha em profiles → não fica preso no loading
+        setState((prev) => {
+          const next = { ...prev, currentUserId: null };
+          persistSessionUserId(null);
+          return next;
+        });
+        markReady();
+        return;
+      }
       const authProfile = mapProfileRow(row as ProfileRow);
       setState((prev) => {
         const profiles = mergeAuthProfile(prev.profiles, authProfile);
@@ -241,6 +266,7 @@ export function AppStoreProvider({
         persistSessionUserId(authProfile.id);
         return next;
       });
+      markReady();
     }
 
     supabase.auth.getSession().then(({ data }) => {
