@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   BookOpen,
   CalendarDays,
   LayoutDashboard,
@@ -10,28 +11,35 @@ import {
   MessageCircle,
   Package,
   UserRound,
+  Users,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/hooks/use-app-store";
 import { isFilhoDeSanto } from "@/lib/filho";
 import { unreadChatCountForRole } from "@/lib/notifications";
-import { canAccess, isHouseStaffRole } from "@/lib/permissions";
 
-const staffItems = [
-  { href: "/inicio", label: "Início", icon: LayoutDashboard },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/conversas", label: "Conversas", icon: MessageCircle },
-  { href: "/menu", label: "Menu", icon: Menu },
-];
-
-/** Mesma nav inferior do Pai para todas as abas da casa. */
 const paiItems = [
   { href: "/inicio", label: "Início", icon: LayoutDashboard },
   { href: "/conversas", label: "Chat", icon: MessageCircle },
   { href: "/clientes", label: "Clientes", icon: UserRound },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/menu", label: "Menu", icon: Menu },
+];
+
+const adminItems = [
+  { href: "/inicio", label: "Início", icon: LayoutDashboard },
+  { href: "/membros", label: "Filhos", icon: Users },
+  { href: "/notificacoes", label: "Avisos", icon: Bell },
+  { href: "/loja", label: "Loja", icon: Package },
+  { href: "/menu", label: "Menu", icon: Menu },
+];
+
+const financeiroItems = [
+  { href: "/inicio", label: "Início", icon: LayoutDashboard },
+  { href: "/financeiro", label: "Finanças", icon: Wallet },
+  { href: "/loja", label: "Loja", icon: Package },
+  { href: "/conversas", label: "Chat", icon: MessageCircle },
   { href: "/menu", label: "Menu", icon: Menu },
 ];
 
@@ -56,8 +64,6 @@ export function BottomNav() {
   const { currentUser, state } = useAppStore();
   const isClient = currentUser?.role === "cliente";
   const isFilho = isFilhoDeSanto(currentUser);
-  const isHouseStaff = isHouseStaffRole(currentUser?.role);
-
   const chatUnread = unreadChatCountForRole(
     state.notifications ?? [],
     currentUser?.role,
@@ -80,24 +86,23 @@ export function BottomNav() {
     ? isFilho
       ? filhoItems
       : clientItems
-    : isHouseStaff
+    : currentUser?.role === "pai_de_santo"
       ? paiItems
-      : staffItems.filter((item) => {
-          if (item.href === "/menu") return true;
-          if (item.href === "/financeiro") {
-            return (
-              canAccess(currentUser?.role, "finance") ||
-              canAccess(currentUser?.role, "members") ||
-              canAccess(currentUser?.role, "fees")
-            );
-          }
-          if (item.href === "/conversas") return canAccess(currentUser?.role, "chat");
-          if (item.href === "/agenda") return canAccess(currentUser?.role, "agenda");
-          if (item.href === "/dashboard" || item.href === "/inicio") {
-            return canAccess(currentUser?.role, "dashboard");
-          }
-          return true;
-        });
+      : currentUser?.role === "administrador"
+        ? adminItems
+        : currentUser?.role === "tesouraria"
+          ? financeiroItems
+          : currentUser?.role === "estoque"
+            ? [
+                { href: "/estoque", label: "Estoque", icon: Package },
+                { href: "/menu", label: "Menu", icon: Menu },
+              ]
+            : currentUser?.role === "biblioteca"
+              ? [
+                  { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
+                  { href: "/menu", label: "Menu", icon: Menu },
+                ]
+              : paiItems;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/10 bg-white/95 backdrop-blur md:hidden">

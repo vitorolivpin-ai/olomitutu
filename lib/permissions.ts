@@ -18,7 +18,7 @@ export type AppModule =
   | "house_content"
   | "shop";
 
-/** Mesmo acesso da aba Pai de Santo — todas as áreas da casa. */
+/** Acesso completo — só Pai de Santo. */
 export const HOUSE_FULL_MODULES: AppModule[] = [
   "dashboard",
   "members",
@@ -49,24 +49,59 @@ export function isHouseStaffRole(role: UserRole | null | undefined) {
   );
 }
 
+/**
+ * Matriz por perfil:
+ * - Pai: tudo
+ * - Admin: gestão dos filhos (avisos, hierarquia/função, ajodun) + loja
+ * - Financeiro: finanças + loja
+ * - Estoque: só estoque
+ * - Biblioteca: biblioteca / conteúdo
+ */
 const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
-  administrador: [...HOUSE_FULL_MODULES],
-  tesouraria: [...HOUSE_FULL_MODULES],
   pai_de_santo: [...HOUSE_FULL_MODULES],
-  estoque: [...HOUSE_FULL_MODULES],
-  biblioteca: [...HOUSE_FULL_MODULES],
+  administrador: [
+    "dashboard",
+    "members",
+    "notifications",
+    "house_content",
+    "shop",
+    "chat",
+    "internal_notes",
+  ],
+  tesouraria: [
+    "dashboard",
+    "members",
+    "fees",
+    "charges",
+    "expenses",
+    "finance",
+    "notifications",
+    "shop",
+    "chat",
+    "reports",
+  ],
+  estoque: ["stock", "notifications"],
+  biblioteca: ["library", "notifications", "house_content"],
   /** Cliente: marcação + chat + cursos (portal próprio). */
   cliente: ["dashboard", "chat", "notifications", "agenda"],
 };
 
 /** Quem pode publicar / apagar materiais da biblioteca */
 export function canManageLibrary(role: UserRole | null | undefined) {
-  return isHouseStaffRole(role);
+  return (
+    role === "pai_de_santo" ||
+    role === "administrador" ||
+    role === "biblioteca"
+  );
 }
 
 /** Quem edita Quem Somos, Educação, Hierarquia, Checklist, Ajodun e Fotos */
 export function canManageHouseContent(role: UserRole | null | undefined) {
-  return isHouseStaffRole(role);
+  return (
+    role === "pai_de_santo" ||
+    role === "administrador" ||
+    role === "biblioteca"
+  );
 }
 
 export function canAccess(role: UserRole | null | undefined, module: AppModule) {
@@ -88,6 +123,10 @@ export function roleLabel(role: UserRole) {
 
 export function appLabelForRole(role: UserRole | null | undefined) {
   if (role === "cliente") return "App do Cliente";
-  if (isHouseStaffRole(role)) return "App da Casa";
+  if (role === "pai_de_santo") return "App da Casa";
+  if (role === "administrador") return "App do Administrador";
+  if (role === "tesouraria") return "App Financeiro";
+  if (role === "estoque") return "App do Estoque";
+  if (role === "biblioteca") return "App da Biblioteca";
   return "App da Casa";
 }

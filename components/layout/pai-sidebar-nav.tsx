@@ -7,6 +7,7 @@ import { ChevronDown, LayoutDashboard, Settings2, UserRound } from "lucide-react
 import { useAppStore } from "@/hooks/use-app-store";
 import { PAI_MODULE_GROUPS } from "@/lib/pai-modules";
 import { unreadChatCountForRole } from "@/lib/notifications";
+import { canAccess } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -63,6 +64,10 @@ export function PaiSidebarNav({ onNavigate }: Props) {
       </Link>
 
       {PAI_MODULE_GROUPS.map((group) => {
+        const items = group.items.filter(
+          (item) => !item.module || canAccess(currentUser?.role, item.module),
+        );
+        if (items.length === 0) return null;
         const open = openGroups[group.id] ?? group.id === "atendimento";
         const isAtendimento = group.id === "atendimento";
         return (
@@ -93,7 +98,7 @@ export function PaiSidebarNav({ onNavigate }: Props) {
 
             {open ? (
               <ul className="mt-1 space-y-0.5">
-                {group.items.map((item) => {
+                {items.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.href);
                   const showBadge =

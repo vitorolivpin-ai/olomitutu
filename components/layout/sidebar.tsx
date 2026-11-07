@@ -31,15 +31,20 @@ import { unreadCountForRole } from "@/lib/notifications";
 import {
   appLabelForRole,
   canAccess,
-  isHouseStaffRole,
   roleLabel,
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const staffLinks = [
-  { href: "/inicio", label: "Overview", icon: LayoutDashboard, module: "dashboard" as const },
+  { href: "/inicio", label: "Início", icon: LayoutDashboard, module: "dashboard" as const },
   { href: "/dashboard", label: "Resumo", icon: LayoutDashboard, module: "dashboard" as const },
-  { href: "/membros", label: "Membros", icon: Users, module: "members" as const },
+  { href: "/membros", label: "Membros / filhos", icon: Users, module: "members" as const },
+  { href: "/notificacoes", label: "Avisos", icon: Bell, module: "notifications" as const },
+  { href: "/hierarquia", label: "Hierarquia / função", icon: Users, module: "house_content" as const },
+  { href: "/checklist", label: "Checklist", icon: Receipt, module: "house_content" as const },
+  { href: "/ajodun", label: "Ajodun", icon: CalendarDays, module: "house_content" as const },
+  { href: "/ajodun/liberacoes", label: "Liberações de ajodun", icon: CalendarDays, module: "house_content" as const },
+  { href: "/educacao", label: "Educação", icon: BookOpen, module: "house_content" as const },
   { href: "/mensalidades", label: "Mensalidades", icon: Receipt, module: "fees" as const },
   { href: "/cobrancas", label: "Cobranças", icon: CreditCard, module: "charges" as const },
   { href: "/despesas", label: "Despesas", icon: Wallet, module: "expenses" as const },
@@ -48,12 +53,11 @@ const staffLinks = [
   { href: "/estoque", label: "Estoque", icon: Package, module: "stock" as const },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen, module: "library" as const },
   { href: "/loja", label: "Loja", icon: Package, module: "shop" as const },
-  { href: "/ajodun/liberacoes", label: "Ajodun liberações", icon: CalendarDays, module: "house_content" as const },
+  { href: "/loja/liberacoes", label: "Liberações da loja", icon: Package, module: "shop" as const },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" as const },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock, module: "agenda" as const },
   { href: "/conversas", label: "Conversas", icon: MessageCircle, module: "chat" as const },
   { href: "/relatorios", label: "Relatórios", icon: ChartColumn, module: "reports" as const },
-  { href: "/notificacoes", label: "Notificações", icon: Bell, module: "notifications" as const },
   { href: "/menu", label: "Conta", icon: Settings2, module: "dashboard" as const },
 ];
 
@@ -114,7 +118,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const isClient = currentUser?.role === "cliente";
   const isFilho = isFilhoDeSanto(currentUser);
-  const isHouseStaff = isHouseStaffRole(currentUser?.role);
   const unread = mounted
     ? unreadCountForRole(state.notifications, currentUser?.role, {
         clientId: currentUser?.client_id,
@@ -139,13 +142,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     };
   }, [open]);
 
+  const isPai = currentUser?.role === "pai_de_santo";
   const links = isClient
     ? isFilho
       ? filhoLinks
       : clientLinks
-    : isHouseStaff
+    : isPai
       ? []
-      : staffLinks.filter((l) => canAccess(currentUser?.role, l.module) || l.href === "/menu");
+      : staffLinks.filter(
+          (l) => canAccess(currentUser?.role, l.module) || l.href === "/menu",
+        );
 
   const panel = (
     <>
@@ -167,7 +173,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         ) : null}
       </div>
-      {isHouseStaff ? (
+      {isPai ? (
         <PaiSidebarNav onNavigate={() => onClose?.()} />
       ) : (
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">

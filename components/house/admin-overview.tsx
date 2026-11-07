@@ -23,7 +23,7 @@ import {
   formatCurrency,
   signedCurrency,
 } from "@/lib/format";
-import { canAccess } from "@/lib/permissions";
+import { canAccess, roleLabel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type Tile = {
@@ -236,7 +236,7 @@ const tiles: Tile[] = [
 ];
 
 /**
- * Overview da casa — Admin e Pai (todas as abas, sem App do Cliente).
+ * Overview filtrado por perfil — Admin (filhos/ajodun/loja) e Financeiro (finanças/loja).
  */
 export function AdminOverview() {
   const { state, currentUser } = useAppStore();
@@ -244,16 +244,39 @@ export function AdminOverview() {
   const metrics = dashboardMetrics(state, competence);
   const showFinance =
     canAccess(currentUser?.role, "finance") || canAccess(currentUser?.role, "fees");
+  const isAdmin = currentUser?.role === "administrador";
+  const isFinanceiro = currentUser?.role === "tesouraria";
 
-  const visible = tiles.filter(
-    (t) => !t.module || canAccess(currentUser?.role, t.module),
-  );
+  const visible = tiles.filter((t) => {
+    if (t.href === "/cadastros") {
+      return (
+        currentUser?.role === "administrador" ||
+        currentUser?.role === "pai_de_santo"
+      );
+    }
+    return !t.module || canAccess(currentUser?.role, t.module);
+  });
+
+  const title = isAdmin
+    ? "Gestão dos filhos"
+    : isFinanceiro
+      ? "Financeiro"
+      : "Overview";
+  const subtitle = isAdmin
+    ? "Avisos, função, ajodun e loja — o que aparece no app do Filho de Santo"
+    : isFinanceiro
+      ? `Finanças e loja · ${formatCompetence(competence)}`
+      : `Visão geral · ${formatCompetence(competence)}`;
 
   return (
     <div className="animate-rise space-y-6">
       <BrandPageHeader
-        title="Overview"
-        subtitle={`Visão geral da casa · ${formatCompetence(competence)}`}
+        title={title}
+        subtitle={
+          currentUser?.role
+            ? `${roleLabel(currentUser.role)} · ${subtitle}`
+            : subtitle
+        }
         logoSize="lg"
         priority
       />

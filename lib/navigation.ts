@@ -2,7 +2,8 @@ import type { UserRole } from "@/types";
 
 export function homePathForRole(role: UserRole | null | undefined) {
   if (role === "cliente") return "/cliente";
-  // Todas as abas da casa (Pai, Admin, Financeiro, Estoque, Biblioteca) → mesma home
+  if (role === "estoque") return "/estoque";
+  if (role === "biblioteca") return "/biblioteca";
   return "/inicio";
 }
 
