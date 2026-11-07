@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronRight,
+  GraduationCap,
   Library,
   ShoppingBag,
   Swords,
@@ -28,6 +29,7 @@ type FeatureCard = {
   external?: "whatsapp-grupo";
 };
 
+/** Grade 2×2 — Oficinas fica fora, em largura total. */
 const FEATURE_CARDS: FeatureCard[] = [
   { id: "biblioteca", label: "Biblioteca", href: "/acervo", icon: Library },
   { id: "loja", label: "Loja", href: "/vitrine", icon: ShoppingBag },
@@ -43,9 +45,13 @@ const FEATURE_CARDS: FeatureCard[] = [
 export function HubLanding({ entries }: Props) {
   return (
     <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-4 sm:pt-6">
+      {/*
+        Brasão estático da Home — NÃO é a Splash (#boot-splash no layout).
+        Só nesta página; some ao navegar para Agenda, Biblioteca, etc.
+      */}
       <header className="animate-rise flex flex-col items-center px-0 text-center">
         <BrandMark hero className="hub-emblem" priority />
-        <div className="mt-3 space-y-1.5 sm:mt-4">
+        <div className="mt-5 space-y-2">
           <p className="text-[19px] font-bold leading-tight text-navy sm:text-[21px]">
             Bem-vindo(a)!
           </p>
@@ -58,7 +64,7 @@ export function HubLanding({ entries }: Props) {
       <Link
         href="/marcar"
         prefetch
-        className="animate-rise mt-7 flex w-full items-center gap-3.5 rounded-[18px] px-4 py-4 text-navy shadow-[0_8px_22px_rgba(11,31,58,0.1)] transition active:scale-[0.99]"
+        className="animate-rise mt-8 flex w-full items-center gap-3.5 rounded-[18px] px-4 py-4 text-navy shadow-[0_8px_22px_rgba(11,31,58,0.1)] transition active:scale-[0.99]"
         style={{
           animationDelay: "40ms",
           background:
@@ -115,6 +121,21 @@ export function HubLanding({ entries }: Props) {
           );
         })}
       </div>
+
+      <Link
+        href="/oficinas"
+        prefetch
+        className="animate-rise mt-3.5 relative flex w-full items-center gap-3.5 rounded-[18px] bg-card px-4 py-4 text-navy shadow-[0_6px_18px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.04] transition active:scale-[0.99]"
+        style={{ animationDelay: "120ms" }}
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-mist text-navy">
+          <GraduationCap className="h-6 w-6" strokeWidth={1.85} />
+        </span>
+        <span className="flex-1 text-left text-[16px] font-semibold tracking-tight text-navy">
+          Oficinas
+        </span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted" strokeWidth={2.25} />
+      </Link>
     </BrandPageShell>
   );
 }

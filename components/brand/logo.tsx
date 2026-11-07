@@ -5,9 +5,10 @@ export const BRASAO_SRC = "/brasao-olomi-tutu.png?v=3";
 export const BRASAO_ALT = "Brasão Ilé Olóròkè Àṣẹ Olómi Tútù";
 
 /**
- * Brasão oficial (PNG transparente com contorno branco).
- * - `hero`: tamanho grande responsivo (hub / destaque).
- * - sem hero: respeita `className` (ex.: sidebar), com sombra suave.
+ * Brasão oficial da Home (PNG transparente).
+ * Não usar na Splash — o boot usa `#boot-splash` em `app/layout.tsx`.
+ * - `hero`: Home — clamp(140px, 42vw, 190px) / desktop até 220px.
+ * - sem hero: respeita `className`.
  */
 export function BrandMark({
   className,
@@ -18,7 +19,7 @@ export function BrandMark({
 }: {
   className?: string;
   priority?: boolean;
-  /** Destaque na home — min(65vw, 320px) + sombra */
+  /** Emblema estático da Home */
   hero?: boolean;
   blendOnLight?: boolean;
 }) {

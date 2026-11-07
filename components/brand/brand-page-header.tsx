@@ -17,7 +17,7 @@ type Props = {
 
 /**
  * Cabeçalho minimalista: [←] Título + subtítulo.
- * Brasão só na Splash Screen — nunca aqui.
+ * Brasão só na Splash e na Home — nunca neste header.
  */
 export function BrandPageHeader({
   title,
