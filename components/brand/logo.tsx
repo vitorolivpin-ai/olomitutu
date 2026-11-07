@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
-export const BRASAO_SRC = "/brasao-olomi-tutu.png";
+/** ?v= força refresh quando o SW/browser ainda guarda o PNG antigo */
+export const BRASAO_SRC = "/brasao-olomi-tutu.png?v=2";
 export const BRASAO_ALT = "Brasão Ilé Olóròkè Àṣẹ Olómi Tútù";
 
 /**
@@ -17,7 +18,7 @@ export function BrandMark({
 }: {
   className?: string;
   priority?: boolean;
-  /** Destaque na home — min(80vw, 420px) + sombra */
+  /** Destaque na home — min(65vw, 320px) + sombra */
   hero?: boolean;
   blendOnLight?: boolean;
 }) {

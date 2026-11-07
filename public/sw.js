@@ -1,5 +1,5 @@
 /* Service worker — PWA + notificações com logo do app */
-const SW_VERSION = "oloroke-notif-v11-brasao-olomi";
+const SW_VERSION = "oloroke-notif-v12-brasao-size";
 
 function appOrigin() {
   return self.location.origin;
@@ -24,7 +24,7 @@ self.addEventListener("install", (event) => {
           "/icon-192.png",
           "/icon-512.png",
           "/apple-touch-icon.png",
-          "/brasao-olomi-tutu.png",
+          "/brasao-olomi-tutu.png?v=2",
           "/splash.png",
         ]),
       )

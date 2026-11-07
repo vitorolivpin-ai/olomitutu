@@ -104,9 +104,9 @@ body {
   }
 }
 
-/* Brasão em destaque (hub / splash): grande no celular, limitado no desktop */
+/* Brasão em destaque (tela inicial): ~20% menor, ainda centralizado */
 .brand-brasao-hero {
-  width: min(80vw, 420px);
+  width: min(65vw, 320px);
   height: auto;
   margin-inline: auto;
   object-fit: contain;
@@ -136,7 +136,7 @@ body {
 
 .splash-brasao {
   animation: splash-fade-in 300ms ease-out both;
-  width: min(80vw, 420px);
+  width: min(65vw, 320px);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
