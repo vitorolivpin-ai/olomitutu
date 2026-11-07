@@ -49,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Splash nativa do 1º paint (PWA/Android) — removida após hidratação */}
         <div
           id="boot-splash"
+          suppressHydrationWarning
           style={{
             position: "fixed",
             inset: 0,

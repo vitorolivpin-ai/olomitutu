@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   BookOpen,
   CalendarDays,
@@ -8,6 +9,7 @@ import {
   ShoppingBag,
   Swords,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/logo";
 import { BrandPageShell } from "@/components/brand/brand-page-shell";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import type { HubEntry } from "@/lib/hub-entries";
@@ -40,10 +42,14 @@ const FEATURE_CARDS: FeatureCard[] = [
 
 export function HubLanding({ entries }: Props) {
   return (
-    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-8">
+    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-10">
       <header className="animate-rise flex flex-col items-center text-center">
-        <div className="space-y-1.5">
-          <p className="text-[22px] font-bold leading-tight text-navy sm:text-[24px]">
+        <BrandMark
+          className="hub-emblem h-[13rem] w-[11.25rem] sm:h-[14.5rem] sm:w-[12.5rem]"
+          priority
+        />
+        <div className="mt-6 space-y-1.5">
+          <p className="text-[19px] font-bold leading-tight text-navy sm:text-[21px]">
             Bem-vindo(a)!
           </p>
           <p className="text-[14px] text-muted sm:text-[15px]">
@@ -52,8 +58,9 @@ export function HubLanding({ entries }: Props) {
         </div>
       </header>
 
-      <a
+      <Link
         href="/marcar"
+        prefetch
         className="animate-rise mt-7 flex w-full items-center gap-3.5 rounded-[18px] px-4 py-4 text-navy shadow-[0_8px_22px_rgba(11,31,58,0.1)] transition active:scale-[0.99]"
         style={{
           animationDelay: "40ms",
@@ -68,7 +75,7 @@ export function HubLanding({ entries }: Props) {
           Marcar horário
         </span>
         <ChevronRight className="h-5 w-5 shrink-0 text-navy/55" strokeWidth={2.25} />
-      </a>
+      </Link>
 
       <div
         className="animate-rise mt-4 grid grid-cols-2 gap-3.5"
@@ -105,9 +112,9 @@ export function HubLanding({ entries }: Props) {
             );
           }
           return (
-            <a key={card.id} href={card.href} className={className}>
+            <Link key={card.id} href={card.href!} prefetch className={className}>
               {inner}
-            </a>
+            </Link>
           );
         })}
       </div>

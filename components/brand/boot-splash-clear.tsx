@@ -3,17 +3,30 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/hooks/use-app-store";
 
-/** Mantém a splash HTML até o store ficar pronto; depois remove com fade curto. */
+/**
+ * Esconde a splash HTML após o store ficar pronto.
+ * Não remove o nó do DOM (evita insertBefore/removeChild com o React).
+ */
 export function BootSplashClear() {
   const { ready } = useAppStore();
 
   useEffect(() => {
-    if (!ready) return;
     const el = document.getElementById("boot-splash");
     if (!el) return;
-    el.style.opacity = "0";
+
+    if (!ready) {
+      el.style.opacity = "1";
+      el.style.pointerEvents = "auto";
+      el.style.visibility = "visible";
+      return;
+    }
+
     el.style.transition = "opacity 220ms ease-out";
-    const t = window.setTimeout(() => el.remove(), 240);
+    el.style.opacity = "0";
+    el.style.pointerEvents = "none";
+    const t = window.setTimeout(() => {
+      el.style.visibility = "hidden";
+    }, 240);
     return () => window.clearTimeout(t);
   }, [ready]);
 

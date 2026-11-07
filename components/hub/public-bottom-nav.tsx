@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Home, ShoppingBag, UserRound, X } from "lucide-react";
 import type { HubEntry } from "@/components/hub/hub-landing";
@@ -64,9 +65,10 @@ export function PublicBottomNav({ entries = HUB_ENTRIES }: Props) {
             const Icon = item.icon;
             const active = item.match(pathname);
             return (
-              <a
+              <Link
                 key={item.id}
                 href={item.href}
+                prefetch
                 className={cn(
                   "relative flex min-w-0 flex-1 flex-col items-center gap-1 px-2 py-2 text-[11px] font-medium transition",
                   active ? "text-gold-deep" : "text-navy/40 hover:text-navy/65",
@@ -77,7 +79,7 @@ export function PublicBottomNav({ entries = HUB_ENTRIES }: Props) {
                 {active ? (
                   <span className="absolute bottom-0.5 h-0.5 w-7 rounded-full bg-gold" />
                 ) : null}
-              </a>
+              </Link>
             );
           })}
 
