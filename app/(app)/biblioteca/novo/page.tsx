@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -89,15 +90,12 @@ export default function BibliotecaNovoPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-lg space-y-5">
-      <div>
-        <Link href="/biblioteca" className="text-sm text-navy/55 hover:text-navy">
-          ← Biblioteca
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Novo material</h1>
-        <p className="text-sm text-navy/60">
-          Suba vídeo, cantiga ou PDF — ou cole um link
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Novo material"
+        subtitle="Suba vídeo, cantiga ou PDF — ou cole um link"
+        backHref="/biblioteca"
+        backLabel="Biblioteca"
+      />
 
       <Card>
         <CardTitle>Publicar</CardTitle>

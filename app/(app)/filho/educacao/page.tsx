@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useEffect, useMemo } from "react";
 import { BookOpen, Clapperboard, Headphones, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,16 +39,12 @@ export default function FilhoEducacaoPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <p className="mt-2 text-sm font-medium text-gold-deep">Filho de Santo</p>
-        <h1 className="font-display text-3xl text-navy">Educação</h1>
-        <p className="text-sm text-navy/60">
-          Livros, vídeos e materiais publicados pela casa.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Educação"
+        subtitle="Livros, vídeos e materiais publicados pela casa."
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       <div className="grid gap-3">
         {items.map((item) => (

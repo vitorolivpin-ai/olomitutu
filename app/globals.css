@@ -52,10 +52,7 @@ body {
 }
 
 .bg-app {
-  background:
-    radial-gradient(circle at top left, rgba(201, 162, 39, 0.16), transparent 28%),
-    radial-gradient(circle at top right, rgba(31, 107, 74, 0.12), transparent 24%),
-    linear-gradient(180deg, #f7f3e8 0%, #eef3f8 42%, #f4f7fb 100%);
+  background: #f7f8fa;
 }
 
 .shadow-soft {

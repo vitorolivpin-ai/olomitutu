@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -45,16 +45,12 @@ export default function LojaLiberacoesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/loja" className="text-sm text-navy/55 hover:text-navy">
-          ← Loja
-        </Link>
-        <h1 className="mt-2 font-display text-3xl text-navy">Liberações da loja</h1>
-        <p className="text-sm text-navy/60">
-          Conta: libera no app. Sem conta: envie o arquivo por e-mail usando a ficha
-          de NF.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Liberações da loja"
+        subtitle="Conta: libera no app. Sem conta: envie o arquivo por e-mail usando a ficha de NF."
+        backHref="/loja"
+        backLabel="Loja"
+      />
 
       {pending.length === 0 ? (
         <EmptyState title="Nenhuma compra aguardando liberação" />

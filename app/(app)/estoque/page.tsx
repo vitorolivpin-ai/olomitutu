@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { PackageMinus, PackagePlus, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,12 +43,10 @@ export default function EstoquePage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Estoque</h1>
-        <p className="text-sm text-navy/60">
-          Entrada e baixa por código de barras · validade por lote
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Estoque"
+        subtitle="Entrada e baixa por código de barras · validade por lote"
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link href="/estoque/entrada">

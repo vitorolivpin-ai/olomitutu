@@ -1,7 +1,9 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,8 +13,21 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { formatDate } from "@/lib/format";
 
 export default function ClientsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-navy/50">Carregando…</p>}>
+      <ClientsPageInner />
+    </Suspense>
+  );
+}
+
+function ClientsPageInner() {
   const { state, upsertClient, removeClient, currentUser } = useAppStore();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("novo") === "1") setOpen(true);
+  }, [searchParams]);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -63,11 +78,11 @@ export default function ClientsPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Clientes de jogo</h1>
-          <p className="text-sm text-navy/60">Separado dos membros do barracão</p>
-        </div>
+      <BrandPageHeader
+        title="Clientes de jogo"
+        subtitle="Separado dos membros do barracão"
+      />
+      <div className="flex justify-center gap-3 empty:hidden">
         {currentUser?.role !== "cliente" ? (
           <Button size="md" onClick={() => setOpen((v) => !v)}>
             <Plus className="h-4 w-4" /> Novo

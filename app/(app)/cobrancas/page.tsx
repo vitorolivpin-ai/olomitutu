@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,10 +17,7 @@ export default function ChargesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Cobranças</h1>
-        <p className="text-sm text-navy/60">Mensalidades em aberto ou vencidas</p>
-      </div>
+      <BrandPageHeader title="Cobranças" subtitle="Mensalidades em aberto ou vencidas" />
 
       <div className="grid gap-3">
         {charges.map((fee) => {

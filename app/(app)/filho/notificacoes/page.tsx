@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
@@ -32,16 +33,12 @@ export default function FilhoNotificacoesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <p className="mt-2 text-sm font-medium text-gold-deep">Filho de Santo</p>
-        <h1 className="font-display text-3xl text-navy">Notificações</h1>
-        <p className="text-sm text-navy/60">
-          Mensalidade, ajodun, chat e avisos da casa.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Notificações"
+        subtitle="Mensalidade, ajodun, chat e avisos da casa."
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />

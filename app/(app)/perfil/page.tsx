@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Camera, Trash2 } from "lucide-react";
@@ -99,12 +100,10 @@ export default function PerfilPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-lg space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Meu perfil</h1>
-        <p className="text-sm text-navy/60">
-          {roleLabel(currentUser.role)} · nome, foto e e-mail
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Meu perfil"
+        subtitle={`${roleLabel(currentUser.role)} · nome, foto e e-mail`}
+      />
 
       <Card>
         <div className="flex flex-col items-center gap-3 text-center">

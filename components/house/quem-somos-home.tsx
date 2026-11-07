@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -132,17 +132,12 @@ export function QuemSomosHome({
 
   return (
     <div className="animate-rise space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <BrandMark className="h-20 w-20 sm:h-24 sm:w-24" priority />
-        <div>
-          <p className="text-sm font-medium text-gold-deep">{eyebrow}</p>
-          <h1 className="font-display text-3xl text-navy sm:text-4xl">Quem somos</h1>
-          <p className="mt-1 max-w-xl text-sm text-navy/60">
-            A história da casa em primeiro plano. Ao lado, os caminhos para entrar
-            nas áreas do app.
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title="Quem somos"
+        subtitle={`${eyebrow} · história da casa e caminhos do app.`}
+        logoSize="lg"
+        priority
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.85fr)]">
         {/* Mini-blog principal */}

@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import {
   Bar,
@@ -40,12 +41,12 @@ export default function FinancePage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Análise financeira</h1>
-          <p className="text-sm text-navy/60">{formatCompetence(competence)}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <BrandPageHeader
+        title="Análise financeira"
+        subtitle={formatCompetence(competence)}
+      />
+      <div className="flex flex-wrap justify-center gap-3">
+        <div className="flex flex-wrap justify-center gap-2">
           <Link href="/conversas">
             <Button variant="secondary">Chat com clientes</Button>
           </Link>

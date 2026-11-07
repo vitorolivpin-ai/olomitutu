@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo, useState } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
@@ -41,10 +42,7 @@ export default function ReportsPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Relatórios de atendimento</h1>
-        <p className="text-sm text-navy/60">Filtro por mês</p>
-      </div>
+      <BrandPageHeader title="Relatórios de atendimento" subtitle="Filtro por mês" />
 
       <Card>
         <Label htmlFor="month">Mês</Label>

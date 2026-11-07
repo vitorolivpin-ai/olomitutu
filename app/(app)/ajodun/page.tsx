@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { ExternalLink } from "lucide-react";
@@ -62,25 +63,22 @@ export default function AjodunPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
+      <BrandPageHeader
+        title="Ajodun"
+        subtitle="Organização com tarefas padrão e link da planilha compartilhada"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap items-center justify-center gap-3 empty:hidden">
+        {currentUser?.role === "administrador" ||
+        currentUser?.role === "pai_de_santo" ? (
+          <Link
+            href="/ajodun/liberacoes"
+            className="text-sm font-medium text-gold-deep"
+          >
+            Ver pedidos de liberação →
           </Link>
-          <h1 className="font-display text-3xl text-navy">Ajodun</h1>
-          <p className="text-sm text-navy/60">
-            Organização com tarefas padrão e link da planilha compartilhada
-          </p>
-          {currentUser?.role === "administrador" ||
-          currentUser?.role === "pai_de_santo" ? (
-            <Link
-              href="/ajodun/liberacoes"
-              className="mt-2 inline-block text-sm font-medium text-gold-deep"
-            >
-              Ver pedidos de liberação →
-            </Link>
-          ) : null}
-        </div>
+        ) : null}
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar" : "Novo ajodun"}

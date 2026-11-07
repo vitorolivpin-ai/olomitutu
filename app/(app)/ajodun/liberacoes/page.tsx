@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -34,15 +34,12 @@ export default function AjodunLiberacoesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/ajodun" className="text-sm text-navy/55 hover:text-navy">
-          ← Ajodun
-        </Link>
-        <h1 className="mt-2 font-display text-3xl text-navy">Liberações de ajodun</h1>
-        <p className="text-sm text-navy/60">
-          O filho escolhe o ajodun; você libera o acesso à planilha.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Liberações de ajodun"
+        subtitle="O filho escolhe o ajodun; você libera o acesso à planilha."
+        backHref="/ajodun"
+        backLabel="Ajodun"
+      />
 
       {pending.length === 0 ? (
         <EmptyState title="Nenhum pedido aguardando" />

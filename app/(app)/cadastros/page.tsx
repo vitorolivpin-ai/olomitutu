@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, LoadingBlock } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -151,14 +152,10 @@ export default function CadastrosPendentesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Cadastros pendentes</h1>
-        <p className="mt-1 text-sm text-navy/60">
-          Cada cadastro libera a aba em que a pessoa se inscreveu (Estoque,
-          Biblioteca, etc.). O tipo (Filho de Santo / Cliente / Admin) é só
-          informação.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Cadastros pendentes"
+        subtitle="Cada cadastro libera a aba em que a pessoa se inscreveu (Estoque, Biblioteca, etc.). O tipo (Filho de Santo / Cliente / Admin) é só informação."
+      />
 
       {error ? (
         <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>

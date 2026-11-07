@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,15 +63,16 @@ export default function FotosPage() {
         <div>
           <button
             type="button"
-            className="text-sm text-navy/55 hover:text-navy"
+            className="mb-2 text-sm text-navy/55 hover:text-navy"
             onClick={() => setOpenId(null)}
           >
             ← Álbuns
           </button>
-          <h1 className="font-display text-3xl text-navy">{open.title}</h1>
-          {open.description ? (
-            <p className="mt-1 text-sm text-navy/60">{open.description}</p>
-          ) : null}
+          <BrandPageHeader
+            title={open.title}
+            subtitle={open.description || undefined}
+            logoSize="sm"
+          />
         </div>
 
         {open.drive_url ? (
@@ -105,16 +106,13 @@ export default function FotosPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Fotos</h1>
-          <p className="text-sm text-navy/60">
-            Memórias do barracão — fotos no app ou link do Drive
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Fotos"
+        subtitle="Memórias do barracão — fotos no app ou link do Drive"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar" : "Novo álbum"}

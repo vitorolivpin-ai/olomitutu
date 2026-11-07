@@ -9,7 +9,7 @@ import {
   UserRound,
   GraduationCap,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -75,18 +75,12 @@ export default function ClienteHomePage() {
 
   return (
     <div className="animate-rise mx-auto max-w-2xl space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <BrandMark className="h-20 w-20" priority />
-        <div>
-          <p className="text-sm font-medium text-gold-deep">App do Cliente</p>
-          <h1 className="font-display text-3xl text-navy sm:text-4xl">
-            Olá, {currentUser.full_name.split(" ")[0]}
-          </h1>
-          <p className="mt-1 text-sm text-navy/60">
-            Cursos comprados, agenda e chat com Vitor Cardozo - Ògún Yande.
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title={`Olá, ${currentUser.full_name.split(" ")[0]}`}
+        subtitle="Cursos, agenda e chat com Vitor Cardozo - Ògún Yande."
+        logoSize="lg"
+        priority
+      />
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />

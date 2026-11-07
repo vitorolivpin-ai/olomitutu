@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { Lock, ShoppingBag } from "lucide-react";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -136,14 +137,11 @@ export default function LojaStaffPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-gold-deep">App da Casa</p>
-          <h1 className="font-display text-3xl text-navy">Loja</h1>
-          <p className="text-sm text-navy/60">
-            Vitrine pública e App do Cliente · Pix em cada produto
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Loja"
+        subtitle="Vitrine pública e App do Cliente · Pix em cada produto"
+      />
+      <div className="flex flex-wrap items-start justify-end gap-3">
         <div className="flex flex-wrap gap-2">
           {canRelease ? (
             <Link href="/loja/liberacoes">

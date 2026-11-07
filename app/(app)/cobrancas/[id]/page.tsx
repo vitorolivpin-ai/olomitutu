@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -170,11 +171,12 @@ export default function ChargeDetailPage() {
   return (
     <div className="animate-rise space-y-5">
       <div>
-        <Link href="/cobrancas" className="text-sm text-navy/55 hover:text-navy">
-          ← Cobranças
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{member.full_name}</h1>
-        <p className="text-sm text-navy/60">{formatCompetence(fee.competence)}</p>
+        <BrandPageHeader
+          title={member.full_name}
+          subtitle={formatCompetence(fee.competence)}
+          backHref="/cobrancas"
+          backLabel="Cobranças"
+        />
       </div>
 
       <Card>

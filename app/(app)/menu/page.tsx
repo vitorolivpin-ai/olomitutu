@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { UserAvatar } from "@/components/profile/user-avatar";
@@ -71,13 +71,7 @@ export default function MenuPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex items-center gap-4">
-        <BrandMark className="h-16 w-16" />
-        <div>
-          <h1 className="font-display text-3xl text-navy">Menu</h1>
-          <p className="text-sm text-navy/60">ILÉ OLÓRÒKÈ ÀṢẸ · OLÓMÌ TÚTÙ</p>
-        </div>
-      </div>
+      <BrandPageHeader title="Menu" subtitle="Atalhos e configurações da casa" />
 
       <InstallAppBanner />
       {(currentUser?.role === "pai_de_santo" ||

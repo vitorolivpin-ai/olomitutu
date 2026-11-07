@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,13 +74,10 @@ export default function DisponibilidadePage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Horários disponíveis</h1>
-        <p className="text-sm text-navy/60">
-          Publique os horários em que você atende. Eles aparecem no App do Cliente.
-          Quando alguém marca, fica ocupado; se cancelar, todos recebem aviso.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Horários disponíveis"
+        subtitle="Publique os horários em que você atende. Eles aparecem no App do Cliente. Quando alguém marca, fica ocupado; se cancelar, todos recebem aviso."
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>

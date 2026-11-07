@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -68,15 +68,12 @@ export default function EstoqueSaidaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/estoque" className="text-sm text-navy/55 hover:text-navy">
-          ← Estoque
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Saída / baixa</h1>
-        <p className="text-sm text-navy/60">
-          Escaneie o código para retirar. A baixa usa primeiro o lote que vence antes.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Saída / baixa"
+        subtitle="Escaneie o código para retirar. A baixa usa primeiro o lote que vence antes."
+        backHref="/estoque"
+        backLabel="Estoque"
+      />
 
       <Card>
         <BarcodeScanner onScan={onScan} label="Código do produto a retirar" />

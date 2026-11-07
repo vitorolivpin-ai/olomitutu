@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -18,13 +19,12 @@ export default function ConteudoHubPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Conteúdo da casa</h1>
-        <p className="text-sm text-navy/60">
-          Quem somos, educação, hierarquia, checklist, ajodun e fotos
-          {canEdit ? " · você pode editar" : ""}
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Conteúdo da casa"
+        subtitle={`Quem somos, educação, hierarquia, checklist, ajodun e fotos${
+          canEdit ? " · você pode editar" : ""
+        }`}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         {CONTENT_SECTIONS.map((section) => (

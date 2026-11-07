@@ -163,19 +163,25 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium",
-                  active ? "text-navy" : "text-navy/45",
+                  "relative flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium transition",
+                  active ? "text-gold-deep" : "text-navy/40 hover:text-navy/65",
                 )}
               >
                 <span className="relative">
-                  <Icon className={cn("h-5 w-5", active && "text-gold-deep")} />
+                  <Icon
+                    className="h-5 w-5"
+                    strokeWidth={active ? 2.25 : 1.75}
+                  />
                   {badgeCount > 0 ? (
                     <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-semibold text-white">
                       {badgeCount > 9 ? "9+" : badgeCount}
                     </span>
                   ) : null}
                 </span>
-                {item.label}
+                <span className={cn(active && "font-semibold")}>{item.label}</span>
+                {active ? (
+                  <span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-gold" />
+                ) : null}
               </Link>
             </li>
           );

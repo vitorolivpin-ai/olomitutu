@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy } from "lucide-react";
@@ -117,15 +118,12 @@ export default function FilhoMensalidadePage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Mensalidade</h1>
-        <p className="text-sm text-navy/60">
-          Valor: {formatCurrency(member.monthly_fee_amount)} · vencimento dia {member.due_day}
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Mensalidade"
+        subtitle={`Valor: ${formatCurrency(member.monthly_fee_amount)} · vencimento dia ${member.due_day}`}
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       {doneId || highlightReceipt ? (
         <Card className="border-l-4 border-l-leaf">

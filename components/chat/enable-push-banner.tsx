@@ -18,9 +18,11 @@ const STORAGE_KEY = "ile-push-chat-enabled";
 type Props = {
   /** Texto para o App do Cliente */
   forClient?: boolean;
+  /** Aviso em uma linha — Home operacional do Pai */
+  compact?: boolean;
 };
 
-export function EnablePushBanner({ forClient = false }: Props) {
+export function EnablePushBanner({ forClient = false, compact = false }: Props) {
   const [ready, setReady] = useState(false);
   const [supported, setSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
@@ -105,6 +107,40 @@ export function EnablePushBanner({ forClient = false }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04]">
+        <BellRing className="h-4 w-4 shrink-0 text-gold-deep" />
+        <p className="min-w-0 flex-1 text-xs text-navy/60">
+          {forClient
+            ? "Alertas quando o Pai responder no chat."
+            : "Alertas quando um cliente mandar mensagem."}
+          {message ? ` ${message}` : null}
+        </p>
+        <div className="flex shrink-0 gap-1.5">
+          <Button
+            size="sm"
+            variant="gold"
+            disabled={busy || permission === "denied"}
+            onClick={() => void onAllowClick()}
+            className="min-h-8 px-2.5 text-xs"
+          >
+            {busy ? "…" : "Permitir"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => setHidden(true)}
+            className="min-h-8 px-2.5 text-xs"
+          >
+            Agora não
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

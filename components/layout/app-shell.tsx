@@ -10,6 +10,7 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { LoadingBlock } from "@/components/ui/empty-state";
 import { appLabelForRole, canAccess, type AppModule } from "@/lib/permissions";
 import { BrandMark } from "@/components/brand/logo";
+import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
 import { isClientPortalPath, isMemberPortalPath } from "@/lib/navigation";
 
@@ -155,12 +156,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/filho/financeiro-chat";
 
   return (
-    <div className={isChatSection ? "flex h-dvh max-h-dvh bg-[#d1d7db]" : "flex min-h-screen bg-app"}>
+    <div
+      className={
+        isChatSection
+          ? "relative flex h-dvh max-h-dvh bg-[#d1d7db]"
+          : "relative flex min-h-screen overflow-x-hidden bg-[#F7F8FA]"
+      }
+    >
+      {!isChatSection ? (
+        <BrandWatermarks
+          variant={currentUser.role === "pai_de_santo" ? "faint" : "default"}
+        />
+      ) : null}
       <ChatAlertWatcher />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
         {!isChatSection ? (
-          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-navy/10 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-navy/10 bg-white/90 px-4 py-3 backdrop-blur md:hidden">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
@@ -171,7 +183,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <BrandMark className="h-12 w-12 shrink-0" />
             <div className="min-w-0">
-              <p className="font-display text-xs text-gold-deep">
+              <p className="text-xs font-semibold text-navy/70">
                 {appLabelForRole(currentUser.role)}
               </p>
             </div>

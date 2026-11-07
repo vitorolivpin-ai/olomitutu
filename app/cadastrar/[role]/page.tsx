@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { AuthPageFrame } from "@/components/brand/auth-page-frame";
 import { BrandMark } from "@/components/brand/logo";
 import {
   HOUSE_SIGNUP_ROLES,
@@ -37,15 +38,15 @@ export default function CadastrarAreaPage() {
 
   if (!isAreaRole(areaParam)) {
     return (
-      <div className="bg-app flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
+      <AuthPageFrame>
+        <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
           <BrandMark className="mx-auto h-24 w-24" />
           <p className="text-sm text-navy/70">Área inválida.</p>
           <Link href="/" className="text-sm text-navy underline">
             Voltar ao início
           </Link>
         </div>
-      </div>
+      </AuthPageFrame>
     );
   }
 
@@ -60,21 +61,21 @@ export default function CadastrarAreaPage() {
   // Cadastro completo só nas abas pedidas; cliente/pai/filho mantêm fluxo
   if (!houseForm && !filhoForm && area !== "cliente" && area !== "pai_de_santo") {
     return (
-      <div className="bg-app flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
+      <AuthPageFrame>
+        <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
           <p className="text-sm text-navy/70">Cadastro não disponível nesta área.</p>
           <Link href="/" className="text-sm text-navy underline">
             Voltar
           </Link>
         </div>
-      </div>
+      </AuthPageFrame>
     );
   }
 
   if (!isSupabaseConfigured()) {
     return (
-      <div className="bg-app flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
+      <AuthPageFrame>
+        <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
           <BrandMark className="mx-auto h-24 w-24" />
           <p className="text-sm text-navy/70">
             Cadastro real exige Supabase configurado. No modo demo use as contas
@@ -84,7 +85,7 @@ export default function CadastrarAreaPage() {
             Entrar em {areaTitle(area)} (demo)
           </Link>
         </div>
-      </div>
+      </AuthPageFrame>
     );
   }
 
@@ -185,11 +186,10 @@ export default function CadastrarAreaPage() {
   }
 
   return (
-    <div className="bg-app flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md animate-rise space-y-5">
+    <AuthPageFrame>
         <div className="flex flex-col items-center text-center">
-          <BrandMark className="mb-2 h-36 w-36" priority />
-          <p className="text-sm font-semibold text-gold-deep">{account.label}</p>
+          <BrandMark className="mb-2 h-40 w-40" priority />
+          <p className="text-sm font-semibold text-navy/70">{account.label}</p>
           <h1 className="mt-1 font-display text-2xl text-navy">Criar conta</h1>
           <p className="mt-1 text-sm text-navy/60">
             {filhoForm
@@ -342,7 +342,6 @@ export default function CadastrarAreaPage() {
             {HOUSE_SIGNUP_ROLES.map((r) => areaTitle(r)).join(" · ")}
           </p>
         ) : null}
-      </div>
-    </div>
+    </AuthPageFrame>
   );
 }

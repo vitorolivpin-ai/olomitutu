@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AuthPageFrame } from "@/components/brand/auth-page-frame";
 import { BrandMark } from "@/components/brand/logo";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -89,26 +90,24 @@ function RecuperarForm() {
 
 export default function RecuperarSenhaPage() {
   return (
-    <div className="bg-app flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md animate-rise space-y-5">
-        <div className="flex flex-col items-center text-center">
-          <BrandMark className="mb-2 h-36 w-36" priority />
-          <h1 className="mt-1 font-display text-2xl text-navy">Esqueci a senha</h1>
-          <p className="mt-1 text-sm text-navy/60">
-            Enviaremos um link para redefinir sua senha.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
-          <Suspense fallback={<p className="text-sm text-navy/60">Carregando…</p>}>
-            <RecuperarForm />
-          </Suspense>
-        </div>
-
-        <Link href="/" className="block text-center text-sm text-navy/55 hover:text-navy">
-          ← Voltar ao início
-        </Link>
+    <AuthPageFrame>
+      <div className="flex flex-col items-center text-center">
+        <BrandMark className="mb-2 h-40 w-40" priority />
+        <h1 className="mt-1 font-display text-2xl text-navy">Esqueci a senha</h1>
+        <p className="mt-1 text-sm text-navy/60">
+          Enviaremos um link para redefinir sua senha.
+        </p>
       </div>
-    </div>
+
+      <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
+        <Suspense fallback={<p className="text-sm text-navy/60">Carregando…</p>}>
+          <RecuperarForm />
+        </Suspense>
+      </div>
+
+      <Link href="/" className="block text-center text-sm text-navy/55 hover:text-navy">
+        ← Voltar ao início
+      </Link>
+    </AuthPageFrame>
   );
 }

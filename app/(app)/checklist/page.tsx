@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -81,16 +81,13 @@ export default function ChecklistPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Checklist de chegada</h1>
-          <p className="text-sm text-navy/60">
-            O que saber em cada nível — vestimentas, ebó, igba e mais (editável)
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Checklist de chegada"
+        subtitle="O que saber em cada nível — vestimentas, ebó, igba e mais (editável)"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar" : "Novo item"}

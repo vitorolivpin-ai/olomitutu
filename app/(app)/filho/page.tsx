@@ -11,7 +11,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
@@ -62,18 +62,12 @@ export default function FilhoHomePage() {
 
   return (
     <div className="animate-rise mx-auto max-w-2xl space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <BrandMark className="h-20 w-20" priority />
-        <div>
-          <p className="text-sm font-medium text-gold-deep">App do Filho de Santo</p>
-          <h1 className="font-display text-3xl text-navy sm:text-4xl">
-            Olá, {user.full_name.split(" ")[0]}
-          </h1>
-          <p className="mt-1 text-sm text-navy/60">
-            Educação, mensalidade, ajodun, hierarquia e loja num só lugar.
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title={`Olá, ${user.full_name.split(" ")[0]}`}
+        subtitle="Educação, mensalidade, ajodun, hierarquia e loja."
+        logoSize="lg"
+        priority
+      />
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />

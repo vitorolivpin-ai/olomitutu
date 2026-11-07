@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
@@ -69,23 +69,12 @@ export default function ClienteHorariosPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-2xl space-y-5">
-      <div className="flex items-start gap-4">
-        <BrandMark className="h-14 w-14 shrink-0" />
-        <div>
-          <Link href="/cliente" className="text-sm text-navy/55 hover:text-navy">
-            ← Início
-          </Link>
-          <p className="mt-1 text-sm font-medium text-gold-deep">App do Cliente</p>
-          <h1 className="font-display text-3xl text-navy">Agenda</h1>
-          <p className="text-sm text-navy/60">
-            Marque e acompanhe seus horários. Quem não tem conta usa{" "}
-            <Link href="/marcar" className="underline">
-              Marcar horário
-            </Link>{" "}
-            no início.
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title="Agenda"
+        subtitle="Marque e acompanhe seus horários na conta."
+        backHref="/cliente"
+        backLabel="Voltar ao início"
+      />
 
       {error ? <ErrorMessage message={error} /> : null}
       {ok ? (

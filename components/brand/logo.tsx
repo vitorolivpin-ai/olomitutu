@@ -2,12 +2,12 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * Logo oficial: ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ
+ * Brasão oficial (PNG transparente) — ILÉ OLÓRÒKÈ ÀṢẸ / OLÓMÌ TÚTÙ
  */
 export function BrandMark({
   className,
   priority = false,
-  /** Em fundo claro, remove o quadrado branco do JPG (multiply). */
+  /** @deprecated fundo preto já removido no brasao.png */
   blendOnLight = false,
 }: {
   className?: string;
@@ -15,23 +15,14 @@ export function BrandMark({
   blendOnLight?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "relative overflow-hidden bg-transparent",
-        blendOnLight && "isolate",
-        className,
-      )}
-    >
+    <div className={cn("relative overflow-hidden bg-transparent", className)}>
       <Image
-        src="/logo.jpg"
+        src="/brasao.png"
         alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
         fill
         priority={priority}
-        className={cn(
-          "object-contain",
-          blendOnLight && "mix-blend-multiply",
-        )}
-        sizes="(max-width: 768px) 160px, 200px"
+        className="object-contain"
+        sizes="(max-width: 768px) 200px, 240px"
       />
     </div>
   );

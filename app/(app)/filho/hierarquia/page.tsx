@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo } from "react";
 import { OrganogramNode } from "@/components/house/organogram-node";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,15 +23,12 @@ export default function FilhoHierarquiaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Hierarquia</h1>
-        <p className="text-sm text-navy/60">
-          Organograma do barracão — a cor do anel indica o cargo.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Hierarquia"
+        subtitle="Organograma do barracão — a cor do anel indica o cargo."
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       {roots.length === 0 ? (
         <EmptyState title="Hierarquia ainda não publicada" />

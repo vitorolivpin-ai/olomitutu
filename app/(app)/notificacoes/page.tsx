@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -26,13 +27,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Notificações</h1>
-        <p className="text-sm text-navy/60">
-          Avisos do {appLabelForRole(currentUser?.role)}
-          {currentUser ? ` · ${roleLabel(currentUser.role)}` : ""}
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Notificações"
+        subtitle={`Avisos do ${appLabelForRole(currentUser?.role)}${
+          currentUser ? ` · ${roleLabel(currentUser.role)}` : ""
+        }`}
+      />
 
       <div className="grid gap-3">
         {items.map((n) => {

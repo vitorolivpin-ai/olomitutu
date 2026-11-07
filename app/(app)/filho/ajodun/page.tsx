@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,16 +53,12 @@ export default function FilhoAjodunPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Ajodun</h1>
-        <p className="text-sm text-navy/60">
-          Escolha o ajodun a que você pertence. Após a liberação do Admin, a planilha
-          fica disponível aqui.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Ajodun"
+        subtitle="Escolha o ajodun a que você pertence. Após a liberação do Admin, a planilha fica disponível aqui."
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       {error ? <ErrorMessage message={error} /> : null}
       {okMsg ? (

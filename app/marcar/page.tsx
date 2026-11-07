@@ -1,29 +1,89 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Copy, MessageCircle } from "lucide-react";
+import {
+  CalendarDays,
+  Clock,
+  Copy,
+  Home,
+  Hourglass,
+  Lock,
+  MessageCircle,
+  Phone,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
+import { BrandWatermarks } from "@/components/brand/brand-watermarks";
+import { PublicBottomNav } from "@/components/hub/public-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatTime } from "@/lib/format";
 import { saveGuestChatSession } from "@/lib/guest-chat-session";
 import { buildPixCopyPaste, pixQrDataUrl } from "@/lib/pix";
-import { buildSlotViews } from "@/lib/slots";
+import { buildSlotViews, type SlotView } from "@/lib/slots";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_AMOUNT = 150;
 
+type FlowStep = "selecao" | "ficha" | "pix" | "ok";
+
+function dayKey(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function weekdayShort(isoOrKey: string) {
+  const d = isoOrKey.includes("T") ? new Date(isoOrKey) : parseDayKey(isoOrKey);
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "short" })
+    .format(d)
+    .replace(".", "")
+    .toUpperCase()
+    .slice(0, 3);
+}
+
+function monthShort(isoOrKey: string) {
+  const d = isoOrKey.includes("T") ? new Date(isoOrKey) : parseDayKey(isoOrKey);
+  return new Intl.DateTimeFormat("pt-BR", { month: "short" })
+    .format(d)
+    .replace(".", "")
+    .toUpperCase()
+    .slice(0, 3);
+}
+
+function dayNum(isoOrKey: string) {
+  const d = isoOrKey.includes("T") ? new Date(isoOrKey) : parseDayKey(isoOrKey);
+  return String(d.getDate()).padStart(2, "0");
+}
+
+function parseDayKey(key: string) {
+  const [y, m, day] = key.split("-").map(Number);
+  return new Date(y, m - 1, day);
+}
+
+function longDateLabel(key: string) {
+  const d = parseDayKey(key);
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(d);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /**
  * Marcação pública — sem criar conta.
- * Chat com o Pai integrado; WhatsApp só para dúvidas.
+ * UI: dia → horário → resumo → ficha → Pix.
  */
 export default function MarcarPublicoPage() {
   const { state, bookGuestAppointment } = useAppStore();
-  const [step, setStep] = useState<"lista" | "ficha" | "pix" | "ok">("lista");
+  const [step, setStep] = useState<FlowStep>("selecao");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [slotAt, setSlotAt] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -35,17 +95,70 @@ export default function MarcarPublicoPage() {
   const [fichaCode, setFichaCode] = useState("");
   const [confirmedAt, setConfirmedAt] = useState("");
   const [guestClientId, setGuestClientId] = useState<string | null>(null);
+  /** Evita mismatch SSR/cliente (Date.now nos slots). */
+  const [hydrated, setHydrated] = useState(false);
 
   const amount = DEFAULT_AMOUNT;
   const house = state.houseSettings ?? {};
 
-  const livres = useMemo(
-    () =>
-      buildSlotViews(state.publishedSlots ?? [], state.appointments).filter(
-        (v) => v.status === "livre",
-      ),
-    [state.publishedSlots, state.appointments],
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const livres = useMemo(() => {
+    if (!hydrated) return [];
+    return buildSlotViews(state.publishedSlots ?? [], state.appointments).filter(
+      (v) => v.status === "livre",
+    );
+  }, [state.publishedSlots, state.appointments, hydrated]);
+
+  const daysWithSlots = useMemo(() => {
+    const map = new Map<string, SlotView[]>();
+    for (const slot of livres) {
+      const key = dayKey(slot.scheduled_at);
+      const list = map.get(key) ?? [];
+      list.push(slot);
+      map.set(key, list);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, slots]) => ({
+        key,
+        slots: slots.slice().sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)),
+      }));
+  }, [livres]);
+
+  useEffect(() => {
+    if (!selectedDay && daysWithSlots.length > 0) {
+      setSelectedDay(daysWithSlots[0].key);
+    }
+    if (selectedDay && !daysWithSlots.some((d) => d.key === selectedDay)) {
+      setSelectedDay(daysWithSlots[0]?.key ?? null);
+      setSlotAt(null);
+    }
+  }, [daysWithSlots, selectedDay]);
+
+  const daySlots = useMemo(() => {
+    if (!selectedDay) return [];
+    return daysWithSlots.find((d) => d.key === selectedDay)?.slots ?? [];
+  }, [daysWithSlots, selectedDay]);
+
+  const selectedSlot = useMemo(
+    () => (slotAt ? livres.find((s) => s.scheduled_at === slotAt) ?? null : null),
+    [livres, slotAt],
   );
+
+  const duration = selectedSlot?.duration_minutes ?? daySlots[0]?.duration_minutes ?? 60;
+
+  useEffect(() => {
+    if (slotAt && !livres.some((s) => s.scheduled_at === slotAt)) {
+      setError("Este horário acabou de ser reservado. Escolha outro.");
+      setSlotAt(null);
+      if (step === "ficha" || step === "pix") setStep("selecao");
+    }
+  }, [livres, slotAt, step]);
+
+  const visualStep = !selectedDay ? 1 : !slotAt ? 2 : 3;
 
   function pixPayload(scheduledAt: string) {
     if (!house.pix_key) return "";
@@ -53,13 +166,21 @@ export default function MarcarPublicoPage() {
       key: house.pix_key,
       holderName: house.pix_holder_name,
       amount,
-      description: `Consulta ${formatDateTime(scheduledAt).slice(0, 28)}`,
+      description: `Consulta ${scheduledAt.slice(0, 16)}`,
     });
   }
 
-  function pickSlot(at: string) {
+  function onContinue() {
     setError("");
-    setSlotAt(at);
+    if (!selectedDay || !slotAt) {
+      setError("Selecione o dia e o horário.");
+      return;
+    }
+    if (!livres.some((s) => s.scheduled_at === slotAt)) {
+      setError("Este horário não está mais disponível.");
+      setSlotAt(null);
+      return;
+    }
     setStep("ficha");
   }
 
@@ -103,7 +224,7 @@ export default function MarcarPublicoPage() {
     });
     if (!result.ok) {
       setError(result.error);
-      setStep("lista");
+      setStep("selecao");
       setSlotAt(null);
       return;
     }
@@ -119,29 +240,118 @@ export default function MarcarPublicoPage() {
     setStep("ok");
   }
 
-  return (
-    <div className="min-h-screen bg-app px-4 py-8">
-      <div className="mx-auto max-w-md space-y-6">
-        <div className="flex items-center gap-4">
-          <BrandMark className="h-16 w-16 shrink-0" priority />
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
-              Aberto a todos
-            </p>
-            <h1 className="font-display text-3xl text-navy">Marcar horário</h1>
-            <p className="mt-1 text-sm text-navy/55">
-              Sem criar conta. Pix + chat com Vitor Cardozo - Ògún Yande. Ficha só ele vê.
-            </p>
-          </div>
-        </div>
+  function resetToLista() {
+    setStep("selecao");
+    setSlotAt(null);
+    setFichaCode("");
+    setGuestClientId(null);
+    setFullName("");
+    setPhone("");
+    setEmail("");
+    setBirthDate("");
+    setObservation("");
+    setError("");
+  }
 
-        {error ? <ErrorMessage message={error} /> : null}
+  const summaryCard = (
+    <div className="rounded-[20px] bg-white p-5 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+      <h2 className="font-display text-xl text-navy">Seu agendamento</h2>
+      <ul className="mt-4 space-y-3">
+        <SummaryRow
+          icon={CalendarDays}
+          label="Data"
+          value={selectedDay ? longDateLabel(selectedDay) : "Escolha o dia"}
+          muted={!selectedDay}
+        />
+        <SummaryRow
+          icon={Clock}
+          label="Horário"
+          value={slotAt ? formatTime(slotAt) : "Escolha o horário"}
+          muted={!slotAt}
+        />
+        <SummaryRow icon={Hourglass} label="Duração" value={`${duration} minutos`} />
+        <SummaryRow icon={Wallet} label="Valor" value={formatCurrency(amount)} accent />
+      </ul>
+
+      {step === "selecao" ? (
+        <>
+          <Button
+            type="button"
+            variant="gold"
+            className="mt-5 w-full text-base"
+            disabled={!selectedDay || !slotAt}
+            onClick={onContinue}
+          >
+            Continuar →
+          </Button>
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-navy/45">
+            <Lock className="h-3.5 w-3.5" />
+            Seus dados estão seguros.
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className="relative min-h-dvh overflow-x-hidden bg-[#F7F8FA]">
+      <BrandWatermarks variant="faint" />
+      <div className="relative z-10 mx-auto w-full max-w-[960px] px-5 py-6 pb-28 sm:px-6">
+        {/* Cabeçalho */}
+        <header className="mb-6 flex flex-col items-center text-center">
+          <BrandMark className="h-[5.5rem] w-[5.5rem] sm:h-24 sm:w-24" priority />
+          <span className="mt-3 inline-flex rounded-full bg-gold/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-navy">
+            Aberto a todos
+          </span>
+          <h1 className="mt-3 font-display text-[2rem] leading-none text-navy sm:text-[2.25rem]">
+            Marcar horário
+          </h1>
+          <p className="mt-2 max-w-md text-sm text-navy/55">
+            Escolha o melhor dia e horário para seu atendimento.
+          </p>
+        </header>
+
+        {/* Stepper — só na seleção / confirmação visual */}
+        {step === "selecao" || step === "ficha" || step === "pix" ? (
+          <ol className="mb-6 flex items-start justify-center gap-2 sm:gap-4">
+            <StepDot
+              n={1}
+              label="Escolha o dia"
+              active={visualStep === 1}
+              done={visualStep > 1 || step !== "selecao"}
+            />
+            <StepLine done={visualStep > 1 || step !== "selecao"} />
+            <StepDot
+              n={2}
+              label="Escolha o horário"
+              active={visualStep === 2 && step === "selecao"}
+              done={visualStep > 2 || step !== "selecao"}
+            />
+            <StepLine done={visualStep > 2 || step !== "selecao"} />
+            <StepDot
+              n={3}
+              label="Confira e finalize"
+              active={visualStep === 3 || step === "ficha" || step === "pix"}
+              done={false}
+            />
+          </ol>
+        ) : null}
+
+        {error ? (
+          <div className="mb-4">
+            <ErrorMessage message={error} />
+          </div>
+        ) : null}
 
         {step === "ok" ? (
-          <Card className="border-l-4 border-l-leaf text-center">
+          <Card className="mx-auto max-w-md border-l-4 border-l-leaf text-center">
             <CalendarDays className="mx-auto h-10 w-10 text-leaf" />
             <CardTitle className="mt-3 text-2xl">Horário reservado</CardTitle>
-            <p className="mt-2 text-sm text-navy/70">{formatDateTime(confirmedAt)}</p>
+            <p className="mt-2 text-sm text-navy/70">
+              {confirmedAt && selectedDay
+                ? `${longDateLabel(dayKey(confirmedAt))} · ${formatTime(confirmedAt)}`
+                : confirmedAt}
+            </p>
             <p className="mt-4 font-display text-xl text-navy">{fichaCode}</p>
             <p className="mt-1 text-xs text-navy/50">
               Guarde este código. Os dados da ficha só o Pai de Santo vê.
@@ -153,241 +363,436 @@ export default function MarcarPublicoPage() {
                   Abrir chat com Vitor Cardozo - Ògún Yande
                 </Button>
               </Link>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setStep("lista");
-                  setSlotAt(null);
-                  setFichaCode("");
-                  setGuestClientId(null);
-                  setFullName("");
-                  setPhone("");
-                  setEmail("");
-                  setBirthDate("");
-                  setObservation("");
-                }}
-              >
+              <Button variant="secondary" onClick={resetToLista}>
                 Ver outros horários
               </Button>
-              <div className="mt-1 flex flex-col gap-1.5 text-xs text-navy/45">
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-                >
-                  Dúvidas? WhatsApp
-                </button>
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-                >
-                  Entrar no grupo · {CLIENT_WHATSAPP.grupo.label}
-                </button>
-              </div>
             </div>
           </Card>
         ) : null}
 
-        {step === "lista" ? (
-          <>
-            <Link href="/marcar/chat" className="block">
-              <Card className="border-l-4 border-l-gold transition hover:border-gold/50">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/25 text-navy">
-                    <MessageCircle className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <CardTitle className="text-xl">
-                      Chat com Vitor Cardozo - Ògún Yande
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-navy/60">
-                      Tire dúvidas do jogo ou combine detalhes — sem criar conta.
-                    </p>
-                  </div>
+        {step === "selecao" ? (
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
+            <div className="space-y-6">
+              {!hydrated ? (
+                <p className="rounded-[20px] bg-white px-4 py-8 text-center text-sm text-navy/50 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                  Carregando horários…
+                </p>
+              ) : daysWithSlots.length === 0 ? (
+                <div className="rounded-[20px] bg-white px-4 py-8 text-center shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                  <EmptyState title="Nenhum horário disponível no momento" />
+                  <p className="mt-2 text-sm text-navy/50">
+                    Volte mais tarde ou fale conosco pelo chat.
+                  </p>
                 </div>
-              </Card>
-            </Link>
-
-            <Card>
-              <CardTitle>Horários livres</CardTitle>
-              <p className="mt-1 text-xs text-navy/50">
-                Cada marcação remove o horário da lista.
-              </p>
-              <div className="mt-3 grid gap-2">
-                {livres.map((slot) => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => pickSlot(slot.scheduled_at)}
-                    className="flex w-full items-center justify-between gap-2 rounded-2xl bg-mist/70 p-3 text-left transition hover:bg-mist"
-                  >
-                    <div>
-                      <p className="font-medium text-navy">
-                        {formatDateTime(slot.scheduled_at)}
-                      </p>
-                      <p className="text-xs text-navy/55">
-                        {slot.duration_minutes} min · {formatCurrency(amount)}
-                      </p>
+              ) : (
+                <>
+                  {/* 1. Dia */}
+                  <section>
+                    <h2 className="font-display text-xl text-navy">Escolha o dia</h2>
+                    <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {daysWithSlots.map(({ key }) => {
+                        const active = selectedDay === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDay(key);
+                              setSlotAt(null);
+                              setError("");
+                            }}
+                            className={cn(
+                              "flex w-[4.5rem] shrink-0 flex-col items-center rounded-2xl px-2 py-3 transition",
+                              active
+                                ? "bg-navy text-white shadow-[0_6px_16px_rgba(11,31,58,0.2)] ring-2 ring-gold/70"
+                                : "bg-white text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/35",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "text-[10px] font-semibold uppercase tracking-wide",
+                                active ? "text-gold" : "text-navy/45",
+                              )}
+                            >
+                              {weekdayShort(key)}
+                            </span>
+                            <span className="mt-0.5 font-display text-2xl leading-none">
+                              {dayNum(key)}
+                            </span>
+                            <span
+                              className={cn(
+                                "mt-1 text-[10px] font-semibold uppercase",
+                                active ? "text-white/70" : "text-navy/40",
+                              )}
+                            >
+                              {monthShort(key)}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <span className="text-sm font-semibold text-gold-deep">Marcar →</span>
-                  </button>
-                ))}
-                {livres.length === 0 ? (
-                  <EmptyState title="Nenhum horário livre no momento" />
-                ) : null}
-              </div>
-            </Card>
+                  </section>
 
-            <div className="space-y-2 text-center text-sm text-navy/45">
-              <button
-                type="button"
-                className="block w-full underline"
-                onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-              >
-                Dúvidas? WhatsApp (último caso)
-              </button>
-              <button
-                type="button"
-                className="block w-full underline"
-                onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-              >
-                Grupo · {CLIENT_WHATSAPP.grupo.label}
-              </button>
+                  {/* 2. Horário */}
+                  <section>
+                    <h2 className="font-display text-xl text-navy">Escolha o horário</h2>
+                    {selectedDay ? (
+                      <p className="mt-1 text-sm text-navy/50">
+                        Horários disponíveis para {longDateLabel(selectedDay)}.
+                      </p>
+                    ) : null}
+                    {daySlots.length === 0 ? (
+                      <p className="mt-4 rounded-2xl bg-white px-4 py-6 text-center text-sm text-navy/50 ring-1 ring-navy/[0.04]">
+                        Nenhum horário disponível para esta data. Escolha outro dia.
+                      </p>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {daySlots.map((slot) => {
+                          const active = slotAt === slot.scheduled_at;
+                          return (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              onClick={() => {
+                                setSlotAt(slot.scheduled_at);
+                                setError("");
+                              }}
+                              className={cn(
+                                "rounded-2xl px-2 py-3 text-sm font-semibold transition",
+                                active
+                                  ? "bg-navy text-white shadow-[0_4px_12px_rgba(11,31,58,0.18)]"
+                                  : "bg-white text-navy ring-1 ring-navy/10 hover:ring-gold/40",
+                              )}
+                            >
+                              {formatTime(slot.scheduled_at)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {slotAt ? (
+                      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
+                        <span className="font-medium text-navy">Jogo / Atendimento</span>
+                        <span className="text-navy/25">·</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-gold-deep" />
+                          {duration} minutos
+                        </span>
+                        <span className="text-navy/25">·</span>
+                        <span className="font-display text-base text-gold-deep">
+                          {formatCurrency(amount)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </section>
+                </>
+              )}
+
+              {/* Chat discreto — mobile */}
+              <div className="rounded-[18px] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] lg:hidden">
+                <p className="text-sm text-navy/60">
+                  Tem alguma dúvida antes de marcar?
+                </p>
+                <Link
+                  href="/marcar/chat"
+                  className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-gold-deep hover:text-navy"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Conversar pelo chat →
+                </Link>
+              </div>
+
+              {/* Resumo — mobile */}
+              <div className="lg:hidden">{summaryCard}</div>
             </div>
-          </>
+
+            {/* Coluna direita — desktop */}
+            <aside className="hidden space-y-4 lg:sticky lg:top-6 lg:block">
+              {summaryCard}
+              <div className="rounded-[18px] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04]">
+                <p className="text-sm text-navy/60">
+                  Tem alguma dúvida antes de marcar?
+                </p>
+                <Link
+                  href="/marcar/chat"
+                  className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-gold-deep hover:text-navy"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Conversar pelo chat →
+                </Link>
+              </div>
+              <HelpFooter />
+            </aside>
+          </div>
         ) : null}
 
         {step === "ficha" && slotAt ? (
-          <Card>
-            <button
-              type="button"
-              className="text-sm text-navy/55"
-              onClick={() => {
-                setStep("lista");
-                setSlotAt(null);
-              }}
-            >
-              ← Voltar
-            </button>
-            <CardTitle className="mt-2">Sua ficha</CardTitle>
-            <p className="mt-1 text-sm text-navy/60">
-              {formatDateTime(slotAt)} · só o Pai de Santo verá estes dados
-            </p>
-            <form onSubmit={onFicha} className="mt-4 space-y-3">
-              <div>
-                <Label>Nome completo</Label>
-                <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  autoComplete="name"
-                />
-              </div>
-              <div>
-                <Label>Telefone</Label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  inputMode="tel"
-                  autoComplete="tel"
-                />
-              </div>
-              <div>
-                <Label>E-mail (opcional)</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label>Data de nascimento (opcional)</Label>
-                <Input
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Observação (opcional)</Label>
-                <Textarea
-                  rows={3}
-                  value={observation}
-                  onChange={(e) => setObservation(e.target.value)}
-                  placeholder="O que deseja tratar, preferências…"
-                />
-              </div>
-              <Button type="submit" variant="gold" className="w-full">
-                Continuar para o Pix
-              </Button>
-            </form>
-          </Card>
+          <div className="mx-auto grid max-w-3xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
+            <Card>
+              <button
+                type="button"
+                className="text-sm text-navy/55"
+                onClick={() => setStep("selecao")}
+              >
+                ← Voltar
+              </button>
+              <CardTitle className="mt-2">Sua ficha</CardTitle>
+              <p className="mt-1 text-sm text-navy/60">
+                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} · só o Pai de Santo
+                verá estes dados
+              </p>
+              <form onSubmit={onFicha} className="mt-4 space-y-3">
+                <div>
+                  <Label>Nome completo</Label>
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+                <div>
+                  <Label>Telefone</Label>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    inputMode="tel"
+                    autoComplete="tel"
+                  />
+                </div>
+                <div>
+                  <Label>E-mail (opcional)</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <Label>Data de nascimento (opcional)</Label>
+                  <Input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Observação (opcional)</Label>
+                  <Textarea
+                    rows={3}
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    placeholder="O que deseja tratar, preferências…"
+                  />
+                </div>
+                <Button type="submit" variant="gold" className="w-full">
+                  Continuar para o Pix →
+                </Button>
+              </form>
+            </Card>
+            <div className="hidden lg:block">{summaryCard}</div>
+          </div>
         ) : null}
 
         {step === "pix" && slotAt ? (
-          <Card className="border-l-4 border-l-gold">
-            <button
-              type="button"
-              className="text-sm text-navy/55"
-              onClick={() => setStep("ficha")}
-            >
-              ← Voltar
-            </button>
-            <CardTitle className="mt-2">Pagar com Pix</CardTitle>
-            <p className="mt-2 text-sm text-navy/70">
-              {formatDateTime(slotAt)} · {formatCurrency(amount)}
-            </p>
-
-            {house.pix_key ? (
-              <div className="mt-4 space-y-3">
-                <p className="text-xs text-navy/50">
-                  {house.pix_holder_name || "ILÉ OLÓRÒKÈ ÀṢẸ"}
-                </p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pixQrDataUrl(pixPayload(slotAt), "Consulta")}
-                  alt="QR Pix"
-                  className="mx-auto h-44 w-44 rounded-xl border border-navy/10 bg-white p-2"
-                />
-                <Button variant="secondary" className="w-full" onClick={() => void copyPix()}>
-                  <Copy className="h-4 w-4" />
-                  {copied ? "Copiado" : "Copiar Pix"}
-                </Button>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-amber-900">
-                Chave Pix ainda não cadastrada. Use o chat com Vitor Cardozo - Ògún Yande.
+          <div className="mx-auto grid max-w-3xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
+            <Card className="border-l-4 border-l-gold">
+              <button
+                type="button"
+                className="text-sm text-navy/55"
+                onClick={() => setStep("ficha")}
+              >
+                ← Voltar
+              </button>
+              <CardTitle className="mt-2">Pagamento via PIX</CardTitle>
+              <p className="mt-2 text-sm text-navy/70">
+                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} ·{" "}
+                {formatCurrency(amount)}
               </p>
-            )}
 
-            <Button variant="gold" className="mt-4 w-full" onClick={confirmBook}>
-              Já paguei — confirmar marcação
-            </Button>
-            <Link
-              href="/marcar/chat"
-              className="mt-3 block text-center text-sm font-medium text-gold-deep"
-            >
-              Preferir falar no chat antes →
-            </Link>
-          </Card>
+              {house.pix_key ? (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs text-navy/50">
+                    {house.pix_holder_name || "Beneficiário da casa"}
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pixQrDataUrl(pixPayload(slotAt), "Consulta")}
+                    alt="QR Pix"
+                    className="mx-auto h-44 w-44 rounded-xl border border-navy/10 bg-white p-2"
+                  />
+                  <p className="text-center font-display text-2xl text-gold-deep">
+                    {formatCurrency(amount)}
+                  </p>
+                  <Button variant="secondary" className="w-full" onClick={() => void copyPix()}>
+                    <Copy className="h-4 w-4" />
+                    {copied ? "Copiado" : "Copiar chave PIX"}
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-amber-900">
+                  Chave Pix ainda não cadastrada. Use o chat com Vitor Cardozo - Ògún Yande.
+                </p>
+              )}
+
+              <Button variant="gold" className="mt-4 w-full" onClick={confirmBook}>
+                Já paguei — confirmar marcação
+              </Button>
+              <Link
+                href="/marcar/chat"
+                className="mt-3 block text-center text-sm font-medium text-gold-deep"
+              >
+                Preferir falar no chat antes →
+              </Link>
+            </Card>
+            <div className="hidden lg:block">{summaryCard}</div>
+          </div>
         ) : null}
 
-        <p className="text-center text-xs text-navy/45">
-          <Link href="/" className="underline">
-            Voltar ao menu
-          </Link>
-          {guestClientId ? (
-            <>
-              {" · "}
-              <Link href="/marcar/chat" className="underline">
-                Chat
-              </Link>
-            </>
-          ) : null}
+        {/* Rodapé — mobile / etapas */}
+        {step !== "ok" ? (
+          <div className="mt-8 lg:hidden">
+            <HelpFooter />
+          </div>
+        ) : (
+          <div className="mt-8">
+            <HelpFooter />
+          </div>
+        )}
+
+        {guestClientId && step === "ok" ? null : guestClientId ? (
+          <p className="mt-4 text-center text-xs text-navy/45">
+            <Link href="/marcar/chat" className="underline">
+              Abrir chat
+            </Link>
+          </p>
+        ) : null}
+      </div>
+      <PublicBottomNav />
+    </div>
+  );
+}
+
+function StepDot({
+  n,
+  label,
+  active,
+  done,
+}: {
+  n: number;
+  label: string;
+  active: boolean;
+  done: boolean;
+}) {
+  return (
+    <li className="flex w-[5.5rem] flex-col items-center gap-1.5 sm:w-28">
+      <span
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition",
+          active || done
+            ? "bg-navy text-white"
+            : "bg-white text-navy/40 ring-1 ring-navy/10",
+          active && "ring-2 ring-gold/60",
+        )}
+      >
+        {n}
+      </span>
+      <span
+        className={cn(
+          "text-center text-[10px] leading-tight sm:text-[11px]",
+          active ? "font-semibold text-navy" : "text-navy/40",
+        )}
+      >
+        {label}
+      </span>
+    </li>
+  );
+}
+
+function StepLine({ done }: { done: boolean }) {
+  return (
+    <li
+      aria-hidden
+      className={cn(
+        "mt-4 h-px w-4 shrink-0 sm:w-8",
+        done ? "bg-navy/40" : "bg-navy/15",
+      )}
+    />
+  );
+}
+
+function SummaryRow({
+  icon: Icon,
+  label,
+  value,
+  muted,
+  accent,
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+  muted?: boolean;
+  accent?: boolean;
+}) {
+  return (
+    <li className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F7F8FA] text-gold-deep">
+        <Icon className="h-4 w-4" strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-navy/40">
+          {label}
         </p>
+        <p
+          className={cn(
+            "text-sm font-medium",
+            muted && "text-navy/35",
+            accent && "font-display text-lg text-gold-deep",
+            !muted && !accent && "text-navy",
+          )}
+        >
+          {value}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function HelpFooter() {
+  return (
+    <div className="rounded-[18px] bg-white/80 px-4 py-4 text-center ring-1 ring-navy/[0.04]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy/40">
+        Precisa de ajuda?
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
+          onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
+        >
+          <Phone className="h-3.5 w-3.5 text-gold-deep" />
+          WhatsApp
+        </button>
+        <span className="text-navy/20">|</span>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
+          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
+        >
+          <Users className="h-3.5 w-3.5 text-gold-deep" />
+          Grupo
+        </button>
+        <span className="text-navy/20">|</span>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
+        >
+          <Home className="h-3.5 w-3.5 text-gold-deep" />
+          Voltar ao início
+        </Link>
       </div>
     </div>
   );

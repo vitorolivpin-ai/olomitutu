@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo, useState } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -52,15 +52,14 @@ export default function FilhoChecklistPage() {
   return (
     <div className="animate-rise space-y-5">
       <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <h1 className="font-display text-3xl text-navy">O que fazer</h1>
-        <p className="text-sm text-navy/60">
-          Do Abian aos cargos — vestimentas, ebó, igba e orientações da casa.
-        </p>
+        <BrandPageHeader
+          title="O que fazer"
+          subtitle="Do Abian aos cargos — vestimentas, ebó, igba e orientações da casa."
+          backHref="/filho"
+          backLabel="Início"
+        />
         {member?.checklist_level ? (
-          <p className="mt-2 text-xs text-navy/50">
+          <p className="mt-2 text-center text-xs text-navy/50">
             Seu nível cadastrado: {CHECKLIST_LEVEL_LABEL[member.checklist_level]}
           </p>
         ) : null}

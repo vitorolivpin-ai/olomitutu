@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
@@ -39,10 +40,10 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Resumo</h1>
-        <p className="text-sm text-navy/60">{formatCompetence(competence)} · dados demonstrativos</p>
-      </div>
+      <BrandPageHeader
+        title="Resumo"
+        subtitle={`${formatCompetence(competence)} · dados demonstrativos`}
+      />
 
       {showFinance ? (
         <>

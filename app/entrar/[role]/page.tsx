@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/logo";
+import { AuthPageFrame } from "@/components/brand/auth-page-frame";
 import { ClearPreviousSession } from "./clear-session";
 import { LoginForm } from "./login-form";
 import {
@@ -29,15 +30,15 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
 
   if (!isAreaRole(role)) {
     return (
-      <div className="bg-app flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/80 p-6 text-center shadow-soft">
+      <AuthPageFrame>
+        <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
           <BrandMark className="mx-auto h-24 w-24" />
           <p className="text-sm text-navy/70">Área inválida.</p>
           <Link href="/" className="text-sm text-navy underline">
             Voltar ao início
           </Link>
         </div>
-      </div>
+      </AuthPageFrame>
     );
   }
 
@@ -51,112 +52,110 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
     isHouseSignupRole(authRole);
 
   return (
-    <div className="bg-app flex min-h-screen items-center justify-center px-4 py-10">
+    <AuthPageFrame>
       <ClearPreviousSession />
-      <div className="w-full max-w-md animate-rise space-y-5">
-        <div className="flex flex-col items-center text-center">
-          <BrandMark className="mb-2 h-36 w-36" priority />
-          <p className="text-sm font-semibold text-gold-deep">{account.label}</p>
-          <h1 className="mt-1 font-display text-2xl text-navy">Entrar</h1>
-          <p className="mt-1 text-sm text-navy/60">
-            {authReal ? "Use o e-mail e a senha da sua conta." : account.hint}
-          </p>
-        </div>
+      <div className="flex flex-col items-center text-center">
+        <BrandMark className="mb-2 h-40 w-40" priority />
+        <p className="text-sm font-semibold text-navy/70">{account.label}</p>
+        <h1 className="mt-1 font-display text-2xl text-navy">Entrar</h1>
+        <p className="mt-1 text-sm text-navy/60">
+          {authReal ? "Use o e-mail e a senha da sua conta." : account.hint}
+        </p>
+      </div>
 
-        <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
-          {authReal ? (
-            <LoginForm area={area} initialError={erro} />
-          ) : (
-            <form action="/api/entrar" method="post" className="space-y-4">
-              <input type="hidden" name="role" value={area} />
+      <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
+        {authReal ? (
+          <LoginForm area={area} initialError={erro} />
+        ) : (
+          <form action="/api/entrar" method="post" className="space-y-4">
+            <input type="hidden" name="role" value={area} />
 
-              <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium text-navy">
-                  E-mail
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  defaultValue={account.email}
-                  autoComplete="username"
-                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
-                />
-              </div>
+            <div>
+              <label htmlFor="email" className="mb-1 block text-sm font-medium text-navy">
+                E-mail
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                defaultValue={account.email}
+                autoComplete="username"
+                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+              />
+            </div>
 
-              <div>
-                <label htmlFor="password" className="mb-1 block text-sm font-medium text-navy">
-                  Senha
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
-                />
-              </div>
+            <div>
+              <label htmlFor="password" className="mb-1 block text-sm font-medium text-navy">
+                Senha
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
+              />
+            </div>
 
-              {erro ? (
-                <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>
-              ) : null}
+            {erro ? (
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>
+            ) : null}
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid"
-              >
-                Entrar em {areaTitle(area)}
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-cream transition hover:bg-navy-mid"
+            >
+              Entrar em {areaTitle(area)}
+            </button>
+          </form>
+        )}
 
-          {authReal ? (
-            <div className="mt-4 space-y-2 text-center text-sm text-navy/60">
+        {authReal ? (
+          <div className="mt-4 space-y-2 text-center text-sm text-navy/60">
+            <p>
+              <Link href="/recuperar-senha" className="text-navy underline">
+                Esqueci a senha
+              </Link>
+            </p>
+            {canSignup ? (
               <p>
-                <Link href="/recuperar-senha" className="text-navy underline">
-                  Esqueci a senha
+                Não tem conta?{" "}
+                <Link href={`/cadastrar/${area}`} className="text-navy underline">
+                  Cadastrar
                 </Link>
               </p>
-              {canSignup ? (
-                <p>
-                  Não tem conta?{" "}
-                  <Link href={`/cadastrar/${area}`} className="text-navy underline">
-                    Cadastrar
-                  </Link>
-                </p>
-              ) : null}
-              {isFilhoArea(area) ? (
-                <p className="text-xs text-navy/45">
-                  Cadastro nesta aba libera o portal do Filho de Santo. O Pai Vitor
-                  precisa aceitar antes de entrar.
-                </p>
-              ) : isHouseSignupRole(authRole) ? (
-                <p className="text-xs text-navy/45">
-                  Cadastro nesta aba libera só este acesso ({areaTitle(area)}).
-                  O Pai Vitor precisa aceitar antes de entrar.
-                </p>
-              ) : areaNeedsApproval(area) ? (
-                <p className="text-xs text-navy/45">
-                  Cadastros desta área precisam ser aceitos pelo Pai de Santo.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-4 text-center text-xs text-navy/50">
-              Conta desta área:{" "}
-              <span className="font-medium text-navy/70">{account.email}</span>
-              <br />
-              Senha demo: <span className="font-medium text-navy/70">{DEMO_PASSWORD}</span>
-            </p>
-          )}
-        </div>
-
-        <Link href="/" className="block text-center text-sm text-navy/55 hover:text-navy">
-          ← Voltar ao início
-        </Link>
+            ) : null}
+            {isFilhoArea(area) ? (
+              <p className="text-xs text-navy/45">
+                Cadastro nesta aba libera o portal do Filho de Santo. O Pai Vitor
+                precisa aceitar antes de entrar.
+              </p>
+            ) : isHouseSignupRole(authRole) ? (
+              <p className="text-xs text-navy/45">
+                Cadastro nesta aba libera só este acesso ({areaTitle(area)}).
+                O Pai Vitor precisa aceitar antes de entrar.
+              </p>
+            ) : areaNeedsApproval(area) ? (
+              <p className="text-xs text-navy/45">
+                Cadastros desta área precisam ser aceitos pelo Pai de Santo.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-4 text-center text-xs text-navy/50">
+            Conta desta área:{" "}
+            <span className="font-medium text-navy/70">{account.email}</span>
+            <br />
+            Senha demo: <span className="font-medium text-navy/70">{DEMO_PASSWORD}</span>
+          </p>
+        )}
       </div>
-    </div>
+
+      <Link href="/" className="block text-center text-sm text-navy/55 hover:text-navy">
+        ← Voltar ao início
+      </Link>
+    </AuthPageFrame>
   );
 }

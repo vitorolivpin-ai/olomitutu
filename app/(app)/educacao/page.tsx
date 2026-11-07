@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -59,16 +59,13 @@ export default function EducacaoPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Educação</h1>
-          <p className="text-sm text-navy/60">
-            Livros, vídeos, filmes e podcasts voltados ao candomblé
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Educação"
+        subtitle="Livros, vídeos, filmes e podcasts voltados ao candomblé"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar" : "Adicionar material"}

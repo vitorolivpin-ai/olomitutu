@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
@@ -55,20 +55,16 @@ export default function ClienteCadastroPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-lg space-y-5">
-      <div className="flex items-center gap-4">
-        <BrandMark className="h-16 w-16" />
-        <div>
-          <Link href="/cliente" className="text-sm text-navy/55 hover:text-navy">
-            ← Quem somos
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Meu cadastro</h1>
-          <p className="text-sm text-navy/60">
-            {isClientRegistrationComplete(client)
-              ? "Atualize seus dados quando precisar"
-              : "Preencha para a casa te conhecer"}
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title="Meu cadastro"
+        subtitle={
+          isClientRegistrationComplete(client)
+            ? "Atualize seus dados quando precisar"
+            : "Preencha para a casa te conhecer"
+        }
+        backHref="/cliente"
+        backLabel="Voltar ao início"
+      />
 
       <Card>
         <CardTitle>Dados pessoais</CardTitle>

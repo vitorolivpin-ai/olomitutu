@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ExternalLink } from "lucide-react";
@@ -37,13 +38,14 @@ export default function AjodunDetailPage() {
   return (
     <div className="animate-rise space-y-5">
       <div>
-        <Link href="/ajodun" className="text-sm text-navy/55 hover:text-navy">
-          ← Ajodun
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{event.title}</h1>
-        {event.theme ? <p className="text-sm text-navy/60">{event.theme}</p> : null}
+        <BrandPageHeader
+          title={event.title}
+          subtitle={event.theme || undefined}
+          backHref="/ajodun"
+          backLabel="Ajodun"
+        />
         {event.scheduled_at ? (
-          <p className="mt-1 text-xs text-navy/45">{formatDateTime(event.scheduled_at)}</p>
+          <p className="mt-1 text-center text-xs text-navy/45">{formatDateTime(event.scheduled_at)}</p>
         ) : null}
       </div>
 

@@ -13,8 +13,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
-import { Card, CardTitle } from "@/components/ui/card";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
+import { Card } from "@/components/ui/card";
 import { useAppStore } from "@/hooks/use-app-store";
 import { dashboardMetrics } from "@/lib/finance";
 import {
@@ -242,7 +242,6 @@ export function AdminOverview() {
   const { state, currentUser } = useAppStore();
   const competence = currentCompetence();
   const metrics = dashboardMetrics(state, competence);
-  const isPai = currentUser?.role === "pai_de_santo";
   const showFinance =
     canAccess(currentUser?.role, "finance") || canAccess(currentUser?.role, "fees");
 
@@ -252,40 +251,12 @@ export function AdminOverview() {
 
   return (
     <div className="animate-rise space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <BrandMark className="h-16 w-16 sm:h-20 sm:w-20" priority />
-        <div>
-          <p className="text-sm font-medium text-gold-deep">
-            {isPai ? "Pai de Santo" : "Administrador"}
-          </p>
-          <h1 className="font-display text-3xl text-navy sm:text-4xl">
-            {isPai ? "Acesso à casa" : "Overview"}
-          </h1>
-          <p className="mt-1 text-sm text-navy/60">
-            {isPai
-              ? "Todas as abas do app (exceto área do cliente) · "
-              : "Visão geral do que há na casa · "}
-            {formatCompetence(competence)}
-          </p>
-        </div>
-      </div>
-
-      {isPai ? (
-        <Link
-          href="/quem-somos"
-          className="flex gap-3 rounded-2xl border border-gold/40 bg-gold/10 p-4 transition hover:border-gold/60"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-navy">
-            <BookOpen className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-display text-lg text-navy">Quem somos</span>
-            <span className="block text-xs text-navy/55">
-              História da casa e do Pai — editar no Conteúdo
-            </span>
-          </span>
-        </Link>
-      ) : null}
+      <BrandPageHeader
+        title="Overview"
+        subtitle={`Visão geral da casa · ${formatCompetence(competence)}`}
+        logoSize="lg"
+        priority
+      />
 
       {showFinance ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -326,15 +297,6 @@ export function AdminOverview() {
         </ul>
       </section>
 
-      {!isPai ? (
-        <Card>
-          <CardTitle>Acesso do Pai de Santo</CardTitle>
-          <p className="mt-2 text-sm text-navy/65">
-            A história da casa (Quem somos) também fica na área do Pai — com o mesmo
-            acesso a todas as abas da casa.
-          </p>
-        </Card>
-      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -53,16 +54,13 @@ export default function QuemSomosPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Quem somos</h1>
-          <p className="text-sm text-navy/60">
-            Mini-blog da casa — história, pessoas e memórias
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Quem somos"
+        subtitle="Mini-blog da casa — história, pessoas e memórias"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canEdit ? (
           <Button variant={writing ? "secondary" : "primary"} onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar editor" : "Novo post"}

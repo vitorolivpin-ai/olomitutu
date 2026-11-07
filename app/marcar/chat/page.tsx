@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ChatRoom } from "@/components/chat/chat-room";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
+import { BrandWatermarks } from "@/components/brand/brand-watermarks";
+import { PublicBottomNav } from "@/components/hub/public-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ErrorMessage } from "@/components/ui/empty-state";
@@ -69,20 +70,16 @@ export default function MarcarChatPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-app px-4 py-8">
-        <div className="mx-auto max-w-md space-y-5">
-          <div className="flex items-center gap-4">
-            <BrandMark className="h-14 w-14 shrink-0" />
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
-                Marcação
-              </p>
-              <h1 className="font-display text-2xl text-navy">
-                Chat com Vitor Cardozo - Ògún Yande
-              </h1>
-              <p className="text-sm text-navy/55">Sem criar conta — só nome e telefone.</p>
-            </div>
-          </div>
+      <div className="relative min-h-dvh overflow-x-hidden bg-[#F7F8FA] px-5 py-6 sm:px-6">
+        <BrandWatermarks />
+        <div className="relative z-10 mx-auto max-w-md space-y-5 pb-28">
+          <BrandPageHeader
+            title="Chat"
+            subtitle="Vitor Cardozo - Ògún Yande · sem criar conta"
+            backHref="/marcar"
+            backLabel="Voltar à agenda"
+            priority
+          />
 
           <Card>
             <CardTitle>Identifique-se para o chat</CardTitle>
@@ -130,12 +127,8 @@ export default function MarcarChatPage() {
             </button>
           </div>
 
-          <p className="text-center text-sm">
-            <Link href="/marcar" className="text-navy/55 underline">
-              ← Voltar à marcação
-            </Link>
-          </p>
         </div>
+        <PublicBottomNav />
       </div>
     );
   }

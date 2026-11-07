@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FileText, Music2, Plus, Video } from "lucide-react";
@@ -44,14 +45,11 @@ export default function BibliotecaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Biblioteca</h1>
-          <p className="text-sm text-navy/60">
-            Vídeos, cantigas e PDFs da casa
-            {canManage ? " · você pode publicar" : ""}
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Biblioteca"
+        subtitle={`Vídeos, cantigas e PDFs da casa${canManage ? " · você pode publicar" : ""}`}
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canManage ? (
           <Link href="/biblioteca/novo">
             <Button>

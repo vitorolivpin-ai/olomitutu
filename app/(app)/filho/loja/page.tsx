@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -44,16 +45,12 @@ export default function FilhoLojaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <p className="mt-2 text-sm font-medium text-gold-deep">Filho de Santo</p>
-        <h1 className="font-display text-3xl text-navy">Loja da casa</h1>
-        <p className="text-sm text-navy/60">
-          Compre produtos, PDFs e cursos — liberação pelo Financeiro.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Loja da casa"
+        subtitle="Compre produtos, PDFs e cursos — liberação pelo Financeiro."
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       {products.length === 0 ? (
         <EmptyState title="Nenhum produto disponível no momento" />

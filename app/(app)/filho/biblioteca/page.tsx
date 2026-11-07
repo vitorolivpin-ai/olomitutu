@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Music2, Video } from "lucide-react";
@@ -40,14 +41,12 @@ export default function FilhoBibliotecaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/filho" className="text-sm text-navy/55 hover:text-navy">
-          ← Início
-        </Link>
-        <p className="mt-2 text-sm font-medium text-gold-deep">Filho de Santo</p>
-        <h1 className="font-display text-3xl text-navy">Biblioteca</h1>
-        <p className="text-sm text-navy/60">Cantigas, vídeos e PDFs da casa</p>
-      </div>
+      <BrandPageHeader
+        title="Biblioteca"
+        subtitle="Cantigas, vídeos e PDFs da casa"
+        backHref="/filho"
+        backLabel="Início"
+      />
 
       {openItem ? (
         <Card>

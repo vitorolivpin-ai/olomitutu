@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
+import { PaiSidebarNav } from "@/components/layout/pai-sidebar-nav";
 import { UserAvatar } from "@/components/profile/user-avatar";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
@@ -51,37 +52,6 @@ const staffLinks = [
   { href: "/relatorios", label: "Relatórios", icon: ChartColumn, module: "reports" as const },
   { href: "/notificacoes", label: "Notificações", icon: Bell, module: "notifications" as const },
   { href: "/menu", label: "Conta", icon: Settings2, module: "dashboard" as const },
-];
-
-/** Pai: Clientes e chat no topo — é o que se olha primeiro. */
-const paiLinks = [
-  { href: "/inicio", label: "Início", icon: LayoutDashboard },
-  { href: "/conversas", label: "Conversas", icon: MessageCircle },
-  { href: "/clientes", label: "Clientes de jogo", icon: UserRound },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/disponibilidade", label: "Horários", icon: CalendarClock },
-  { href: "/cadastros", label: "Cadastros pendentes", icon: UserRound },
-  { href: "/perfil", label: "Meu perfil", icon: UserRound },
-  { href: "/dashboard", label: "Resumo", icon: ChartColumn },
-  { href: "/membros", label: "Membros", icon: Users },
-  { href: "/mensalidades", label: "Mensalidades", icon: Receipt },
-  { href: "/cobrancas", label: "Cobranças", icon: CreditCard },
-  { href: "/despesas", label: "Despesas", icon: Wallet },
-  { href: "/financeiro", label: "Análise financeira", icon: ChartColumn },
-  { href: "/estoque", label: "Estoque", icon: Package },
-  { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/loja", label: "Loja", icon: Package },
-  { href: "/loja/liberacoes", label: "Liberações da loja", icon: Package },
-  { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen },
-  { href: "/educacao", label: "Educação", icon: BookOpen },
-  { href: "/hierarquia", label: "Hierarquia", icon: Users },
-  { href: "/checklist", label: "Checklist", icon: Receipt },
-  { href: "/ajodun", label: "Ajodun", icon: CalendarDays },
-  { href: "/ajodun/liberacoes", label: "Ajodun liberações", icon: CalendarDays },
-  { href: "/fotos", label: "Fotos", icon: BookOpen },
-  { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
-  { href: "/notificacoes", label: "Notificações", icon: Bell },
-  { href: "/menu", label: "Conta", icon: Settings2 },
 ];
 
 const stockLinks = [
@@ -195,7 +165,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       : isLibraryApp
         ? libraryAppLinks
         : isPai
-          ? paiLinks
+          ? []
           : staffLinks.filter((l) => canAccess(currentUser?.role, l.module) || l.href === "/menu");
 
   const panel = (
@@ -218,6 +188,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         ) : null}
       </div>
+      {isPai ? (
+        <PaiSidebarNav onNavigate={() => onClose?.()} />
+      ) : (
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {links.map((link) => {
           const Icon = link.icon;
@@ -282,6 +255,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           );
         })}
       </nav>
+      )}
       {currentUser ? (
         <Link
           href={isClient ? "/cliente/cadastro" : "/perfil"}

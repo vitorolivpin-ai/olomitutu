@@ -12,9 +12,9 @@ export default function ConversationsPage() {
     currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-[#f0f2f5] px-6">
-      <BrandMark className="h-28 w-28 opacity-90" />
-      <p className="mt-6 font-display text-3xl text-navy">OLÓMÌ TÚTÙ</p>
+    <div className="flex h-full flex-col items-center justify-center bg-[#F7F8FA] px-6">
+      <BrandMark className="h-28 w-28" />
+      <p className="mt-6 font-display text-2xl text-navy">Conversas</p>
       <p className="mt-2 max-w-sm text-center text-sm text-navy/55">
         Selecione uma conversa à esquerda para ler e responder.
       </p>

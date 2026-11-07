@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -75,19 +76,16 @@ export default function ClientDetailPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/clientes" className="text-sm text-navy/55 hover:text-navy">
-            ← Clientes
-          </Link>
-          <h1 className="font-display text-3xl text-navy">{currentClient.full_name}</h1>
-          <p className="text-sm text-navy/60">
-            {currentClient.phone}
-            {currentClient.email ? ` · ${currentClient.email}` : ""} · desde{" "}
-            {formatDate(currentClient.created_at)}
-          </p>
-          {deleteError ? <p className="mt-2 text-sm text-danger">{deleteError}</p> : null}
-        </div>
+      <BrandPageHeader
+        title={currentClient.full_name}
+        subtitle={`${currentClient.phone}${
+          currentClient.email ? ` · ${currentClient.email}` : ""
+        } · desde ${formatDate(currentClient.created_at)}`}
+        backHref="/clientes"
+        backLabel="Clientes"
+      />
+      <div className="flex flex-wrap items-center justify-center gap-3 empty:hidden">
+        {deleteError ? <p className="text-sm text-danger">{deleteError}</p> : null}
         {canManage ? (
           <Button
             type="button"

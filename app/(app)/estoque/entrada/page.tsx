@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -80,15 +80,12 @@ export default function EstoqueEntradaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <Link href="/estoque" className="text-sm text-navy/55 hover:text-navy">
-          ← Estoque
-        </Link>
-        <h1 className="font-display text-3xl text-navy">Entrada no estoque</h1>
-        <p className="text-sm text-navy/60">
-          Escaneie o produto, informe validade e quantidade
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Entrada no estoque"
+        subtitle="Escaneie o produto, informe validade e quantidade"
+        backHref="/estoque"
+        backLabel="Estoque"
+      />
 
       <Card>
         <BarcodeScanner onScan={onScan} />

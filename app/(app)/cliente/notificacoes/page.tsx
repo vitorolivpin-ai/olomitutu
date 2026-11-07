@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Card } from "@/components/ui/card";
@@ -30,13 +31,12 @@ export default function ClienteNotificacoesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <p className="text-sm font-medium text-gold-deep">App do Cliente</p>
-        <h1 className="font-display text-3xl text-navy">Notificações</h1>
-        <p className="text-sm text-navy/60">
-          Mensagens do Pai e horários liberados.
-        </p>
-      </div>
+      <BrandPageHeader
+        title="Notificações"
+        subtitle="Mensagens do Pai e horários liberados."
+        backHref="/cliente"
+        backLabel="Voltar ao início"
+      />
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />

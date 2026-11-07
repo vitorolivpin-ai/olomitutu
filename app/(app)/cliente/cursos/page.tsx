@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { ShopCatalog } from "@/components/shop/shop-catalog";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -53,19 +53,12 @@ export default function ClienteCursosPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-2xl space-y-5">
-      <div className="flex items-start gap-4">
-        <BrandMark className="h-14 w-14 shrink-0" />
-        <div>
-          <Link href="/cliente" className="text-sm text-navy/55 hover:text-navy">
-            ← Início
-          </Link>
-          <p className="mt-1 text-sm font-medium text-gold-deep">App do Cliente</p>
-          <h1 className="font-display text-3xl text-navy">Meus cursos</h1>
-          <p className="text-sm text-navy/60">
-            Conteúdos liberados na conta e novos pedidos na loja.
-          </p>
-        </div>
-      </div>
+      <BrandPageHeader
+        title="Meus cursos"
+        subtitle="Conteúdos liberados e novos pedidos na loja."
+        backHref="/cliente"
+        backLabel="Voltar ao início"
+      />
 
       <Card className="border-l-4 border-l-gold">
         <CardTitle>Liberados para você</CardTitle>

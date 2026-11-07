@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -48,13 +48,14 @@ export default function AppointmentDetailPage() {
   return (
     <div className="animate-rise space-y-5">
       <div>
-        <Link href="/agenda" className="text-sm text-navy/55 hover:text-navy">
-          ← Agenda
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{title}</h1>
-        <p className="text-sm text-navy/60">{formatDateTime(apt.scheduled_at)}</p>
+        <BrandPageHeader
+          title={title}
+          subtitle={formatDateTime(apt.scheduled_at)}
+          backHref="/agenda"
+          backLabel="Agenda"
+        />
         {apt.ficha_code ? (
-          <p className="mt-1 text-xs font-medium text-gold-deep">Código {apt.ficha_code}</p>
+          <p className="mt-1 text-center text-xs font-medium text-gold-deep">Código {apt.ficha_code}</p>
         ) : null}
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,11 +49,8 @@ export default function ExpensesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Despesas</h1>
-          <p className="text-sm text-navy/60">Contas do barracão</p>
-        </div>
+      <BrandPageHeader title="Despesas" subtitle="Contas do barracão" />
+      <div className="flex justify-center gap-3">
         <Button size="md" onClick={() => setOpen((v) => !v)}>
           <Plus className="h-4 w-4" /> Nova
         </Button>

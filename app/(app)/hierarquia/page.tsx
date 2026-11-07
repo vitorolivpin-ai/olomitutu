@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, useMemo, useState } from "react";
 import { OrganogramNode } from "@/components/house/organogram-node";
 import { Button } from "@/components/ui/button";
@@ -69,16 +69,13 @@ export default function HierarquiaPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/conteudo" className="text-sm text-navy/55 hover:text-navy">
-            ← Conteúdo da casa
-          </Link>
-          <h1 className="font-display text-3xl text-navy">Hierarquia</h1>
-          <p className="text-sm text-navy/60">
-            Organograma do barracão — a cor do anel indica o cargo
-          </p>
-        </div>
+      <BrandPageHeader
+        title="Hierarquia"
+        subtitle="Organograma do barracão — a cor do anel indica o cargo"
+        backHref="/conteudo"
+        backLabel="Conteúdo da casa"
+      />
+      <div className="flex flex-wrap justify-center gap-3 empty:hidden">
         {canEdit ? (
           <Button onClick={() => setWriting((v) => !v)}>
             {writing ? "Fechar" : "Adicionar pessoa"}

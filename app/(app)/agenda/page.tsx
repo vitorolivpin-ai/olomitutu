@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { FormEvent, Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { GoogleCalendarCard } from "@/components/agenda/google-calendar-card";
@@ -94,11 +95,8 @@ function AgendaPageInner() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Agenda</h1>
-          <p className="text-sm text-navy/60">Jogos e atendimentos</p>
-        </div>
+      <BrandPageHeader title="Agenda" subtitle="Jogos e atendimentos" />
+      <div className="flex flex-wrap justify-center gap-3">
         <Link href="/disponibilidade">
           <Button variant="gold" size="md">
             Gerenciar horários

@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
@@ -62,19 +63,18 @@ export default function MemberDetailPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/membros" className="text-sm text-navy/55 hover:text-navy">
-            ← Membros
-          </Link>
-          <h1 className="font-display text-3xl text-navy">{current.full_name}</h1>
-          <p className="text-sm text-navy/60">{current.phone}{current.email ? ` · ${current.email}` : ""}</p>
-          {current.profile_id ? (
-            <p className="mt-1 text-xs text-leaf">
-              Conta de Filho de Santo vinculada — cobranças notificam no app.
-            </p>
-          ) : null}
-        </div>
+      <BrandPageHeader
+        title={current.full_name}
+        subtitle={`${current.phone}${current.email ? ` · ${current.email}` : ""}`}
+        backHref="/membros"
+        backLabel="Membros"
+      />
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {current.profile_id ? (
+          <p className="text-center text-xs text-leaf">
+            Conta de Filho de Santo vinculada — cobranças notificam no app.
+          </p>
+        ) : null}
         <Button
           variant="gold"
           onClick={() => generateFee(current.id, currentCompetence())}

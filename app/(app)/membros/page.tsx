@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Plus } from "lucide-react";
@@ -46,11 +47,8 @@ export default function MembersPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl text-navy">Membros</h1>
-          <p className="text-sm text-navy/60">Cadastro e situação das mensalidades</p>
-        </div>
+      <BrandPageHeader title="Membros" subtitle="Cadastro e situação das mensalidades" />
+      <div className="flex justify-center gap-3">
         <Button onClick={() => setOpen((v) => !v)} size="md">
           <Plus className="h-4 w-4" /> Novo
         </Button>

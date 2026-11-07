@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { LibraryPlayer } from "@/components/library/library-player";
@@ -40,11 +41,12 @@ export default function BibliotecaItemPage() {
   return (
     <div className="animate-rise space-y-5">
       <div>
-        <Link href="/biblioteca" className="text-sm text-navy/55 hover:text-navy">
-          ← Biblioteca
-        </Link>
-        <h1 className="font-display text-3xl text-navy">{item.title}</h1>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <BrandPageHeader
+          title={item.title}
+          backHref="/biblioteca"
+          backLabel="Biblioteca"
+        />
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
           <Badge tone="gold">{LIBRARY_KIND_LABEL[item.kind]}</Badge>
           {item.visible_to_clients ? (
             <Badge tone="success">Visível ao cliente</Badge>

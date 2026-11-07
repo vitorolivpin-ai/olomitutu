@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,7 @@ export default function FeesPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl text-navy">Mensalidades</h1>
-        <p className="text-sm text-navy/60">Histórico por competência</p>
-      </div>
+      <BrandPageHeader title="Mensalidades" subtitle="Histórico por competência" />
 
       <Card>
         <CardTitle>Gerar mensalidade</CardTitle>

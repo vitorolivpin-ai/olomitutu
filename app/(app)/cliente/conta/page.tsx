@@ -9,7 +9,7 @@ import {
   MessageCircle,
   UserRound,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Button } from "@/components/ui/button";
@@ -49,15 +49,7 @@ export default function ClienteContaPage() {
 
   return (
     <div className="animate-rise mx-auto max-w-md space-y-5">
-      <div className="flex items-center gap-4">
-        <BrandMark className="h-16 w-16 shrink-0" />
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
-            App do Cliente
-          </p>
-          <h1 className="font-display text-2xl text-navy">Menu</h1>
-        </div>
-      </div>
+      <BrandPageHeader title="Perfil" subtitle="Menu e atalhos da conta" />
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />
