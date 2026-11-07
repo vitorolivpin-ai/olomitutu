@@ -300,7 +300,7 @@ export default function MarcarPublicoPage() {
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden bg-[#F7F8FA]">
-      <BrandWatermarks variant="faint" />
+      <BrandWatermarks />
       <div className="relative z-10 mx-auto w-full max-w-[960px] px-5 py-6 pb-28 sm:px-6">
         {/* Cabeçalho */}
         <header className="mb-6 flex flex-col items-center text-center">

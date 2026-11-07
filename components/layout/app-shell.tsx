@@ -11,7 +11,6 @@ import { LoadingBlock } from "@/components/ui/empty-state";
 import {
   appLabelForRole,
   canAccess,
-  isHouseStaffRole,
   type AppModule,
 } from "@/lib/permissions";
 import { BrandMark } from "@/components/brand/logo";
@@ -169,9 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     >
       {!isChatSection ? (
-        <BrandWatermarks
-          variant={isHouseStaffRole(currentUser.role) ? "faint" : "default"}
-        />
+        <BrandWatermarks />
       ) : null}
       <ChatAlertWatcher />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
