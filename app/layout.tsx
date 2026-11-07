@@ -67,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             width={1024}
             height={1024}
             style={{
-              width: "52vw",
+              width: "70vw",
               maxWidth: "24rem",
               height: "auto",
               objectFit: "contain",

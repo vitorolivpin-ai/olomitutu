@@ -25,7 +25,7 @@ export function AppSplash({ className }: Props) {
         width={1024}
         height={1024}
         decoding="async"
-        className="splash-brasao h-auto w-[52vw] max-w-[24rem] object-contain"
+        className="splash-brasao h-auto w-[min(70vw,24rem)] object-contain"
       />
     </div>
   );

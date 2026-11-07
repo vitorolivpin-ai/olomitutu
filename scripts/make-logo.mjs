@@ -46,7 +46,7 @@ await sharp(path.join(publicDir, "logo.jpg")).webp({ quality: 90 }).toFile(path.
 
 const splashW = 1080;
 const splashH = 1920;
-const crestH = Math.round(splashW * 0.52);
+const crestH = Math.round(splashW * 0.7);
 const splashCrest = await sharp(crestTrimmed)
   .resize(crestH, crestH, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
   .png()
