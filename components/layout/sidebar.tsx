@@ -12,8 +12,6 @@ import {
   LayoutDashboard,
   MessageCircle,
   Package,
-  PackageMinus,
-  PackagePlus,
   Receipt,
   Settings2,
   Users,
@@ -30,7 +28,12 @@ import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import { isFilhoDeSanto, portalLabelForUser } from "@/lib/filho";
 import { unreadCountForRole } from "@/lib/notifications";
-import { appLabelForRole, canAccess, roleLabel } from "@/lib/permissions";
+import {
+  appLabelForRole,
+  canAccess,
+  isHouseStaffRole,
+  roleLabel,
+} from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const staffLinks = [
@@ -52,24 +55,6 @@ const staffLinks = [
   { href: "/relatorios", label: "Relatórios", icon: ChartColumn, module: "reports" as const },
   { href: "/notificacoes", label: "Notificações", icon: Bell, module: "notifications" as const },
   { href: "/menu", label: "Conta", icon: Settings2, module: "dashboard" as const },
-];
-
-const stockLinks = [
-  { href: "/estoque", label: "Estoque", icon: Package },
-  { href: "/estoque/entrada", label: "Entrada", icon: PackagePlus },
-  { href: "/estoque/saida", label: "Saída", icon: PackageMinus },
-  { href: "/notificacoes", label: "Notificações", icon: Bell },
-  { href: "/menu", label: "Conta", icon: Settings2 },
-  { href: "/", label: "Menu principal", icon: LayoutDashboard },
-];
-
-const libraryAppLinks = [
-  { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/biblioteca/novo", label: "Novo material", icon: BookOpen },
-  { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen },
-  { href: "/notificacoes", label: "Notificações", icon: Bell },
-  { href: "/menu", label: "Conta", icon: Settings2 },
-  { href: "/", label: "Menu principal", icon: LayoutDashboard },
 ];
 
 const clientLinks = [
@@ -129,9 +114,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const isClient = currentUser?.role === "cliente";
   const isFilho = isFilhoDeSanto(currentUser);
-  const isStockApp = currentUser?.role === "estoque";
-  const isLibraryApp = currentUser?.role === "biblioteca";
-  const isPai = currentUser?.role === "pai_de_santo";
+  const isHouseStaff = isHouseStaffRole(currentUser?.role);
   const unread = mounted
     ? unreadCountForRole(state.notifications, currentUser?.role, {
         clientId: currentUser?.client_id,
@@ -160,13 +143,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     ? isFilho
       ? filhoLinks
       : clientLinks
-    : isStockApp
-      ? stockLinks
-      : isLibraryApp
-        ? libraryAppLinks
-        : isPai
-          ? []
-          : staffLinks.filter((l) => canAccess(currentUser?.role, l.module) || l.href === "/menu");
+    : isHouseStaff
+      ? []
+      : staffLinks.filter((l) => canAccess(currentUser?.role, l.module) || l.href === "/menu");
 
   const panel = (
     <>
@@ -188,7 +167,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         ) : null}
       </div>
-      {isPai ? (
+      {isHouseStaff ? (
         <PaiSidebarNav onNavigate={() => onClose?.()} />
       ) : (
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">

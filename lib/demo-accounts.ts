@@ -30,22 +30,22 @@ export const DEMO_ACCOUNTS: Record<
   administrador: {
     email: "admin@ileoloroke.demo",
     label: "Administrador",
-    hint: "Visão completa da casa",
+    hint: "Mesmo acesso do Pai de Santo — todos os módulos",
   },
   tesouraria: {
     email: "tesouraria@ileoloroke.demo",
     label: "Financeiro",
-    hint: "Mensalidades e despesas",
+    hint: "Mesmo acesso do Pai de Santo — todos os módulos",
   },
   estoque: {
     email: "estoque@ileoloroke.demo",
     label: "Estoque",
-    hint: "Entrada e baixa por código de barras",
+    hint: "Mesmo acesso do Pai de Santo — todos os módulos",
   },
   biblioteca: {
     email: "biblioteca@ileoloroke.demo",
     label: "Biblioteca",
-    hint: "Vídeos, cantigas e PDFs",
+    hint: "Mesmo acesso do Pai de Santo — todos os módulos",
   },
 };
 

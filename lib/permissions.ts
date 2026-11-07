@@ -18,79 +18,55 @@ export type AppModule =
   | "house_content"
   | "shop";
 
+/** Mesmo acesso da aba Pai de Santo — todas as áreas da casa. */
+export const HOUSE_FULL_MODULES: AppModule[] = [
+  "dashboard",
+  "members",
+  "fees",
+  "charges",
+  "expenses",
+  "finance",
+  "clients",
+  "agenda",
+  "chat",
+  "reports",
+  "notifications",
+  "internal_notes",
+  "stock",
+  "library",
+  "house_content",
+  "shop",
+];
+
+/** Papéis da casa (não Cliente / Filho). */
+export function isHouseStaffRole(role: UserRole | null | undefined) {
+  return (
+    role === "pai_de_santo" ||
+    role === "administrador" ||
+    role === "tesouraria" ||
+    role === "estoque" ||
+    role === "biblioteca"
+  );
+}
+
 const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
-  administrador: [
-    "dashboard",
-    "members",
-    "fees",
-    "charges",
-    "expenses",
-    "finance",
-    "clients",
-    "agenda",
-    "chat",
-    "reports",
-    "notifications",
-    "internal_notes",
-    "stock",
-    "library",
-    "house_content",
-    "shop",
-  ],
-  tesouraria: [
-    "dashboard",
-    "members",
-    "fees",
-    "charges",
-    "expenses",
-    "finance",
-    "notifications",
-    "shop",
-    "chat",
-  ],
-  /** Pai: todas as abas da casa (sem o portal /cliente e /filho). */
-  pai_de_santo: [
-    "dashboard",
-    "members",
-    "fees",
-    "charges",
-    "expenses",
-    "finance",
-    "clients",
-    "agenda",
-    "chat",
-    "reports",
-    "notifications",
-    "internal_notes",
-    "stock",
-    "library",
-    "house_content",
-    "shop",
-  ],
-  /** App dedicado do estoque (entrada/saída por código de barras) */
-  estoque: ["stock", "notifications"],
-  /** App dedicado da biblioteca (vídeos, cantigas, PDFs) */
-  biblioteca: ["library", "notifications", "house_content"],
-  /** Cliente: só marcação (agenda) + chat com o Pai */
+  administrador: [...HOUSE_FULL_MODULES],
+  tesouraria: [...HOUSE_FULL_MODULES],
+  pai_de_santo: [...HOUSE_FULL_MODULES],
+  estoque: [...HOUSE_FULL_MODULES],
+  biblioteca: [...HOUSE_FULL_MODULES],
+  /** Cliente: marcação + chat + cursos (portal próprio). */
   cliente: ["dashboard", "chat", "notifications", "agenda"],
 };
 
 /** Quem pode publicar / apagar materiais da biblioteca */
 export function canManageLibrary(role: UserRole | null | undefined) {
-  return (
-    role === "pai_de_santo" ||
-    role === "administrador" ||
-    role === "biblioteca"
-  );
+  return isHouseStaffRole(role);
 }
 
 /** Quem edita Quem Somos, Educação, Hierarquia, Checklist, Ajodun e Fotos */
 export function canManageHouseContent(role: UserRole | null | undefined) {
-  return (
-    role === "pai_de_santo" ||
-    role === "administrador" ||
-    role === "biblioteca"
-  );
+  return isHouseStaffRole(role);
 }
 
 export function canAccess(role: UserRole | null | undefined, module: AppModule) {
@@ -112,8 +88,6 @@ export function roleLabel(role: UserRole) {
 
 export function appLabelForRole(role: UserRole | null | undefined) {
   if (role === "cliente") return "App do Cliente";
-  if (role === "estoque") return "App do Estoque";
-  if (role === "biblioteca") return "App da Biblioteca";
-  if (role === "tesouraria") return "App do Financeiro";
+  if (isHouseStaffRole(role)) return "App da Casa";
   return "App da Casa";
 }

@@ -26,6 +26,12 @@ import {
   mapProfileRow,
   mergeAuthProfile,
 } from "@/lib/supabase/profile";
+import {
+  actingProfileForArea,
+  paiCanOpenArea,
+  readViewAsArea,
+  writeViewAsArea,
+} from "@/lib/view-as";
 import { nowIso, uid } from "@/lib/utils";
 import type {
   AppNotification,
@@ -388,7 +394,9 @@ export function AppStoreProvider({
         row = await ensureClienteLinked(supabase!, row);
       }
 
-      const authProfile = mapProfileRow(row);
+      const baseProfile = mapProfileRow(row);
+      const viewAs = paiCanOpenArea(baseProfile.role) ? readViewAsArea() : null;
+      const authProfile = actingProfileForArea(baseProfile, viewAs);
       setState((prev) => {
         const profiles = mergeAuthProfile(prev.profiles, authProfile);
         let clients = prev.clients;
@@ -672,10 +680,14 @@ export function AppStoreProvider({
     });
   }, []);
 
-  const currentUser = useMemo(
-    () => state.profiles.find((p) => p.id === state.currentUserId) ?? null,
-    [state.profiles, state.currentUserId],
-  );
+  const currentUser = useMemo(() => {
+    const base = state.profiles.find((p) => p.id === state.currentUserId) ?? null;
+    if (!base) return null;
+    const viewAs = readViewAsArea();
+    if (!viewAs) return base;
+    if (paiCanOpenArea(base.role)) return actingProfileForArea(base, viewAs);
+    return base;
+  }, [state.profiles, state.currentUserId]);
 
   useEffect(() => {
     if (!ready || !currentUser || currentUser.person_kind !== "filho_de_santo") return;
@@ -770,6 +782,7 @@ export function AppStoreProvider({
   );
 
   const logout = useCallback(() => {
+    writeViewAsArea(null);
     if (isSupabaseConfigured()) {
       const supabase = createBrowserClient();
       void supabase?.auth.signOut();

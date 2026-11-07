@@ -59,7 +59,9 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
         <p className="text-sm font-semibold text-navy/70">{account.label}</p>
         <h1 className="mt-1 font-display text-2xl text-navy">Entrar</h1>
         <p className="mt-1 text-sm text-navy/60">
-          {authReal ? "Use o e-mail e a senha da sua conta." : account.hint}
+          {authReal
+            ? "Use o e-mail e a senha da sua conta. A conta do Pai de Santo entra em todas as áreas."
+            : account.hint}
         </p>
       </div>
 
@@ -79,7 +81,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
                 name="email"
                 type="email"
                 required
-                defaultValue={account.email}
+                defaultValue={DEMO_ACCOUNTS.pai_de_santo.email}
                 autoComplete="username"
                 className="w-full rounded-xl border border-navy/15 bg-cream/40 px-3 py-2.5 text-navy outline-none ring-gold focus:ring-2"
               />
@@ -114,6 +116,13 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
 
         {authReal ? (
           <div className="mt-4 space-y-2 text-center text-sm text-navy/60">
+            {area !== "pai_de_santo" ? (
+              <p className="rounded-lg bg-navy/5 px-3 py-2 text-xs text-navy/70">
+                Sem conta nesta aba? Entre com o e-mail e a senha do{" "}
+                <span className="font-medium text-navy">Pai de Santo</span> para
+                abrir este perfil.
+              </p>
+            ) : null}
             <p>
               <Link href="/recuperar-senha" className="text-navy underline">
                 Esqueci a senha
@@ -147,6 +156,11 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
           <p className="mt-4 text-center text-xs text-navy/50">
             Conta desta área:{" "}
             <span className="font-medium text-navy/70">{account.email}</span>
+            <br />
+            Ou use o Pai:{" "}
+            <span className="font-medium text-navy/70">
+              {DEMO_ACCOUNTS.pai_de_santo.email}
+            </span>
             <br />
             Senha demo: <span className="font-medium text-navy/70">{DEMO_PASSWORD}</span>
           </p>

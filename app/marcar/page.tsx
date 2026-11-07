@@ -258,6 +258,11 @@ export default function MarcarPublicoPage() {
       <h2 className="font-display text-xl text-navy">Seu agendamento</h2>
       <ul className="mt-4 space-y-3">
         <SummaryRow
+          icon={MessageCircle}
+          label="Modalidade"
+          value="Jogo pelo chat do app"
+        />
+        <SummaryRow
           icon={CalendarDays}
           label="Data"
           value={selectedDay ? longDateLabel(selectedDay) : "Escolha o dia"}
@@ -307,7 +312,8 @@ export default function MarcarPublicoPage() {
             Marcar horário
           </h1>
           <p className="mt-2 max-w-md text-sm text-navy/55">
-            Escolha o melhor dia e horário para seu atendimento.
+            Reserve o horário do jogo. No dia marcado, o atendimento acontece pelo
+            chat dentro do app.
           </p>
         </header>
 
@@ -345,12 +351,16 @@ export default function MarcarPublicoPage() {
 
         {step === "ok" ? (
           <Card className="mx-auto max-w-md border-l-4 border-l-leaf text-center">
-            <CalendarDays className="mx-auto h-10 w-10 text-leaf" />
+            <MessageCircle className="mx-auto h-10 w-10 text-leaf" />
             <CardTitle className="mt-3 text-2xl">Horário reservado</CardTitle>
             <p className="mt-2 text-sm text-navy/70">
-              {confirmedAt && selectedDay
+              {confirmedAt
                 ? `${longDateLabel(dayKey(confirmedAt))} · ${formatTime(confirmedAt)}`
-                : confirmedAt}
+                : null}
+            </p>
+            <p className="mt-3 rounded-2xl bg-mist/70 px-3 py-2 text-sm text-navy/70">
+              O jogo será feito pelo <strong className="text-navy">chat dentro do app</strong>{" "}
+              com Vitor Cardozo - Ògún Yande, no horário marcado.
             </p>
             <p className="mt-4 font-display text-xl text-navy">{fichaCode}</p>
             <p className="mt-1 text-xs text-navy/50">
@@ -360,7 +370,7 @@ export default function MarcarPublicoPage() {
               <Link href="/marcar/chat">
                 <Button variant="gold" className="w-full">
                   <MessageCircle className="h-4 w-4" />
-                  Abrir chat com Vitor Cardozo - Ògún Yande
+                  Abrir o chat do jogo
                 </Button>
               </Link>
               <Button variant="secondary" onClick={resetToLista}>
@@ -472,17 +482,25 @@ export default function MarcarPublicoPage() {
                     )}
 
                     {slotAt ? (
-                      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
-                        <span className="font-medium text-navy">Jogo / Atendimento</span>
-                        <span className="text-navy/25">·</span>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-gold-deep" />
-                          {duration} minutos
-                        </span>
-                        <span className="text-navy/25">·</span>
-                        <span className="font-display text-base text-gold-deep">
-                          {formatCurrency(amount)}
-                        </span>
+                      <div className="mt-4 space-y-2 rounded-2xl bg-white/80 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-navy">
+                            <MessageCircle className="h-3.5 w-3.5 text-gold-deep" />
+                            Jogo pelo chat do app
+                          </span>
+                          <span className="text-navy/25">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-gold-deep" />
+                            {duration} minutos
+                          </span>
+                          <span className="text-navy/25">·</span>
+                          <span className="font-display text-base text-gold-deep">
+                            {formatCurrency(amount)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-navy/50">
+                          No horário marcado, o jogo acontece na conversa dentro do aplicativo.
+                        </p>
                       </div>
                     ) : null}
                   </section>
@@ -539,8 +557,8 @@ export default function MarcarPublicoPage() {
               </button>
               <CardTitle className="mt-2">Sua ficha</CardTitle>
               <p className="mt-1 text-sm text-navy/60">
-                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} · só o Pai de Santo
-                verá estes dados
+                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} · jogo pelo chat · só
+                o Pai de Santo verá estes dados
               </p>
               <form onSubmit={onFicha} className="mt-4 space-y-3">
                 <div>

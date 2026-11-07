@@ -1,5 +1,5 @@
 /* Service worker — PWA + notificações com logo do app */
-const SW_VERSION = "oloroke-notif-v3";
+const SW_VERSION = "oloroke-notif-v4-brasao";
 
 function appOrigin() {
   return self.location.origin;
@@ -20,7 +20,13 @@ self.addEventListener("install", (event) => {
     caches
       .open(SW_VERSION)
       .then((cache) =>
-        cache.addAll(["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/logo.jpg"]),
+        cache.addAll([
+          "/icon-192.png",
+          "/icon-512.png",
+          "/apple-touch-icon.png",
+          "/brasao-oficial.png",
+          "/logo.jpg",
+        ]),
       )
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting()),

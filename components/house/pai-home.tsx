@@ -28,6 +28,7 @@ import {
   signedCurrency,
 } from "@/lib/format";
 import { unreadChatCountForRole } from "@/lib/notifications";
+import { roleLabel } from "@/lib/permissions";
 import { buildSlotViews } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import type { Appointment } from "@/types";
@@ -193,7 +194,7 @@ export function PaiHome() {
         <BrandMark className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" priority />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy/45">
-            Pai de Santo
+            {currentUser?.role ? roleLabel(currentUser.role) : "App da Casa"}
           </p>
           <h1 className="font-display text-2xl leading-tight text-navy sm:text-[1.75rem]">
             Agenda e atendimentos
@@ -251,7 +252,7 @@ export function PaiHome() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-navy/40">
-                        Jogo
+                        Jogo · chat
                       </p>
                       <p className="truncate font-medium text-navy">{name}</p>
                     </div>

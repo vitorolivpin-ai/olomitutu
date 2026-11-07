@@ -17,6 +17,11 @@ import {
   fetchProfileRowDetailed,
   mapProfileRow,
 } from "@/lib/supabase/profile";
+import {
+  actingProfileForArea,
+  paiCanOpenArea,
+  writeViewAsArea,
+} from "@/lib/view-as";
 
 type Props = {
   area: AreaSlug;
@@ -95,6 +100,8 @@ export function LoginForm({ area, initialError }: Props) {
       return;
     }
 
+    const masterPai = paiCanOpenArea(profile.role);
+
     if (profile.role === "cliente" && !profile.client_id) {
       profile = await ensureClienteLinked(supabase, profile);
     }
@@ -113,6 +120,7 @@ export function LoginForm({ area, initialError }: Props) {
     const isFilhoAccount = isFilhoDeSanto(mappedPreview);
 
     if (
+      !masterPai &&
       status === "pending" &&
       (requested === role ||
         profile.role === role ||
@@ -128,6 +136,7 @@ export function LoginForm({ area, initialError }: Props) {
     }
 
     if (
+      !masterPai &&
       status === "rejected" &&
       (requested === role ||
         signupArea === role ||
@@ -139,7 +148,7 @@ export function LoginForm({ area, initialError }: Props) {
       return;
     }
 
-    if (profile.role !== role) {
+    if (!masterPai && profile.role !== role) {
       await supabase.auth.signOut();
       if (status === "pending" && (signupArea === role || requested === role)) {
         setError("Cadastro ainda pendente — o Pai precisa aceitar antes do acesso.");
@@ -152,7 +161,7 @@ export function LoginForm({ area, initialError }: Props) {
       return;
     }
 
-    if (isFilhoArea(area) && !isFilhoAccount) {
+    if (!masterPai && isFilhoArea(area) && !isFilhoAccount) {
       await supabase.auth.signOut();
       setError(
         "Esta conta não é de Filho de Santo. Use a marcação pública ou outra aba.",
@@ -161,16 +170,17 @@ export function LoginForm({ area, initialError }: Props) {
       return;
     }
 
-    if (area === "cliente" && isFilhoAccount) {
+    if (!masterPai && area === "cliente" && isFilhoAccount) {
       await supabase.auth.signOut();
       setError("Conta de Filho de Santo — entre em /entrar/filho.");
       setPending(false);
       return;
     }
 
-    const mapped = mapProfileRow(profile);
+    writeViewAsArea(masterPai ? area : null);
+    const mapped = actingProfileForArea(mapProfileRow(profile), masterPai ? area : null);
     hydrateAuthProfile(mapped);
-    window.location.assign(homePathForUser(mapped) || homePathForRole(role));
+    window.location.assign(homePathForUser(mapped) || homePathForRole(mapped.role));
   }
 
   return (

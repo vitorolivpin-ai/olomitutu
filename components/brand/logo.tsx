@@ -17,12 +17,13 @@ export function BrandMark({
   return (
     <div className={cn("relative overflow-hidden bg-transparent", className)}>
       <Image
-        src="/brasao.png"
+        src="/brasao-oficial.png"
         alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
         fill
         priority={priority}
+        unoptimized
         className="object-contain"
-        sizes="(max-width: 768px) 200px, 240px"
+        sizes="(max-width: 768px) 200px, 280px"
       />
     </div>
   );

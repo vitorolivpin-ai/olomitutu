@@ -9,8 +9,6 @@ import {
   Menu,
   MessageCircle,
   Package,
-  PackageMinus,
-  PackagePlus,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -18,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/hooks/use-app-store";
 import { isFilhoDeSanto } from "@/lib/filho";
 import { unreadChatCountForRole } from "@/lib/notifications";
-import { canAccess } from "@/lib/permissions";
+import { canAccess, isHouseStaffRole } from "@/lib/permissions";
 
 const staffItems = [
   { href: "/inicio", label: "Início", icon: LayoutDashboard },
@@ -28,33 +26,13 @@ const staffItems = [
   { href: "/menu", label: "Menu", icon: Menu },
 ];
 
-const financeItems = [
-  { href: "/financeiro", label: "Análise", icon: Wallet },
-  { href: "/loja", label: "Loja", icon: Package },
-  { href: "/conversas", label: "Chat", icon: MessageCircle },
-  { href: "/menu", label: "Menu", icon: Menu },
-];
-
+/** Mesma nav inferior do Pai para todas as abas da casa. */
 const paiItems = [
   { href: "/inicio", label: "Início", icon: LayoutDashboard },
   { href: "/conversas", label: "Chat", icon: MessageCircle },
   { href: "/clientes", label: "Clientes", icon: UserRound },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/menu", label: "Menu", icon: Menu },
-];
-
-const stockItems = [
-  { href: "/estoque", label: "Estoque", icon: Package },
-  { href: "/estoque/entrada", label: "Entrada", icon: PackagePlus },
-  { href: "/estoque/saida", label: "Saída", icon: PackageMinus },
-  { href: "/menu", label: "Menu", icon: Menu },
-];
-
-const libraryAppItems = [
-  { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/biblioteca/novo", label: "Publicar", icon: BookOpen },
-  { href: "/menu", label: "Menu", icon: Menu },
-  { href: "/", label: "Início", icon: LayoutDashboard },
 ];
 
 const clientItems = [
@@ -78,10 +56,7 @@ export function BottomNav() {
   const { currentUser, state } = useAppStore();
   const isClient = currentUser?.role === "cliente";
   const isFilho = isFilhoDeSanto(currentUser);
-  const isStockApp = currentUser?.role === "estoque";
-  const isLibraryApp = currentUser?.role === "biblioteca";
-  const isPai = currentUser?.role === "pai_de_santo";
-  const isFinance = currentUser?.role === "tesouraria";
+  const isHouseStaff = isHouseStaffRole(currentUser?.role);
 
   const chatUnread = unreadChatCountForRole(
     state.notifications ?? [],
@@ -105,30 +80,24 @@ export function BottomNav() {
     ? isFilho
       ? filhoItems
       : clientItems
-    : isStockApp
-      ? stockItems
-      : isLibraryApp
-        ? libraryAppItems
-        : isFinance
-          ? financeItems
-        : isPai
-          ? paiItems
-          : staffItems.filter((item) => {
-              if (item.href === "/menu") return true;
-              if (item.href === "/financeiro") {
-                return (
-                  canAccess(currentUser?.role, "finance") ||
-                  canAccess(currentUser?.role, "members") ||
-                  canAccess(currentUser?.role, "fees")
-                );
-              }
-              if (item.href === "/conversas") return canAccess(currentUser?.role, "chat");
-              if (item.href === "/agenda") return canAccess(currentUser?.role, "agenda");
+    : isHouseStaff
+      ? paiItems
+      : staffItems.filter((item) => {
+          if (item.href === "/menu") return true;
+          if (item.href === "/financeiro") {
+            return (
+              canAccess(currentUser?.role, "finance") ||
+              canAccess(currentUser?.role, "members") ||
+              canAccess(currentUser?.role, "fees")
+            );
+          }
+          if (item.href === "/conversas") return canAccess(currentUser?.role, "chat");
+          if (item.href === "/agenda") return canAccess(currentUser?.role, "agenda");
           if (item.href === "/dashboard" || item.href === "/inicio") {
             return canAccess(currentUser?.role, "dashboard");
           }
           return true;
-            });
+        });
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/10 bg-white/95 backdrop-blur md:hidden">

@@ -8,7 +8,12 @@ import { Sidebar } from "./sidebar";
 import { ChatAlertWatcher } from "@/components/chat/chat-alert-watcher";
 import { useAppStore } from "@/hooks/use-app-store";
 import { LoadingBlock } from "@/components/ui/empty-state";
-import { appLabelForRole, canAccess, type AppModule } from "@/lib/permissions";
+import {
+  appLabelForRole,
+  canAccess,
+  isHouseStaffRole,
+  type AppModule,
+} from "@/lib/permissions";
 import { BrandMark } from "@/components/brand/logo";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
@@ -165,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {!isChatSection ? (
         <BrandWatermarks
-          variant={currentUser.role === "pai_de_santo" ? "faint" : "default"}
+          variant={isHouseStaffRole(currentUser.role) ? "faint" : "default"}
         />
       ) : null}
       <ChatAlertWatcher />

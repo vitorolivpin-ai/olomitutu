@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { SESSION_KEY } from "@/lib/storage";
+import { writeViewAsArea } from "@/lib/view-as";
 
 /**
  * Ao abrir o login de uma área, limpa a sessão local anterior
@@ -13,6 +14,7 @@ export function ClearPreviousSession() {
     try {
       sessionStorage.removeItem(SESSION_KEY);
       document.cookie = "ile-oloroke-sid=; path=/; max-age=0; samesite=lax";
+      writeViewAsArea(null);
     } catch {
       // ignore
     }

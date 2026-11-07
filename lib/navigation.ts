@@ -2,9 +2,7 @@ import type { UserRole } from "@/types";
 
 export function homePathForRole(role: UserRole | null | undefined) {
   if (role === "cliente") return "/cliente";
-  if (role === "estoque") return "/estoque";
-  if (role === "biblioteca") return "/biblioteca";
-  // Casa: Quem Somos como aba principal + traços de entrada
+  // Todas as abas da casa (Pai, Admin, Financeiro, Estoque, Biblioteca) → mesma home
   return "/inicio";
 }
 

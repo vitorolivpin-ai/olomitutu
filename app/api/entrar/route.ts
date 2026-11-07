@@ -9,7 +9,12 @@ import {
 } from "@/lib/demo-accounts";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createRouteHandlerClient, withAuthCookies } from "@/lib/supabase/route";
-import type { PersonKind, UserRole } from "@/types";
+import {
+  actingProfileForArea,
+  paiCanOpenArea,
+  VIEW_AS_COOKIE,
+} from "@/lib/view-as";
+import type { PersonKind, Profile, UserRole } from "@/types";
 
 function requestOrigin(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
@@ -18,11 +23,26 @@ function requestOrigin(req: NextRequest) {
   return req.nextUrl.origin;
 }
 
+function setViewAsCookie(res: NextResponse, area: AreaSlug | null) {
+  if (!area || area === "pai_de_santo") {
+    res.cookies.set(VIEW_AS_COOKIE, "", { path: "/", maxAge: 0, sameSite: "lax" });
+    return res;
+  }
+  res.cookies.set(VIEW_AS_COOKIE, area, {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: false,
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  return res;
+}
+
 function redirectWithDemoSession(
   req: NextRequest,
   userId: string,
   role: UserRole,
   personKind?: PersonKind | null,
+  viewAs?: AreaSlug | null,
 ) {
   const origin = requestOrigin(req);
   const home = homePathForUser({ role, person_kind: personKind ?? undefined });
@@ -33,7 +53,7 @@ function redirectWithDemoSession(
     httpOnly: false,
     maxAge: 60 * 60 * 24 * 7,
   });
-  return res;
+  return setViewAsCookie(res, viewAs ?? null);
 }
 
 function clearDemoSid(res: NextResponse) {
@@ -96,18 +116,23 @@ async function loginWithSupabase(
   const requested = (profile.requested_role as string | null) ?? profile.role;
   const personKind = (profile.person_kind as PersonKind | null) ?? undefined;
   const filhoOk = isFilhoDeSanto({ role: profile.role as UserRole, person_kind: personKind });
+  const masterPai = paiCanOpenArea(profile.role as UserRole);
 
-  if (status === "pending" && (requested === roleRaw || profile.role === roleRaw || filhoOk)) {
+  if (
+    !masterPai &&
+    status === "pending" &&
+    (requested === roleRaw || profile.role === roleRaw || filhoOk)
+  ) {
     await supabase.auth.signOut();
     return fail(req, area, "Cadastro aguardando aprovação do Pai de Santo.");
   }
 
-  if (status === "rejected" && (requested === roleRaw || filhoOk)) {
+  if (!masterPai && status === "rejected" && (requested === roleRaw || filhoOk)) {
     await supabase.auth.signOut();
     return fail(req, area, "Este cadastro foi recusado. Fale com a casa.");
   }
 
-  if (profile.role !== roleRaw) {
+  if (!masterPai && profile.role !== roleRaw) {
     await supabase.auth.signOut();
     return fail(
       req,
@@ -116,7 +141,7 @@ async function loginWithSupabase(
     );
   }
 
-  if (isFilhoArea(area) && !filhoOk) {
+  if (!masterPai && isFilhoArea(area) && !filhoOk) {
     await supabase.auth.signOut();
     return fail(
       req,
@@ -125,15 +150,24 @@ async function loginWithSupabase(
     );
   }
 
-  if (area === "cliente" && filhoOk) {
+  if (!masterPai && area === "cliente" && filhoOk) {
     await supabase.auth.signOut();
     return fail(req, area, "Conta de Filho de Santo — entre em /entrar/filho.");
   }
 
-  const home = homePathForUser({
-    role: roleRaw,
+  const baseProfile = {
+    id: profile.id,
+    full_name: profile.full_name ?? "",
+    email: profile.email ?? email,
+    role: profile.role as UserRole,
     person_kind: personKind,
-  });
+    client_id: (profile as { client_id?: string | null }).client_id ?? undefined,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  } satisfies Profile;
+  const acting = actingProfileForArea(baseProfile, masterPai ? area : null);
+
+  const home = homePathForUser(acting);
   const redirect = NextResponse.redirect(new URL(home, origin));
   const res = client.applyCookies
     ? client.applyCookies(redirect)
@@ -144,7 +178,7 @@ async function loginWithSupabase(
     httpOnly: false,
     maxAge: 60 * 60 * 24 * 7,
   });
-  return res;
+  return setViewAsCookie(res, masterPai ? area : null);
 }
 
 function loginDemo(req: NextRequest, area: AreaSlug, email: string, password: string) {
@@ -161,7 +195,10 @@ function loginDemo(req: NextRequest, area: AreaSlug, email: string, password: st
     return fail(req, area, "E-mail não encontrado.");
   }
 
-  if (profile.role !== roleRaw) {
+  const masterPai = paiCanOpenArea(profile.role);
+  const filhoOk = isFilhoDeSanto(profile);
+
+  if (!masterPai && profile.role !== roleRaw) {
     return fail(
       req,
       area,
@@ -169,9 +206,7 @@ function loginDemo(req: NextRequest, area: AreaSlug, email: string, password: st
     );
   }
 
-  const filhoOk = isFilhoDeSanto(profile);
-
-  if (isFilhoArea(area) && !filhoOk) {
+  if (!masterPai && isFilhoArea(area) && !filhoOk) {
     return fail(
       req,
       area,
@@ -179,11 +214,18 @@ function loginDemo(req: NextRequest, area: AreaSlug, email: string, password: st
     );
   }
 
-  if (area === "cliente" && filhoOk) {
+  if (!masterPai && area === "cliente" && filhoOk) {
     return fail(req, area, "Conta de Filho de Santo — entre em /entrar/filho.");
   }
 
-  return redirectWithDemoSession(req, profile.id, roleRaw, profile.person_kind);
+  const acting = actingProfileForArea(profile, masterPai ? area : null);
+  return redirectWithDemoSession(
+    req,
+    profile.id,
+    acting.role,
+    acting.person_kind,
+    masterPai ? area : null,
+  );
 }
 
 /**

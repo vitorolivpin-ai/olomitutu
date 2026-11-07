@@ -74,8 +74,8 @@ export default function MarcarChatPage() {
         <BrandWatermarks />
         <div className="relative z-10 mx-auto max-w-md space-y-5 pb-28">
           <BrandPageHeader
-            title="Chat"
-            subtitle="Vitor Cardozo - Ògún Yande · sem criar conta"
+            title="Chat do jogo"
+            subtitle="Vitor Cardozo - Ògún Yande · o atendimento acontece aqui no app"
             backHref="/marcar"
             backLabel="Voltar à agenda"
             priority
@@ -140,8 +140,8 @@ export default function MarcarChatPage() {
           title={paiName}
           subtitle={
             session.fichaCode
-              ? `Marcação · ${session.fichaCode}`
-              : "Chat da marcação do jogo"
+              ? `Jogo pelo chat · ${session.fichaCode}`
+              : "Jogo pelo chat do app"
           }
           backHref="/marcar"
           avatarName={paiName}
