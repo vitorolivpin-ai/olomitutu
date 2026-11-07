@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B3475",
+  themeColor: "#0B326B",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#0B3475",
+            background: "#0B326B",
           }}
           aria-hidden
         >

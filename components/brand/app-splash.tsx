@@ -5,8 +5,8 @@ type Props = {
 };
 
 /**
- * Tela de abertura: navy liso + brasão oficial (com leão) centralizado.
- * Sem texto extra, cards, grafismos ou moldura branca.
+ * Splash com brasão — uso exclusivo do boot inicial (#boot-splash em layout).
+ * Não usar como fallback de rota; preferir RouteLoading.
  */
 export function AppSplash({ className }: Props) {
   return (

@@ -12,7 +12,6 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { PaiModulesSheet } from "@/components/house/pai-modules-sheet";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
@@ -189,25 +188,21 @@ export function PaiHome() {
 
   return (
     <div className="animate-rise mx-auto max-w-6xl space-y-6 pb-4">
-      {/* Cabeçalho compacto */}
-      <header className="flex items-center gap-3">
-        <BrandMark className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" priority />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy/45">
-            {currentUser?.role ? roleLabel(currentUser.role) : "App da Casa"}
-          </p>
-          <h1 className="font-display text-2xl leading-tight text-navy sm:text-[1.75rem]">
-            Agenda e atendimentos
-          </h1>
-          <p className="mt-0.5 text-xs capitalize text-navy/45">{dateLabel}</p>
-        </div>
+      <header className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy/45">
+          {currentUser?.role ? roleLabel(currentUser.role) : "App da Casa"}
+        </p>
+        <h1 className="font-display text-2xl leading-tight text-navy sm:text-[1.75rem]">
+          Agenda e atendimentos
+        </h1>
+        <p className="mt-0.5 text-xs capitalize text-muted">{dateLabel}</p>
       </header>
 
       <EnablePushBanner compact />
 
       {/* Agenda | Próximos jogos */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
-        <section className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
+        <section className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl text-navy">Agenda de hoje</h2>
@@ -230,7 +225,7 @@ export function PaiHome() {
 
           <ul className="mt-4 space-y-0">
             {todayPreview.length === 0 ? (
-              <li className="rounded-2xl bg-[#F7F8FA] px-4 py-6 text-center text-sm text-navy/50">
+              <li className="rounded-2xl bg-mist px-4 py-6 text-center text-sm text-navy/50">
                 Nenhum atendimento marcado para hoje.
               </li>
             ) : (
@@ -274,11 +269,11 @@ export function PaiHome() {
           </Link>
         </section>
 
-        <section className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
+        <section className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
           <h2 className="font-display text-xl text-navy">Próximos jogos</h2>
           <ul className="mt-3 space-y-0">
             {upcomingGames.length === 0 ? (
-              <li className="rounded-2xl bg-[#F7F8FA] px-4 py-6 text-center text-sm text-navy/50">
+              <li className="rounded-2xl bg-mist px-4 py-6 text-center text-sm text-navy/50">
                 Nenhum jogo à frente.
               </li>
             ) : (
@@ -340,7 +335,7 @@ export function PaiHome() {
       </section>
 
       {/* Clientes */}
-      <section className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
+      <section className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-gold-deep" />
           <h2 className="font-display text-lg text-navy">Clientes de jogo</h2>
@@ -353,7 +348,7 @@ export function PaiHome() {
             value={clientQuery}
             onChange={(e) => setClientQuery(e.target.value)}
             placeholder="Buscar cliente..."
-            className="w-full rounded-2xl border border-navy/10 bg-[#F7F8FA] py-2.5 pl-10 pr-3 text-sm text-navy outline-none ring-gold placeholder:text-navy/35 focus:ring-2"
+            className="w-full rounded-2xl border border-navy/10 bg-mist py-2.5 pl-10 pr-3 text-sm text-navy outline-none ring-gold placeholder:text-navy/35 focus:ring-2"
           />
         </label>
         <ul className="mt-3 space-y-0">
@@ -394,7 +389,7 @@ export function PaiHome() {
 
       {/* Horários + Conversas */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+        <div className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-gold-deep" />
             <h2 className="font-display text-lg text-navy">Horários</h2>
@@ -413,7 +408,7 @@ export function PaiHome() {
           </Link>
         </div>
 
-        <div className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+        <div className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-gold-deep" />
             <h2 className="font-display text-lg text-navy">Conversas</h2>
@@ -439,7 +434,7 @@ export function PaiHome() {
       </div>
 
       {/* Financeiro compacto */}
-      <section className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
+      <section className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
         <h2 className="font-display text-lg text-navy">Financeiro do mês</h2>
         <div className="mt-3 grid grid-cols-3 gap-3">
           <div>
@@ -477,7 +472,7 @@ export function PaiHome() {
       </section>
 
       {/* Todos os módulos */}
-      <section className="rounded-[20px] bg-white p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
+      <section className="rounded-[20px] bg-card p-4 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04] sm:p-5">
         <h2 className="font-display text-lg text-navy">Todos os módulos</h2>
         <p className="mt-1 text-sm text-navy/50">
           Acesso completo — atendimento, gestão, financeiro, loja e casa.
@@ -521,7 +516,7 @@ function QuickAction({
         "relative flex min-h-[4.25rem] flex-col items-start justify-center gap-1 rounded-[16px] px-3 py-2.5 text-left text-sm font-semibold transition",
         gold
           ? "bg-gold text-navy shadow-[0_4px_12px_rgba(201,162,39,0.22)] hover:bg-gold-soft"
-          : "bg-white text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/30",
+          : "bg-card text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/30",
       )}
     >
       <Icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={2} />

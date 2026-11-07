@@ -70,7 +70,7 @@ export default function MarcarChatPage() {
 
   if (!session) {
     return (
-      <div className="relative min-h-dvh overflow-x-hidden bg-[#F7F8FA] px-5 py-6 sm:px-6">
+      <div className="relative min-h-dvh overflow-x-hidden bg-background px-5 py-6 sm:px-6">
         <BrandWatermarks />
         <div className="relative z-10 mx-auto max-w-md space-y-5 pb-28">
           <BrandPageHeader

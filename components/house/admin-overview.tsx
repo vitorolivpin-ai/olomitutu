@@ -301,7 +301,7 @@ export function AdminOverview() {
                 <Link
                   href={tile.href}
                   className={cn(
-                    "flex gap-3 rounded-2xl border border-navy/10 bg-white/80 p-4 transition hover:border-gold/35 hover:bg-white",
+                    "flex gap-3 rounded-2xl border border-navy/10 bg-card/90 p-4 transition hover:border-gold/35 hover:bg-white",
                     "border-l-4",
                     toneBorder[tile.tone],
                   )}

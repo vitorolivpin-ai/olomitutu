@@ -20,7 +20,6 @@ import {
   Bell,
   X,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { PaiSidebarNav } from "@/components/layout/pai-sidebar-nav";
 import { UserAvatar } from "@/components/profile/user-avatar";
@@ -156,9 +155,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const panel = (
     <>
       <div className="flex items-center gap-3 border-b border-navy/10 px-5 py-5">
-        <BrandMark className="h-16 w-16 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">
+          <p className="font-display text-lg leading-tight text-navy">
+            OLÓMÌ TÚTÙ
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-gold-deep">
             {portalLabelForUser(currentUser) ?? appLabelForRole(currentUser?.role)}
           </p>
         </div>
@@ -264,7 +265,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   return (
     <>
       {/* Desktop: coluna fixa */}
-      <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-navy/10 md:bg-white/80 md:backdrop-blur">
+      <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-navy/10 md:bg-card/90 md:backdrop-blur">
         {panel}
       </aside>
 
@@ -287,7 +288,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         />
         <aside
           className={cn(
-            "absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-navy/10 bg-white shadow-soft transition-transform duration-300 ease-out",
+            "absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-navy/10 bg-card shadow-soft transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >

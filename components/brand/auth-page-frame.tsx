@@ -14,7 +14,7 @@ type Props = {
  */
 export function AuthPageFrame({ children, className, wide = false }: Props) {
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-x-hidden bg-[#F7F8FA] px-4 py-10">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-x-hidden bg-background px-4 py-10">
       <BrandWatermarks />
       <div
         className={cn(

@@ -1,5 +1,5 @@
 /* Service worker — PWA + notificações com logo do app */
-const SW_VERSION = "oloroke-notif-v6-splash";
+const SW_VERSION = "oloroke-notif-v8-daypager";
 
 function appOrigin() {
   return self.location.origin;

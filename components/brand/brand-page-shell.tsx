@@ -22,7 +22,7 @@ const maxW = {
 } as const;
 
 /**
- * Casca visual padrão das páginas públicas: fundo #F7F8FA + grafismos + safe area.
+ * Casca visual padrão das páginas públicas: fundo bege areia + grafismos + safe area.
  */
 export function BrandPageShell({
   children,
@@ -36,7 +36,7 @@ export function BrandPageShell({
   return (
     <div
       className={cn(
-        "relative flex min-h-dvh flex-col overflow-x-hidden bg-[#F7F8FA]",
+        "relative flex min-h-dvh flex-col overflow-x-hidden bg-background",
         className,
       )}
     >

@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Copy,
   Home,
@@ -14,7 +16,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
+import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { PublicBottomNav } from "@/components/hub/public-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -97,12 +99,23 @@ export default function MarcarPublicoPage() {
   const [guestClientId, setGuestClientId] = useState<string | null>(null);
   /** Evita mismatch SSR/cliente (Date.now nos slots). */
   const [hydrated, setHydrated] = useState(false);
+  /** Página do seletor de dias (grupos de 5 no mobile / 7 no desktop). */
+  const [dayPage, setDayPage] = useState(0);
+  const [daysPerPage, setDaysPerPage] = useState(5);
 
   const amount = DEFAULT_AMOUNT;
   const house = state.houseSettings ?? {};
 
   useEffect(() => {
     setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDaysPerPage(mq.matches ? 7 : 5);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   const livres = useMemo(() => {
@@ -137,6 +150,17 @@ export default function MarcarPublicoPage() {
       setSlotAt(null);
     }
   }, [daysWithSlots, selectedDay]);
+
+  const dayPageCount = Math.max(1, Math.ceil(daysWithSlots.length / daysPerPage));
+
+  useEffect(() => {
+    setDayPage((p) => Math.min(p, Math.max(0, dayPageCount - 1)));
+  }, [dayPageCount]);
+
+  const visibleDays = useMemo(() => {
+    const start = dayPage * daysPerPage;
+    return daysWithSlots.slice(start, start + daysPerPage);
+  }, [daysWithSlots, dayPage, daysPerPage]);
 
   const daySlots = useMemo(() => {
     if (!selectedDay) return [];
@@ -254,7 +278,7 @@ export default function MarcarPublicoPage() {
   }
 
   const summaryCard = (
-    <div className="rounded-[20px] bg-white p-5 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+    <div className="rounded-[20px] bg-card p-5 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
       <h2 className="font-display text-xl text-navy">Seu agendamento</h2>
       <ul className="mt-4 space-y-3">
         <SummaryRow
@@ -299,23 +323,20 @@ export default function MarcarPublicoPage() {
   );
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-[#F7F8FA]">
+    <div className="relative min-h-dvh overflow-x-hidden bg-background">
       <BrandWatermarks />
-      <div className="relative z-10 mx-auto w-full max-w-[960px] px-5 py-6 pb-28 sm:px-6">
-        {/* Cabeçalho */}
-        <header className="mb-6 flex flex-col items-center text-center">
-          <BrandMark className="h-[5.5rem] w-[5.5rem] sm:h-24 sm:w-24" priority />
+      <div className="relative z-10 mx-auto w-full max-w-[960px] px-4 py-6 pb-28 sm:px-6">
+        <div className="mb-6">
+          <BrandPageHeader
+            title="Marcar horário"
+            subtitle="Escolha o melhor dia e horário para seu atendimento."
+            backHref="/"
+            backLabel="Voltar ao início"
+          />
           <span className="mt-3 inline-flex rounded-full bg-gold/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-navy">
             Aberto a todos
           </span>
-          <h1 className="mt-3 font-display text-[2rem] leading-none text-navy sm:text-[2.25rem]">
-            Marcar horário
-          </h1>
-          <p className="mt-2 max-w-md text-sm text-navy/55">
-            Reserve o horário do jogo. No dia marcado, o atendimento acontece pelo
-            chat dentro do app.
-          </p>
-        </header>
+        </div>
 
         {/* Stepper — só na seleção / confirmação visual */}
         {step === "selecao" || step === "ficha" || step === "pix" ? (
@@ -384,11 +405,11 @@ export default function MarcarPublicoPage() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
             <div className="space-y-6">
               {!hydrated ? (
-                <p className="rounded-[20px] bg-white px-4 py-8 text-center text-sm text-navy/50 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                <p className="rounded-[20px] bg-card px-4 py-8 text-center text-sm text-navy/50 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
                   Carregando horários…
                 </p>
               ) : daysWithSlots.length === 0 ? (
-                <div className="rounded-[20px] bg-white px-4 py-8 text-center shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                <div className="rounded-[20px] bg-card px-4 py-8 text-center shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
                   <EmptyState title="Nenhum horário disponível no momento" />
                   <p className="mt-2 text-sm text-navy/50">
                     Volte mais tarde ou fale conosco pelo chat.
@@ -396,67 +417,133 @@ export default function MarcarPublicoPage() {
                 </div>
               ) : (
                 <>
-                  {/* 1. Dia */}
-                  <section>
+                  {/* 1. Dia ? pager (5 no mobile / 7 no desktop), sem corte lateral */}
+                  <section className="w-full min-w-0">
                     <h2 className="font-display text-xl text-navy">Escolha o dia</h2>
-                    <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {daysWithSlots.map(({ key }) => {
-                        const active = selectedDay === key;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => {
-                              setSelectedDay(key);
-                              setSlotAt(null);
-                              setError("");
-                            }}
-                            className={cn(
-                              "flex w-[4.5rem] shrink-0 flex-col items-center rounded-2xl px-2 py-3 transition",
-                              active
-                                ? "bg-navy text-white shadow-[0_6px_16px_rgba(11,31,58,0.2)] ring-2 ring-gold/70"
-                                : "bg-white text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/35",
-                            )}
-                          >
-                            <span
+                    <div className="mt-3 flex w-full min-w-0 items-stretch gap-1.5 sm:gap-2">
+                      {dayPageCount > 1 ? (
+                        <button
+                          type="button"
+                          aria-label="Datas anteriores"
+                          disabled={dayPage <= 0}
+                          onClick={() => setDayPage((p) => Math.max(0, p - 1))}
+                          className={cn(
+                            "flex h-auto w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
+                            dayPage <= 0
+                              ? "pointer-events-none opacity-0"
+                              : "bg-card text-navy shadow-[0_4px_14px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.06] hover:ring-gold/40",
+                          )}
+                        >
+                          <ChevronLeft className="h-5 w-5" strokeWidth={2.25} />
+                        </button>
+                      ) : null}
+
+                      <div
+                        className="grid min-w-0 flex-1 gap-2"
+                        style={{
+                          gridTemplateColumns: `repeat(${Math.max(visibleDays.length, 1)}, minmax(0, 1fr))`,
+                        }}
+                      >
+                        {visibleDays.map(({ key }) => {
+                          const active = selectedDay === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDay(key);
+                                setSlotAt(null);
+                                setError("");
+                              }}
                               className={cn(
-                                "text-[10px] font-semibold uppercase tracking-wide",
-                                active ? "text-gold" : "text-navy/45",
+                                "flex min-w-0 w-full flex-col items-center rounded-2xl px-1 py-3 transition sm:px-2",
+                                active
+                                  ? "bg-navy text-white shadow-[0_6px_16px_rgba(11,31,58,0.2)] ring-2 ring-gold/70"
+                                  : "bg-card text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/35",
                               )}
                             >
-                              {weekdayShort(key)}
-                            </span>
-                            <span className="mt-0.5 font-display text-2xl leading-none">
-                              {dayNum(key)}
-                            </span>
-                            <span
-                              className={cn(
-                                "mt-1 text-[10px] font-semibold uppercase",
-                                active ? "text-white/70" : "text-navy/40",
-                              )}
-                            >
-                              {monthShort(key)}
-                            </span>
-                          </button>
-                        );
-                      })}
+                              <span
+                                className={cn(
+                                  "text-[10px] font-semibold uppercase tracking-wide",
+                                  active ? "text-gold" : "text-navy/45",
+                                )}
+                              >
+                                {weekdayShort(key)}
+                              </span>
+                              <span className="mt-0.5 font-display text-2xl leading-none">
+                                {dayNum(key)}
+                              </span>
+                              <span
+                                className={cn(
+                                  "mt-1 text-[10px] font-semibold uppercase",
+                                  active ? "text-white/70" : "text-navy/40",
+                                )}
+                              >
+                                {monthShort(key)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {dayPageCount > 1 ? (
+                        <button
+                          type="button"
+                          aria-label="Próximas datas"
+                          disabled={dayPage >= dayPageCount - 1}
+                          onClick={() =>
+                            setDayPage((p) => Math.min(dayPageCount - 1, p + 1))
+                          }
+                          className={cn(
+                            "flex h-auto w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
+                            dayPage >= dayPageCount - 1
+                              ? "pointer-events-none opacity-0"
+                              : "bg-card text-navy shadow-[0_4px_14px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.06] hover:ring-gold/40",
+                          )}
+                        >
+                          <ChevronRight className="h-5 w-5" strokeWidth={2.25} />
+                        </button>
+                      ) : null}
                     </div>
+
+                    {dayPageCount > 1 ? (
+                      <div
+                        className="mt-3 flex items-center justify-center gap-1.5"
+                        aria-label={`Página ${dayPage + 1} de ${dayPageCount}`}
+                      >
+                        {Array.from({ length: dayPageCount }).map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            aria-label={`Ir para o grupo de datas ${i + 1}`}
+                            aria-current={i === dayPage ? "true" : undefined}
+                            onClick={() => setDayPage(i)}
+                            className={cn(
+                              "h-1.5 rounded-full transition",
+                              i === dayPage
+                                ? "w-4 bg-navy"
+                                : "w-1.5 bg-navy/25 hover:bg-navy/40",
+                            )}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </section>
 
-                  {/* 2. Horário */}
-                  <section>
+                  {/* 2. Horário ? grade 2 cols no mobile, 3?4 no desktop */}
+                  <section className="w-full min-w-0">
                     <h2 className="font-display text-xl text-navy">Escolha o horário</h2>
                     {selectedDay ? (
-                      <p className="mt-1 text-sm text-navy/50">
+                      <p className="mt-1 text-sm text-muted">
                         Horários disponíveis para {longDateLabel(selectedDay)}.
                       </p>
                     ) : null}
                     {daySlots.length === 0 ? (
-                      <p className="mt-4 rounded-2xl bg-white px-4 py-6 text-center text-sm text-navy/50 ring-1 ring-navy/[0.04]">
+                      <p className="mt-4 rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted ring-1 ring-navy/[0.04]">
                         Nenhum horário disponível para esta data. Escolha outro dia.
                       </p>
                     ) : (
-                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                         {daySlots.map((slot) => {
                           const active = slotAt === slot.scheduled_at;
                           return (
@@ -468,10 +555,10 @@ export default function MarcarPublicoPage() {
                                 setError("");
                               }}
                               className={cn(
-                                "rounded-2xl px-2 py-3 text-sm font-semibold transition",
+                                "min-h-12 w-full rounded-2xl px-2 text-sm font-semibold transition",
                                 active
-                                  ? "bg-navy text-white shadow-[0_4px_12px_rgba(11,31,58,0.18)]"
-                                  : "bg-white text-navy ring-1 ring-navy/10 hover:ring-gold/40",
+                                  ? "bg-navy text-white shadow-[0_4px_12px_rgba(11,31,58,0.18)] ring-2 ring-gold/70"
+                                  : "bg-card text-navy ring-1 ring-[#d9d0c0] hover:ring-gold/40",
                               )}
                             >
                               {formatTime(slot.scheduled_at)}
@@ -482,7 +569,7 @@ export default function MarcarPublicoPage() {
                     )}
 
                     {slotAt ? (
-                      <div className="mt-4 space-y-2 rounded-2xl bg-white/80 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
+                      <div className="mt-4 space-y-2 rounded-2xl bg-card/90 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="inline-flex items-center gap-1.5 font-medium text-navy">
                             <MessageCircle className="h-3.5 w-3.5 text-gold-deep" />
@@ -508,7 +595,7 @@ export default function MarcarPublicoPage() {
               )}
 
               {/* Chat discreto — mobile */}
-              <div className="rounded-[18px] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] lg:hidden">
+              <div className="rounded-[18px] bg-card px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] lg:hidden">
                 <p className="text-sm text-navy/60">
                   Tem alguma dúvida antes de marcar?
                 </p>
@@ -528,7 +615,7 @@ export default function MarcarPublicoPage() {
             {/* Coluna direita — desktop */}
             <aside className="hidden space-y-4 lg:sticky lg:top-6 lg:block">
               {summaryCard}
-              <div className="rounded-[18px] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04]">
+              <div className="rounded-[18px] bg-card px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04]">
                 <p className="text-sm text-navy/60">
                   Tem alguma dúvida antes de marcar?
                 </p>
@@ -640,7 +727,7 @@ export default function MarcarPublicoPage() {
                   <img
                     src={pixQrDataUrl(pixPayload(slotAt), "Consulta")}
                     alt="QR Pix"
-                    className="mx-auto h-44 w-44 rounded-xl border border-navy/10 bg-white p-2"
+                    className="mx-auto h-44 w-44 rounded-xl border border-navy/10 bg-card p-2"
                   />
                   <p className="text-center font-display text-2xl text-gold-deep">
                     {formatCurrency(amount)}
@@ -712,7 +799,7 @@ function StepDot({
           "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition",
           active || done
             ? "bg-navy text-white"
-            : "bg-white text-navy/40 ring-1 ring-navy/10",
+            : "bg-card text-navy/40 ring-1 ring-navy/10",
           active && "ring-2 ring-gold/60",
         )}
       >
@@ -757,7 +844,7 @@ function SummaryRow({
 }) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F7F8FA] text-gold-deep">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mist text-gold-deep">
         <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
@@ -781,7 +868,7 @@ function SummaryRow({
 
 function HelpFooter() {
   return (
-    <div className="rounded-[18px] bg-white/80 px-4 py-4 text-center ring-1 ring-navy/[0.04]">
+    <div className="rounded-[18px] bg-card/90 px-4 py-4 text-center ring-1 ring-navy/[0.04]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy/40">
         Precisa de ajuda?
       </p>

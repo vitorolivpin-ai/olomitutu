@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/brand/logo";
 import { AuthPageFrame } from "@/components/brand/auth-page-frame";
 import { ClearPreviousSession } from "./clear-session";
 import { LoginForm } from "./login-form";
@@ -31,8 +30,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
   if (!isAreaRole(role)) {
     return (
       <AuthPageFrame>
-        <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
-          <BrandMark className="mx-auto h-24 w-24" />
+        <div className="space-y-4 rounded-2xl bg-card p-6 text-center shadow-soft">
           <p className="text-sm text-navy/70">Área inválida.</p>
           <Link href="/" className="text-sm text-navy underline">
             Voltar ao início
@@ -55,7 +53,6 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
     <AuthPageFrame>
       <ClearPreviousSession />
       <div className="flex flex-col items-center text-center">
-        <BrandMark className="mb-2 h-40 w-40" priority />
         <p className="text-sm font-semibold text-navy/70">{account.label}</p>
         <h1 className="mt-1 font-display text-2xl text-navy">Entrar</h1>
         <p className="mt-1 text-sm text-navy/60">
@@ -65,7 +62,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-navy/10 bg-white/90 p-5 shadow-soft">
+      <div className="rounded-2xl border border-navy/10 bg-card p-5 shadow-soft">
         {authReal ? (
           <LoginForm area={area} initialError={erro} />
         ) : (

@@ -105,7 +105,7 @@ export function BottomNav() {
               : paiItems;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/10 bg-white/95 backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/10 bg-card backdrop-blur md:hidden">
       <ul className="mx-auto flex max-w-lg items-stretch justify-between px-1 pb-[env(safe-area-inset-bottom)]">
         {visible.map((item) => {
           const Icon = item.icon;

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthPageFrame } from "@/components/brand/auth-page-frame";
-import { BrandMark } from "@/components/brand/logo";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export default function NovaSenhaPage() {
@@ -18,7 +17,6 @@ export default function NovaSenhaPage() {
     return (
       <AuthPageFrame>
         <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-soft">
-          <BrandMark className="mx-auto h-24 w-24" />
           <p className="text-sm text-navy/70">Supabase não configurado.</p>
           <Link href="/" className="text-sm text-navy underline">
             Voltar
@@ -64,7 +62,6 @@ export default function NovaSenhaPage() {
   return (
     <AuthPageFrame>
         <div className="flex flex-col items-center text-center">
-          <BrandMark className="mb-2 h-40 w-40" priority />
           <h1 className="mt-1 font-display text-2xl text-navy">Nova senha</h1>
           <p className="mt-1 text-sm text-navy/60">Defina uma senha nova para sua conta.</p>
         </div>

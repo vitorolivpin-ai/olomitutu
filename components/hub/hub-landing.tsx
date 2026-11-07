@@ -8,7 +8,6 @@ import {
   ShoppingBag,
   Swords,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/logo";
 import { BrandPageShell } from "@/components/brand/brand-page-shell";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import type { HubEntry } from "@/lib/hub-entries";
@@ -41,17 +40,13 @@ const FEATURE_CARDS: FeatureCard[] = [
 
 export function HubLanding({ entries }: Props) {
   return (
-    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-10">
+    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-8">
       <header className="animate-rise flex flex-col items-center text-center">
-        <BrandMark
-          className="hub-emblem h-[11.5rem] w-[10rem] sm:h-[13rem] sm:w-[11.5rem]"
-          priority
-        />
-        <div className="mt-6 space-y-1.5">
-          <p className="text-[19px] font-bold leading-tight text-navy sm:text-[21px]">
+        <div className="space-y-1.5">
+          <p className="text-[22px] font-bold leading-tight text-navy sm:text-[24px]">
             Bem-vindo(a)!
           </p>
-          <p className="text-[14px] text-navy/50 sm:text-[15px]">
+          <p className="text-[14px] text-muted sm:text-[15px]">
             O que você deseja fazer hoje?
           </p>
         </div>
@@ -63,7 +58,7 @@ export function HubLanding({ entries }: Props) {
         style={{
           animationDelay: "40ms",
           background:
-            "linear-gradient(90deg, #ead7a4 0%, #d8bc72 50%, #c9a54e 100%)",
+            "linear-gradient(90deg, #e2c57a 0%, #d4ad4f 50%, #c99a38 100%)",
         }}
       >
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-navy/20">
@@ -82,17 +77,17 @@ export function HubLanding({ entries }: Props) {
         {FEATURE_CARDS.map((card) => {
           const Icon = card.icon;
           const className =
-            "relative flex min-h-[9rem] flex-col items-center justify-center gap-3 rounded-[18px] bg-white px-3 pb-5 pt-5 text-center shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03] transition active:scale-[0.99]";
+            "relative flex min-h-[9rem] flex-col items-center justify-center gap-3 rounded-[18px] bg-card px-3 pb-5 pt-5 text-center shadow-[0_6px_18px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.04] transition active:scale-[0.99]";
           const inner = (
             <>
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#f0e6d2] text-navy">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-mist text-navy">
                 <Icon className="h-6 w-6" strokeWidth={1.85} />
               </span>
               <span className="max-w-[10rem] text-[15px] font-semibold leading-snug text-navy">
                 {card.label}
               </span>
               <ChevronRight
-                className="absolute bottom-3.5 right-3.5 h-4 w-4 text-navy/30"
+                className="absolute bottom-3.5 right-3.5 h-4 w-4 text-muted"
                 strokeWidth={2}
               />
             </>

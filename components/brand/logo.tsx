@@ -14,8 +14,14 @@ export function BrandMark({
   priority?: boolean;
   blendOnLight?: boolean;
 }) {
+  void blendOnLight;
   return (
-    <div className={cn("relative overflow-hidden bg-transparent", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden bg-transparent shadow-none ring-0",
+        className,
+      )}
+    >
       <Image
         src="/brasao-designer.png"
         alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
@@ -23,7 +29,8 @@ export function BrandMark({
         priority={priority}
         unoptimized
         className="object-contain"
-        sizes="(max-width: 768px) 200px, 280px"
+        sizes="(max-width: 768px) 240px, 320px"
+        style={{ background: "transparent", mixBlendMode: "normal" }}
       />
     </div>
   );

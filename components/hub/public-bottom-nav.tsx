@@ -55,7 +55,7 @@ export function PublicBottomNav({ entries = HUB_ENTRIES }: Props) {
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/[0.06] bg-white"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/[0.06] bg-card"
         style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
         aria-label="Navegação principal"
       >

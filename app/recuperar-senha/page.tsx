@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthPageFrame } from "@/components/brand/auth-page-frame";
-import { BrandMark } from "@/components/brand/logo";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -92,7 +91,6 @@ export default function RecuperarSenhaPage() {
   return (
     <AuthPageFrame>
       <div className="flex flex-col items-center text-center">
-        <BrandMark className="mb-2 h-40 w-40" priority />
         <h1 className="mt-1 font-display text-2xl text-navy">Esqueci a senha</h1>
         <p className="mt-1 text-sm text-navy/60">
           Enviaremos um link para redefinir sua senha.
