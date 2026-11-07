@@ -17,7 +17,7 @@ export function BrandMark({
   return (
     <div className={cn("relative overflow-hidden bg-transparent", className)}>
       <Image
-        src="/brasao-oficial.png"
+        src="/brasao-designer.png"
         alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
         fill
         priority={priority}
