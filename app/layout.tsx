@@ -20,12 +20,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "OLÓMÌ TÚTÙ",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0A2F6E",
+  themeColor: "#0B3475",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -46,6 +46,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pt-BR" className="h-full">
       <body className="min-h-full antialiased">
+        {/* Splash nativa do 1º paint (PWA/Android) — removida após hidratação */}
+        <div
+          id="boot-splash"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#0B3475",
+          }}
+          aria-hidden
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brasao-designer.png"
+            alt=""
+            width={1024}
+            height={1024}
+            style={{
+              width: "52vw",
+              maxWidth: "24rem",
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </div>
         <Providers initialUserId={initialUserId}>{children}</Providers>
       </body>
     </html>

@@ -3,7 +3,7 @@
 
 :root {
   /* Cores da logo oficial */
-  --navy: #0a2f6e;
+  --navy: #0b3475;
   --navy-mid: #153f8a;
   --navy-soft: #2a5aad;
   --gold: #d4a017;
@@ -95,4 +95,17 @@ body {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.splash-brasao {
+  animation: splash-fade-in 300ms ease-out both;
 }

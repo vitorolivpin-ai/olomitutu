@@ -1,5 +1,6 @@
 "use client";
 
+import { BootSplashClear } from "@/components/brand/boot-splash-clear";
 import { AppStoreProvider } from "@/hooks/use-app-store";
 
 export function Providers({
@@ -10,6 +11,9 @@ export function Providers({
   initialUserId?: string | null;
 }) {
   return (
-    <AppStoreProvider initialUserId={initialUserId}>{children}</AppStoreProvider>
+    <AppStoreProvider initialUserId={initialUserId}>
+      <BootSplashClear />
+      {children}
+    </AppStoreProvider>
   );
 }

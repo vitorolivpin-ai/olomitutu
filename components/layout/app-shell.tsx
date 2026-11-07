@@ -7,12 +7,12 @@ import { BottomNav } from "./bottom-nav";
 import { Sidebar } from "./sidebar";
 import { ChatAlertWatcher } from "@/components/chat/chat-alert-watcher";
 import { useAppStore } from "@/hooks/use-app-store";
-import { LoadingBlock } from "@/components/ui/empty-state";
 import {
   appLabelForRole,
   canAccess,
   type AppModule,
 } from "@/lib/permissions";
+import { AppSplash } from "@/components/brand/app-splash";
 import { BrandMark } from "@/components/brand/logo";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
@@ -135,13 +135,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [ready, currentUser, sessionId, pathname, router]);
 
-  if (!ready) return <LoadingBlock />;
-  if (!currentUser) {
-    return (
-      <LoadingBlock
-        label={sessionId ? "Carregando sua conta..." : "Redirecionando..."}
-      />
-    );
+  if (!ready || !currentUser) {
+    return <AppSplash />;
   }
 
   // Chat estilo WhatsApp: conversa em tela cheia no mobile; área /conversas também no desktop

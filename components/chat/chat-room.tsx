@@ -97,7 +97,7 @@ export function ChatRoom({
 
   return (
     <div className="chat-immersive flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center gap-2 border-b border-black/10 bg-[#0a2f6e] px-2 py-2 text-white shadow-sm">
+      <header className="flex shrink-0 items-center gap-2 border-b border-black/10 bg-navy px-2 py-2 text-white shadow-sm">
         {backHref ? (
           <Link
             href={backHref}

@@ -1,63 +1,84 @@
+/**
+ * Gera ícones/PWA a partir do brasão oficial (com leão).
+ * Não recria a logo SVG antiga sem leão.
+ */
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 
 const publicDir = path.resolve("public");
-fs.mkdirSync(publicDir, { recursive: true });
+const crest = path.join(publicDir, "brasao-designer.png");
+const NAVY = { r: 0x0b, g: 0x34, b: 0x75, alpha: 1 };
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <defs>
-    <radialGradient id="g" cx="50%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="#153f8a"/>
-      <stop offset="100%" stop-color="#0a2f6e"/>
-    </radialGradient>
-  </defs>
-  <rect width="512" height="512" rx="48" fill="url(#g)"/>
-  <circle cx="256" cy="210" r="78" fill="none" stroke="#d4a017" stroke-width="10"/>
-  <circle cx="256" cy="210" r="28" fill="#1f7a3a"/>
-  <text x="256" y="340" text-anchor="middle" fill="#f7f3e8" font-family="Georgia, serif" font-size="28" font-weight="700">ILÉ OLÓRÒKÈ ÀṢẸ</text>
-  <text x="256" y="378" text-anchor="middle" fill="#e8bc3a" font-family="Georgia, serif" font-size="20">OLÓMÌ TÚTÙ</text>
-</svg>`;
-
-fs.writeFileSync(path.join(publicDir, "logo.svg"), svg);
-
-try {
-  const sharp = (await import("sharp")).default;
-  if (fs.existsSync(path.join(publicDir, "logo.webp"))) {
-    await sharp(path.join(publicDir, "logo.webp")).jpeg({ quality: 92 }).toFile(path.join(publicDir, "logo.jpg"));
-    console.log("Converted logo.webp -> logo.jpg");
-  } else {
-    await sharp(Buffer.from(svg)).jpeg({ quality: 92 }).toFile(path.join(publicDir, "logo.jpg"));
-    console.log("Generated logo.jpg from SVG");
-  }
-} catch (e) {
-  console.log("sharp unavailable:", e.message);
-  if (!fs.existsSync(path.join(publicDir, "logo.jpg")) && fs.existsSync(path.join(publicDir, "logo.webp"))) {
-    // fallback: BrandMark can use webp; keep copy note
-    console.log("Keep logo.webp; update BrandMark if jpg missing");
-  }
+if (!fs.existsSync(crest)) {
+  console.error("Missing public/brasao-designer.png");
+  process.exit(1);
 }
+
+const crestTrimmed = await sharp(crest).trim().png().toBuffer();
+
+async function makeIcon(size, out, pad = 0.08) {
+  const inner = Math.round(size * (1 - pad * 2));
+  const img = await sharp(crestTrimmed)
+    .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  await sharp({ create: { width: size, height: size, channels: 4, background: NAVY } })
+    .composite([{ input: img, gravity: "center" }])
+    .png()
+    .toFile(out);
+  console.log("wrote", path.basename(out));
+}
+
+await makeIcon(192, path.join(publicDir, "icon-192.png"), 0.08);
+await makeIcon(512, path.join(publicDir, "icon-512.png"), 0.06);
+await makeIcon(180, path.join(publicDir, "apple-touch-icon.png"), 0.08);
+
+const crestBuf = await sharp(crestTrimmed)
+  .resize(460, 460, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png()
+  .toBuffer();
+await sharp({ create: { width: 512, height: 512, channels: 4, background: NAVY } })
+  .composite([{ input: crestBuf, gravity: "center" }])
+  .jpeg({ quality: 92 })
+  .toFile(path.join(publicDir, "logo.jpg"));
+await sharp(path.join(publicDir, "logo.jpg")).webp({ quality: 90 }).toFile(path.join(publicDir, "logo.webp"));
+
+const splashW = 1080;
+const splashH = 1920;
+const crestH = Math.round(splashW * 0.52);
+const splashCrest = await sharp(crestTrimmed)
+  .resize(crestH, crestH, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png()
+  .toBuffer();
+await sharp({ create: { width: splashW, height: splashH, channels: 4, background: NAVY } })
+  .composite([{ input: splashCrest, gravity: "center" }])
+  .png()
+  .toFile(path.join(publicDir, "splash.png"));
 
 fs.writeFileSync(
   path.join(publicDir, "manifest.webmanifest"),
   JSON.stringify(
     {
       name: "ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ",
-      short_name: "ILÉ OLÓRÒKÈ",
+      short_name: "OLÓMÌ TÚTÙ",
       description: "Gestão e organização do barracão",
       start_url: "/",
+      scope: "/",
       display: "standalone",
-      background_color: "#0A2F6E",
-      theme_color: "#0A2F6E",
+      orientation: "portrait-primary",
+      background_color: "#0B3475",
+      theme_color: "#0B3475",
       lang: "pt-BR",
-      icons: [{ src: "/logo.jpg", sizes: "512x512", type: "image/jpeg", purpose: "any" }],
+      icons: [
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
     },
     null,
     2,
   ),
 );
 
-console.log({
-  jpg: fs.existsSync(path.join(publicDir, "logo.jpg")),
-  webp: fs.existsSync(path.join(publicDir, "logo.webp")),
-  svg: fs.existsSync(path.join(publicDir, "logo.svg")),
-});
+console.log("icons + splash + manifest updated from brasao-designer.png");
