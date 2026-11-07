@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   Swords,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/logo";
 import { BrandPageShell } from "@/components/brand/brand-page-shell";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import type { HubEntry } from "@/lib/hub-entries";
@@ -43,7 +44,8 @@ export function HubLanding({ entries }: Props) {
   return (
     <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-4 sm:pt-6">
       <header className="animate-rise flex flex-col items-center px-0 text-center">
-        <div className="space-y-1.5">
+        <BrandMark hero className="hub-emblem" priority />
+        <div className="mt-3 space-y-1.5 sm:mt-4">
           <p className="text-[19px] font-bold leading-tight text-navy sm:text-[21px]">
             Bem-vindo(a)!
           </p>
