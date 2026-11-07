@@ -44,7 +44,7 @@ export function HubLanding({ entries }: Props) {
     <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-10">
       <header className="animate-rise flex flex-col items-center text-center">
         <BrandMark
-          className="hub-emblem h-[9.75rem] w-[9.75rem] sm:h-[11rem] sm:w-[11rem]"
+          className="hub-emblem h-[11.5rem] w-[10rem] sm:h-[13rem] sm:w-[11.5rem]"
           priority
         />
         <div className="mt-6 space-y-1.5">
