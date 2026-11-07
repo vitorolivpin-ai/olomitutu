@@ -104,12 +104,23 @@ body {
   }
 }
 
+/* Brasão em destaque (hub / splash): grande no celular, limitado no desktop */
+.brand-brasao-hero {
+  width: min(80vw, 420px);
+  height: auto;
+  margin-inline: auto;
+  object-fit: contain;
+  background: transparent;
+  opacity: 1;
+  mix-blend-mode: normal;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+}
+
 .hub-emblem {
   animation: rise-in 0.7s ease-out both, emblem-breathe 6s ease-in-out 0.8s infinite;
   background: transparent !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  filter: none !important;
   mix-blend-mode: normal !important;
   opacity: 1 !important;
 }
@@ -125,6 +136,13 @@ body {
 
 .splash-brasao {
   animation: splash-fade-in 300ms ease-out both;
+  width: min(80vw, 420px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  opacity: 1;
+  mix-blend-mode: normal;
+  background: transparent;
 }
 
 /*

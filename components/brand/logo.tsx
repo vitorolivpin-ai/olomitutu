@@ -1,38 +1,52 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+export const BRASAO_SRC = "/brasao-olomi-tutu.png";
+export const BRASAO_ALT = "Brasão Ilé Olóròkè Àṣẹ Olómi Tútù";
+
 /**
- * Brasão oficial (PNG transparente) — ILÉ OLÓRÒKÈ ÀṢẸ / OLÓMÌ TÚTÙ
+ * Brasão oficial (PNG transparente com contorno branco).
+ * - `hero`: tamanho grande responsivo (hub / destaque).
+ * - sem hero: respeita `className` (ex.: sidebar), com sombra suave.
  */
 export function BrandMark({
   className,
   priority = false,
-  /** @deprecated fundo preto já removido no brasao.png */
+  hero = false,
+  /** @deprecated mantido por compatibilidade */
   blendOnLight = false,
 }: {
   className?: string;
   priority?: boolean;
+  /** Destaque na home — min(80vw, 420px) + sombra */
+  hero?: boolean;
   blendOnLight?: boolean;
 }) {
   void blendOnLight;
+
   return (
-    <div
+    // eslint-disable-next-line @next/next/no-img-element -- PNG transparente precisa de controle direto de filter/tamanho
+    <img
+      src={BRASAO_SRC}
+      alt={BRASAO_ALT}
+      width={1024}
+      height={1024}
+      decoding="async"
+      fetchPriority={priority ? "high" : "auto"}
       className={cn(
-        "relative overflow-hidden bg-transparent shadow-none ring-0",
+        "block bg-transparent object-contain opacity-100",
+        hero ? "brand-brasao-hero" : "h-full w-full max-h-full max-w-full",
         className,
       )}
-    >
-      <Image
-        src="/brasao-designer.png"
-        alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
-        fill
-        priority={priority}
-        unoptimized
-        className="object-contain"
-        sizes="(max-width: 768px) 240px, 320px"
-        style={{ background: "transparent", mixBlendMode: "normal" }}
-      />
-    </div>
+      style={
+        hero
+          ? undefined
+          : {
+              filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))",
+              mixBlendMode: "normal",
+              opacity: 1,
+            }
+      }
+    />
   );
 }
 

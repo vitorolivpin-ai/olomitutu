@@ -42,13 +42,10 @@ const FEATURE_CARDS: FeatureCard[] = [
 
 export function HubLanding({ entries }: Props) {
   return (
-    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-10">
-      <header className="animate-rise flex flex-col items-center text-center">
-        <BrandMark
-          className="hub-emblem h-[13rem] w-[11.25rem] sm:h-[14.5rem] sm:w-[12.5rem]"
-          priority
-        />
-        <div className="mt-6 space-y-1.5">
+    <BrandPageShell watermarkVariant="home" entries={entries} mainClassName="pt-4 sm:pt-6">
+      <header className="animate-rise flex flex-col items-center px-0 text-center">
+        <BrandMark hero className="hub-emblem" priority />
+        <div className="mt-3 space-y-1.5 sm:mt-4">
           <p className="text-[19px] font-bold leading-tight text-navy sm:text-[21px]">
             Bem-vindo(a)!
           </p>

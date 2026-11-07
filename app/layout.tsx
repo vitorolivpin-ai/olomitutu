@@ -72,15 +72,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brasao-designer.png"
-            alt=""
+            src="/brasao-olomi-tutu.png"
+            alt="Brasão Ilé Olóròkè Àṣẹ Olómi Tútù"
             width={1024}
             height={1024}
+            className="splash-brasao"
             style={{
-              width: "70vw",
-              maxWidth: "24rem",
+              width: "min(80vw, 420px)",
               height: "auto",
               objectFit: "contain",
+              filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))",
+              opacity: 1,
+              mixBlendMode: "normal",
+              background: "transparent",
             }}
           />
         </div>
