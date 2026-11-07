@@ -12,7 +12,7 @@ import {
   canAccess,
   type AppModule,
 } from "@/lib/permissions";
-import { RouteLoading } from "@/components/brand/route-loading";
+import { PageLoader } from "@/components/brand/page-loader";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
 import { isClientPortalPath, isMemberPortalPath } from "@/lib/navigation";
@@ -42,7 +42,7 @@ const routeModules: Array<{ prefix: string; module: AppModule }> = [
   { prefix: "/notificacoes", module: "notifications" },
 ];
 
-/** Áreas da casa / módulos internos — cliente não entra */
+/** Areas da casa / modulos internos ? cliente nao entra */
 const staffOnlyPrefixes = [
   "/inicio",
   "/dashboard",
@@ -73,7 +73,7 @@ const staffOnlyPrefixes = [
   "/atendimentos",
 ];
 
-/** Prefixo reservado — sem bloqueio ativo no portal do cliente */
+/** Prefixo reservado ? sem bloqueio ativo no portal do cliente */
 const clientBlockedPrefixes: string[] = [];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!ready) return;
-    // Tem sid/id mas o perfil ainda não entrou no store → não chutar para /
+    // Tem sid/id mas o perfil ainda nao entrou no store ? nao chutar para /
     if (!currentUser) {
       if (sessionId) return;
       router.replace("/");
@@ -135,10 +135,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [ready, currentUser, sessionId, pathname, router]);
 
   if (!ready || !currentUser) {
-    return <RouteLoading label="Preparando o app?" />;
+    // Aguarda sessao/perfil ? sem brasao (splash so no cold start).
+    return (
+      <PageLoader label="Preparando o app?" delayMs={150} className="min-h-dvh" />
+    );
   }
 
-  // Chat estilo WhatsApp: conversa em tela cheia no mobile; área /conversas também no desktop
+  // Chat estilo WhatsApp: conversa em tela cheia no mobile; area /conversas tambem no desktop
   const isChatThread =
     pathname.startsWith("/conversas/") ||
     pathname === "/cliente/mensagens" ||
@@ -161,9 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           : "relative flex min-h-screen overflow-x-hidden bg-mist"
       }
     >
-      {!isChatSection ? (
-        <BrandWatermarks />
-      ) : null}
+      {!isChatSection ? <BrandWatermarks /> : null}
       <ChatAlertWatcher />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -44,9 +44,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="pt-BR" className="h-full">
+    <html lang="pt-BR" className="h-full" suppressHydrationWarning>
       <body className="min-h-full antialiased">
-        {/* Splash nativa do 1º paint (PWA/Android) — removida após hidratação */}
+        {/*
+          Splash só no cold start. Script roda antes do paint: se a sessão
+          já passou pela splash, marca data-boot-done e o CSS esconde o nó
+          mesmo quando o RSC reenvia o layout nas navegações.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(sessionStorage.getItem("ile-oloroke-boot-splash-done")==="1")document.documentElement.dataset.bootDone="1"}catch(e){}})();`,
+          }}
+        />
         <div
           id="boot-splash"
           suppressHydrationWarning

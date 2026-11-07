@@ -126,3 +126,14 @@ body {
 .splash-brasao {
   animation: splash-fade-in 300ms ease-out both;
 }
+
+/*
+  Após o boot, o RSC pode reaplicar estilos inline do #boot-splash.
+  data-boot-done no <html> (fora do subtree React) mantém o brasão oculto.
+*/
+html[data-boot-done="1"] #boot-splash {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

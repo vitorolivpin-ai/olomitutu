@@ -1,32 +1,14 @@
-import { cn } from "@/lib/utils";
-
-type Props = {
-  className?: string;
-};
-
 /**
- * Splash com brasão — uso exclusivo do boot inicial (#boot-splash em layout).
- * Não usar como fallback de rota; preferir RouteLoading.
+ * Splash com brasão — exclusivo do boot inicial.
+ *
+ * O paint real vive em `app/layout.tsx` (#boot-splash) + `BootSplashClear`.
+ * Não importe este componente como fallback de rota; use `PageLoader`.
  */
-export function AppSplash({ className }: Props) {
-  return (
-    <div
-      className={cn(
-        "fixed inset-0 z-[200] flex min-h-dvh items-center justify-center bg-navy",
-        className,
-      )}
-      role="status"
-      aria-label="Carregando OLÓMÌ TÚTÙ"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- splash precisa do PNG transparente sem otimizador/cache antigo */}
-      <img
-        src="/brasao-designer.png"
-        alt="ILÉ OLÓRÒKÈ ÀṢẸ — OLÓMÌ TÚTÙ"
-        width={1024}
-        height={1024}
-        decoding="async"
-        className="splash-brasao h-auto w-[min(70vw,24rem)] object-contain"
-      />
-    </div>
-  );
+export function AppSplash() {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[AppSplash] Não use em rotas. A splash de boot é só #boot-splash no layout raiz.",
+    );
+  }
+  return null;
 }

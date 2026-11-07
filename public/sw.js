@@ -1,5 +1,5 @@
 /* Service worker — PWA + notificações com logo do app */
-const SW_VERSION = "oloroke-notif-v9-navfix";
+const SW_VERSION = "oloroke-notif-v10-boot-once";
 
 function appOrigin() {
   return self.location.origin;
