@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /** ?v= força refresh quando o SW/browser ainda guarda o PNG antigo */
-export const BRASAO_SRC = "/brasao-olomi-tutu.png?v=2";
+export const BRASAO_SRC = "/brasao-olomi-tutu.png?v=3";
 export const BRASAO_ALT = "Brasão Ilé Olóròkè Àṣẹ Olómi Tútù";
 
 /**

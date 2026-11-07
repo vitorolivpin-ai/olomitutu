@@ -32,10 +32,10 @@ function KindIcon({ kind }: { kind: LibraryKind }) {
 }
 
 function actionLabel(kind: LibraryKind) {
-  if (kind === "video") return "Assistir →";
-  if (kind === "cantiga") return "Ouvir →";
-  if (kind === "pdf") return "Abrir PDF →";
-  return "Abrir →";
+  if (kind === "video") return "Assistir";
+  if (kind === "cantiga") return "Ouvir";
+  if (kind === "pdf") return "Abrir";
+  return "Abrir";
 }
 
 export default function AcervoPublicoPage() {
@@ -63,7 +63,11 @@ export default function AcervoPublicoPage() {
   const openItem: LibraryItem | undefined = items.find((i) => i.id === openId);
 
   return (
-    <BrandPageShell watermarkVariant="biblioteca">
+    <BrandPageShell
+      watermarkVariant="biblioteca"
+      className="overflow-x-hidden"
+      mainClassName="overflow-x-hidden px-4 sm:px-6"
+    >
       <BrandPageHeader
         title="Biblioteca"
         subtitle="Cantigas, vídeos e materiais da casa."
@@ -72,8 +76,8 @@ export default function AcervoPublicoPage() {
       />
 
       {!openItem ? (
-        <>
-          <label className="relative mt-5 block">
+        <div className="mt-5 box-border w-full max-w-full overflow-x-hidden">
+          <label className="relative block w-full max-w-full">
             <span className="sr-only">Buscar na biblioteca</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/40" />
             <input
@@ -84,12 +88,18 @@ export default function AcervoPublicoPage() {
                 setOpenId(null);
               }}
               placeholder="Buscar na biblioteca..."
-              className="w-full rounded-full border-0 bg-white py-3.5 pl-11 pr-4 text-sm text-navy shadow-[0_6px_18px_rgba(11,31,58,0.06)] outline-none ring-1 ring-navy/[0.04] placeholder:text-navy/35 focus:ring-2 focus:ring-gold/40"
+              className="box-border w-full max-w-full rounded-full border-0 bg-white py-3.5 pl-11 pr-4 text-sm text-navy shadow-[0_6px_18px_rgba(11,31,58,0.06)] outline-none ring-1 ring-navy/[0.04] placeholder:text-navy/35 focus:ring-2 focus:ring-gold/40"
             />
           </label>
 
-          <div className="-mx-1 mt-4 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex w-max gap-2">
+          {/* Chips: scroll horizontal, sem barra visível, sem quebrar a página */}
+          <div
+            className={cn(
+              "mt-4 w-full max-w-full overflow-x-auto overflow-y-hidden",
+              "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            )}
+          >
+            <div className="flex w-max gap-2 pr-1">
               {filters.map((f) => {
                 const active = filter === f.id;
                 return (
@@ -101,7 +111,7 @@ export default function AcervoPublicoPage() {
                       setOpenId(null);
                     }}
                     className={cn(
-                      "shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold transition",
+                      "box-border shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold transition",
                       active
                         ? "bg-navy text-white shadow-soft"
                         : "bg-white text-navy ring-1 ring-navy/10",
@@ -114,36 +124,69 @@ export default function AcervoPublicoPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid w-full max-w-full gap-3">
             {items.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setOpenId(item.id)}
-                className="flex w-full items-center gap-3 rounded-[18px] bg-white px-3.5 py-3.5 text-left shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03] transition active:scale-[0.99]"
+                className={cn(
+                  "box-border flex w-full max-w-full items-center gap-3",
+                  "rounded-[18px] bg-white px-3.5 py-3.5 text-left",
+                  "shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03]",
+                  "transition active:scale-[0.99]",
+                )}
               >
+                {/* 1) Ícone — tamanho fixo, não encolhe */}
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#efe6d0]">
                   <KindIcon kind={item.kind} />
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-navy">
-                    {item.title}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-navy/45">
-                    {item.description
-                      ? `${LIBRARY_KIND_LABEL[item.kind]} · ${item.description}`
-                      : LIBRARY_KIND_LABEL[item.kind]}
-                  </p>
-                  <span className="mt-2 inline-flex rounded-full bg-[#efe6d0] px-2.5 py-0.5 text-[10px] font-semibold text-navy">
-                    {LIBRARY_KIND_LABEL[item.kind]}
+
+                {/* 2+3) Texto + botão — em <380px o botão desce / vira seta */}
+                <div
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center gap-3",
+                    "max-[379px]:flex-col max-[379px]:items-stretch",
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 break-words text-[15px] font-semibold leading-snug text-navy">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-navy/45">
+                      {item.description
+                        ? `${LIBRARY_KIND_LABEL[item.kind]} · ${item.description}`
+                        : LIBRARY_KIND_LABEL[item.kind]}
+                    </p>
+                  </div>
+
+                  {/* Botão Abrir — não encolhe; ≥44px de toque; em telas estreitas = seta */}
+                  <span
+                    className={cn(
+                      "inline-flex shrink-0 items-center justify-center",
+                      "min-h-11 min-w-11",
+                      "max-[379px]:self-end",
+                    )}
+                    aria-hidden
+                  >
+                    <span
+                      className={cn(
+                        "hidden min-[380px]:inline-flex",
+                        "min-h-11 items-center rounded-full bg-[#e8d5a3] px-3.5 text-[11px] font-semibold text-navy",
+                      )}
+                    >
+                      {actionLabel(item.kind)}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[#e8d5a3] text-navy",
+                        "min-[380px]:hidden",
+                      )}
+                    >
+                      <ChevronRight className="h-5 w-5" strokeWidth={2.25} />
+                    </span>
                   </span>
                 </div>
-                <span className="flex shrink-0 flex-col items-end gap-2">
-                  <span className="rounded-full bg-[#e8d5a3] px-3 py-1.5 text-[11px] font-semibold text-navy">
-                    {actionLabel(item.kind)}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-navy/30" strokeWidth={2} />
-                </span>
               </button>
             ))}
             {items.length === 0 ? (
@@ -161,24 +204,24 @@ export default function AcervoPublicoPage() {
               />
             ) : null}
           </div>
-        </>
+        </div>
       ) : (
-        <div className="mt-5 rounded-[18px] bg-white p-4 shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03]">
+        <div className="mt-5 box-border w-full max-w-full rounded-[18px] bg-white p-4 shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 ring-black/[0.03]">
           <button
             type="button"
-            className="text-sm font-medium text-navy/55 hover:text-navy"
+            className="min-h-11 text-sm font-medium text-navy/55 hover:text-navy"
             onClick={() => setOpenId(null)}
           >
             ← Voltar à lista
           </button>
-          <h2 className="mt-3 font-display text-2xl text-navy">{openItem.title}</h2>
+          <h2 className="mt-3 break-words font-display text-2xl text-navy">{openItem.title}</h2>
           {openItem.description ? (
-            <p className="mt-2 text-sm text-navy/65">{openItem.description}</p>
+            <p className="mt-2 break-words text-sm text-navy/65">{openItem.description}</p>
           ) : null}
           <span className="mt-3 inline-flex rounded-full bg-[#efe6d0] px-2.5 py-0.5 text-[10px] font-semibold text-navy">
             {LIBRARY_KIND_LABEL[openItem.kind]}
           </span>
-          <div className="mt-4">
+          <div className="mt-4 max-w-full overflow-x-hidden">
             <LibraryPlayer item={openItem} />
           </div>
         </div>

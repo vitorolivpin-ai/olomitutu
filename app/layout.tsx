@@ -12,20 +12,20 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
     title: "OLÓMÌ TÚTÙ",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B326B",
+  themeColor: "#E9DFCC",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -66,13 +66,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#0B326B",
+            background: "#E9DFCC",
           }}
           aria-hidden
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brasao-olomi-tutu.png?v=2"
+            src="/brasao-olomi-tutu.png?v=3"
             alt="Brasão Ilé Olóròkè Àṣẹ Olómi Tútù"
             width={1024}
             height={1024}
@@ -81,7 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               width: "min(65vw, 320px)",
               height: "auto",
               objectFit: "contain",
-              filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))",
+              filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.18))",
               opacity: 1,
               mixBlendMode: "normal",
               background: "transparent",
