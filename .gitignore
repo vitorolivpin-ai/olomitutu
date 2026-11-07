@@ -22,6 +22,9 @@
 .DS_Store
 *.pem
 ._recovered/
+
+# nested accidental repos / clones (never part of olomitutu)
+get/
 ileolorokease/
 
 # debug
@@ -40,6 +43,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-get/
-

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { createSeedState, DEMO_PASSWORD } from "@/lib/seed";
 import {
   DATA_KEY,
@@ -671,12 +672,19 @@ export function AppStoreProvider({
     };
   }, [ready, authMode, state.currentUserId, refreshCloudChat]);
 
+  /**
+   * Persistência síncrona — funções que devolvem { ok, error } leem o
+   * resultado do updater. No React 19 o setState pode adiar o updater;
+   * sem flushSync o retorno fica preso em "Falha.".
+   */
   const commit = useCallback((updater: (prev: AppState) => AppState) => {
-    setState((prev) => {
-      const next = updater(prev);
-      persistSharedData(stripSession(next));
-      persistSessionUserId(next.currentUserId);
-      return next;
+    flushSync(() => {
+      setState((prev) => {
+        const next = updater(prev);
+        persistSharedData(stripSession(next));
+        persistSessionUserId(next.currentUserId);
+        return next;
+      });
     });
   }, []);
 

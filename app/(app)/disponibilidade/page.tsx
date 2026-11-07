@@ -15,12 +15,24 @@ import { canAccess } from "@/lib/permissions";
 
 const QUICK_TIMES = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
 
+/** Monta Date no fuso local a partir de inputs date/time (evita parse UTC ambíguo). */
+function localScheduleDate(dateStr: string, timeStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  if (![y, m, d, hh, mm].every((n) => Number.isFinite(n))) return null;
+  const dt = new Date(y, m - 1, d, hh, mm || 0, 0, 0);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 export default function DisponibilidadePage() {
   const { state, currentUser, addPublishedSlot, removePublishedSlot } = useAppStore();
   const tomorrow = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }, []);
   const [date, setDate] = useState(tomorrow);
   const [time, setTime] = useState("10:00");
@@ -36,12 +48,11 @@ export default function DisponibilidadePage() {
   const livres = views.filter((v) => v.status === "livre").length;
   const ocupados = views.filter((v) => v.status === "ocupado").length;
 
-  function onAdd(e: FormEvent) {
-    e.preventDefault();
+  function publishAt(timeValue: string) {
     setError("");
     setOk("");
-    const scheduled = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(scheduled.getTime())) {
+    const scheduled = localScheduleDate(date, timeValue);
+    if (!scheduled) {
       setError("Data ou horário inválido.");
       return;
     }
@@ -50,26 +61,20 @@ export default function DisponibilidadePage() {
       duration_minutes: Number(duration) || 60,
     });
     if (!result.ok) {
-      setError(result.error);
+      setError(result.error || "Não foi possível publicar este horário.");
       return;
     }
-    setOk("Horário publicado. Já aparece no App do Cliente.");
+    setOk(`Horário ${timeValue} publicado. Já aparece no App do Cliente.`);
+  }
+
+  function onAdd(e: FormEvent) {
+    e.preventDefault();
+    publishAt(time);
   }
 
   function addQuick(t: string) {
     setTime(t);
-    setError("");
-    setOk("");
-    const scheduled = new Date(`${date}T${t}:00`);
-    const result = addPublishedSlot({
-      scheduled_at: scheduled.toISOString(),
-      duration_minutes: Number(duration) || 60,
-    });
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setOk(`Horário ${t} publicado.`);
+    publishAt(t);
   }
 
   return (
