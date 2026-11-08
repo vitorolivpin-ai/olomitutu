@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Award,
   BookOpen,
   CalendarDays,
   ListChecks,
@@ -31,6 +32,7 @@ const shortcuts = [
   { href: "/filho/hierarquia", label: "Hierarquia", icon: Users, hint: "Organograma da casa" },
   { href: "/filho/checklist", label: "O que fazer", icon: ListChecks, hint: "Abian até cargos" },
   { href: "/filho/loja", label: "Loja", icon: Package, hint: "Comprar produtos" },
+  { href: "/filho/certificados", label: "Meus certificados", icon: Award, hint: "Oficinas e cursos" },
   {
     href: "/filho/mensagens",
     label: "Chat com Vitor Cardozo - Ògún Yande",

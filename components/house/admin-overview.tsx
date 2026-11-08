@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import {
+  Award,
   BookOpen,
+  GraduationCap,
   CalendarDays,
   ChartColumn,
   CreditCard,
@@ -159,6 +161,22 @@ const tiles: Tile[] = [
     hint: "PDF, curso e Pix",
     icon: Package,
     module: "shop",
+    tone: "gold",
+  },
+  {
+    href: "/gestao-oficinas",
+    label: "Oficinas",
+    hint: "Vagas, inscritos e presença",
+    icon: GraduationCap,
+    module: "workshops",
+    tone: "gold",
+  },
+  {
+    href: "/certificados",
+    label: "Certificados",
+    hint: "Emitir e assinatura do Pai",
+    icon: Award,
+    module: "certificates",
     tone: "gold",
   },
   {

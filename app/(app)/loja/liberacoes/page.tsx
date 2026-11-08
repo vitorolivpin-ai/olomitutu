@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,24 @@ export default function LojaLiberacoesPage() {
                       : "Liberado na conta"
                     : "Recusado"}
                 </Badge>
+                {purchase.status === "pago_liberado" &&
+                product?.kind === "curso" &&
+                (currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador") ? (
+                  <Link
+                    href={`/certificados?curso=${encodeURIComponent(product.id)}&nome=${encodeURIComponent(
+                      byEmail ? (purchase.invoice?.full_name ?? "") : (client?.full_name ?? ""),
+                    )}&email=${encodeURIComponent(
+                      byEmail
+                        ? (purchase.guest_email ?? purchase.invoice?.email ?? "")
+                        : (client?.email ?? ""),
+                    )}`}
+                    className="ml-2 inline-block"
+                  >
+                    <Button size="sm" variant="secondary" className="mt-2">
+                      Emitir certificado de conclusão
+                    </Button>
+                  </Link>
+                ) : null}
               </Card>
             ))}
         </div>

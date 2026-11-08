@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Award,
   BookOpen,
   CalendarDays,
   MessageCircle,
@@ -23,6 +24,12 @@ const shortcuts = [
     label: "Meus cursos",
     icon: GraduationCap,
     hint: "Conteúdos liberados na sua conta",
+  },
+  {
+    href: "/cliente/certificados",
+    label: "Meus certificados",
+    icon: Award,
+    hint: "Oficinas e cursos concluídos",
   },
   {
     href: "/cliente/horarios",
