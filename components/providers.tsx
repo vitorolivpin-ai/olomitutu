@@ -2,6 +2,7 @@
 
 import { BootSplashClear } from "@/components/brand/boot-splash-clear";
 import { AppStoreProvider } from "@/hooks/use-app-store";
+import { WorkshopsProvider } from "@/hooks/use-workshops";
 
 export function Providers({
   children,
@@ -12,8 +13,10 @@ export function Providers({
 }) {
   return (
     <AppStoreProvider initialUserId={initialUserId}>
-      <BootSplashClear />
-      {children}
+      <WorkshopsProvider>
+        <BootSplashClear />
+        {children}
+      </WorkshopsProvider>
     </AppStoreProvider>
   );
 }

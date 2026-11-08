@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Award,
   Bell,
+  GraduationCap,
   BookOpen,
   CalendarClock,
   CalendarDays,
@@ -77,6 +79,8 @@ export const PAI_MODULE_GROUPS: PaiModuleGroup[] = [
       { href: "/biblioteca", label: "Biblioteca", icon: BookOpen, module: "library" },
       { href: "/loja", label: "Loja", icon: Package, module: "shop" },
       { href: "/loja/liberacoes", label: "Liberações da loja", icon: Package, module: "shop" },
+      { href: "/gestao-oficinas", label: "Oficinas", icon: GraduationCap, module: "workshops" },
+      { href: "/certificados", label: "Certificados", icon: Award, module: "certificates" },
       { href: "/conteudo", label: "Conteúdo da casa", icon: BookOpen, module: "house_content" },
       { href: "/educacao", label: "Educação", icon: BookOpen, module: "house_content" },
       { href: "/fotos", label: "Fotos", icon: BookOpen, module: "house_content" },

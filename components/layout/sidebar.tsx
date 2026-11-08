@@ -18,6 +18,8 @@ import {
   UserRound,
   Wallet,
   Bell,
+  Award,
+  GraduationCap,
   X,
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
@@ -53,6 +55,8 @@ const staffLinks = [
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen, module: "library" as const },
   { href: "/loja", label: "Loja", icon: Package, module: "shop" as const },
   { href: "/loja/liberacoes", label: "Liberações da loja", icon: Package, module: "shop" as const },
+  { href: "/gestao-oficinas", label: "Oficinas", icon: GraduationCap, module: "workshops" as const },
+  { href: "/certificados", label: "Certificados", icon: Award, module: "certificates" as const },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" as const },
   { href: "/disponibilidade", label: "Horários", icon: CalendarClock, module: "agenda" as const },
   { href: "/conversas", label: "Conversas", icon: MessageCircle, module: "chat" as const },
@@ -63,6 +67,8 @@ const staffLinks = [
 const clientLinks = [
   { href: "/cliente", label: "Início", icon: LayoutDashboard, external: false },
   { href: "/cliente/cursos", label: "Meus cursos", icon: BookOpen, external: false },
+  { href: "/cliente/certificados", label: "Meus certificados", icon: Award, external: false },
+  { href: "/oficinas", label: "Oficinas", icon: GraduationCap, external: false },
   { href: "/cliente/horarios", label: "Agenda", icon: CalendarDays, external: false },
   {
     href: "/cliente/mensagens",
@@ -84,6 +90,8 @@ const filhoLinks = [
   { href: "/filho/hierarquia", label: "Hierarquia", icon: Users, external: false },
   { href: "/filho/checklist", label: "O que fazer", icon: Receipt, external: false },
   { href: "/filho/loja", label: "Loja", icon: Package, external: false },
+  { href: "/filho/certificados", label: "Meus certificados", icon: Award, external: false },
+  { href: "/oficinas", label: "Oficinas", icon: GraduationCap, external: false },
   {
     href: "/filho/mensagens",
     label: "Chat com Vitor Cardozo - Ògún Yande",

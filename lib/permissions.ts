@@ -16,7 +16,9 @@ export type AppModule =
   | "stock"
   | "library"
   | "house_content"
-  | "shop";
+  | "shop"
+  | "workshops"
+  | "certificates";
 
 /** Acesso completo — só Pai de Santo. */
 export const HOUSE_FULL_MODULES: AppModule[] = [
@@ -36,6 +38,8 @@ export const HOUSE_FULL_MODULES: AppModule[] = [
   "library",
   "house_content",
   "shop",
+  "workshops",
+  "certificates",
 ];
 
 /** Papéis da casa (não Cliente / Filho). */
@@ -67,6 +71,8 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "shop",
     "chat",
     "internal_notes",
+    "workshops",
+    "certificates",
   ],
   tesouraria: [
     "dashboard",

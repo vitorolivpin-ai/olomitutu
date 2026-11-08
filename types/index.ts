@@ -529,3 +529,143 @@ export interface ShopPurchase {
   updated_at: string;
   released_by?: string;
 }
+
+/* ─── Oficinas (separadas da Loja) ─── */
+
+export type WorkshopModality = "presencial" | "online";
+
+export type WorkshopStatus =
+  | "rascunho"
+  | "publicada"
+  | "em_breve"
+  | "encerrada"
+  | "cancelada";
+
+export interface Workshop {
+  id: string;
+  title: string;
+  /** Até 120 caracteres — aparece no card da lista. */
+  short_description: string;
+  /** Texto longo — “Sobre esta oficina”. */
+  about?: string;
+  /** Tópicos — “Conteúdo”. */
+  topics: string[];
+  /** URL pública ou data URL (demo). */
+  image_url?: string;
+  modality: WorkshopModality;
+  status: WorkshopStatus;
+  /** YYYY-MM-DD — vazio quando “Em breve”. */
+  date?: string;
+  /** HH:mm */
+  start_time?: string;
+  end_time?: string;
+  location?: string;
+  /** Link da sala (online) — só aparece para inscrito confirmado. */
+  online_link?: string;
+  /** 0 = sem limite */
+  total_spots: number;
+  allow_waitlist: boolean;
+  /** YYYY-MM-DD */
+  registration_deadline?: string;
+  /** 0 = gratuita */
+  price: number;
+  /** Ex.: "3 horas" — usado no certificado. */
+  workload?: string;
+  issues_certificate: boolean;
+  /** Quem assina o certificado desta oficina (vazio = padrão da casa). */
+  certificate_signer_name?: string;
+  created_by?: string;
+  created_by_name?: string;
+  updated_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkshopRegistrationStatus =
+  | "confirmada"
+  | "lista_espera"
+  | "cancelada"
+  | "presente";
+
+export type WorkshopHouseLink = "sim" | "nao" | "frequentador";
+
+export interface WorkshopRegistration {
+  id: string;
+  workshop_id: string;
+  user_id?: string;
+  full_name: string;
+  phone: string;
+  email: string;
+  birth_date?: string;
+  house_link: WorkshopHouseLink;
+  attended_before: boolean;
+  accessibility_needs?: string;
+  notes?: string;
+  accepted_terms: boolean;
+  status: WorkshopRegistrationStatus;
+  /** Inscrição feita pela casa (presencialmente). */
+  added_by_staff?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ─── Certificados ─── */
+
+export type CertificateKind = "oficina" | "curso";
+
+export type CertificateStatus = "disponivel" | "revogado";
+
+export interface Certificate {
+  id: string;
+  /** OLT-AAAA-000000 */
+  code: string;
+  user_id?: string;
+  /** Usado para achar o certificado quando a pessoa não tinha conta. */
+  email?: string;
+  kind: CertificateKind;
+  /** id da oficina ou do produto (curso) */
+  reference_id?: string;
+  printed_name: string;
+  title: string;
+  /** YYYY-MM-DD */
+  completed_on: string;
+  modality: WorkshopModality;
+  workload?: string;
+  signer_name: string;
+  signer_title: string;
+  second_signer_label: string;
+  /** Cópia da assinatura no momento da emissão (PNG transparente). */
+  signature_data_url?: string;
+  status: CertificateStatus;
+  issued_at: string;
+  issued_by_name?: string;
+  revoked_at?: string;
+  revoked_by_name?: string;
+  /** Visto pelo dono (para o selo “Novo”). */
+  seen_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CertificateSettings {
+  signer_name: string;
+  signer_title: string;
+  second_signer_label: string;
+  /** PNG transparente da assinatura do Pai de Santo. */
+  signature_data_url?: string;
+  /** Libera os certificados ao marcar a oficina como “Encerrada”. */
+  auto_release_on_close: boolean;
+  /** Pai de Santo pode excluir oficinas criadas por outras pessoas. */
+  pai_can_delete_any: boolean;
+  updated_at?: string;
+  updated_by_name?: string;
+}
+
+export interface CertificateCorrectionRequest {
+  id: string;
+  certificate_id: string;
+  requested_name: string;
+  requested_by_name: string;
+  status: "pendente" | "resolvida";
+  created_at: string;
+}
