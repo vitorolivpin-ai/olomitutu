@@ -1888,9 +1888,9 @@ export function AppStoreProvider({
         error: "Falha ao criar.",
       };
       commit((prev) => {
-        const client = prev.clients.find((item) => item.id === input.client_id);
+        const targetClient = prev.clients.find((item) => item.id === input.client_id);
         const isAllowed = currentUser?.role === "pai_de_santo"
-          ? client?.responsible_profile_id === currentUser.id
+          ? targetClient?.responsible_profile_id === currentUser.id
           : currentUser?.role === "cliente" && currentUser.client_id === input.client_id;
         if (!isAllowed) {
           result = { ok: false, error: "Acesso não autorizado." };
