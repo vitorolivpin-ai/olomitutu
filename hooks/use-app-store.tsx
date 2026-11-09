@@ -790,43 +790,47 @@ export function AppStoreProvider({
       } else {
         console.warn("[loja] sync:", shopRes.error);
       }
-      if (canReadPrivate && msgRes.ok) {
-        const byId = new Map<string, Message>();
-        for (const m of msgRes.items) byId.set(m.id, m);
-        // Mantém mensagens locais ainda não refletidas na nuvem (UUID otimista
-        // ou ids demo) — senão o sync reocultava a conversa logo após enviar.
-        for (const m of prev.messages ?? []) {
-          if (!byId.has(m.id)) byId.set(m.id, m);
+      if (canReadPrivate) {
+        if (msgRes.ok) {
+          const byId = new Map<string, Message>();
+          for (const m of msgRes.items) byId.set(m.id, m);
+          // Mantém mensagens locais ainda não refletidas na nuvem (UUID otimista
+          // ou ids demo) — senão o sync reocultava a conversa logo após enviar.
+          for (const m of prev.messages ?? []) {
+            if (!byId.has(m.id)) byId.set(m.id, m);
+          }
+          const mergedMessages = Array.from(byId.values()).sort((a, b) =>
+            a.created_at.localeCompare(b.created_at),
+          );
+          // Mensagem depois de “excluir da lista” → conversa volta (como WhatsApp)
+          const hiddenMap = revealHiddenChatsWithNewerMessages(
+            normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt),
+            mergedMessages,
+          );
+          next = {
+            ...next,
+            messages: mergedMessages,
+            staffHiddenAt: hiddenMap,
+            staffHiddenClientIds: Object.keys(hiddenMap),
+          };
+        } else if ("error" in msgRes) {
+          console.warn("[chat] sync:", msgRes.error);
         }
-        const mergedMessages = Array.from(byId.values()).sort((a, b) =>
-          a.created_at.localeCompare(b.created_at),
-        );
-        // Mensagem depois de “excluir da lista” → conversa volta (como WhatsApp)
-        const hiddenMap = revealHiddenChatsWithNewerMessages(
-          normalizeStaffHidden(prev.staffHiddenClientIds, prev.staffHiddenAt),
-          mergedMessages,
-        );
-        next = {
-          ...next,
-          messages: mergedMessages,
-          staffHiddenAt: hiddenMap,
-          staffHiddenClientIds: Object.keys(hiddenMap),
-        };
-      } else {
-        console.warn("[chat] sync:", msgRes.error);
       }
-      if (canReadPrivate && clientsRes.ok) {
-        const remoteIds = new Set(clientsRes.items.map((c) => c.id));
-        const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
-        const merged = [
-          ...clientsRes.items,
-          ...localOnly.filter((c) => !remoteIds.has(c.id)),
-          ...(prev.clients ?? []).filter((c) => isUuid(c.id) && !remoteIds.has(c.id)),
-        ];
-        const dedup = Array.from(new Map(merged.map((c) => [c.id, c])).values());
-        next = { ...next, clients: dedup };
-      } else {
-        console.warn("[clients] sync:", clientsRes.error);
+      if (canReadPrivate) {
+        if (clientsRes.ok) {
+          const remoteIds = new Set(clientsRes.items.map((c) => c.id));
+          const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
+          const merged = [
+            ...clientsRes.items,
+            ...localOnly.filter((c) => !remoteIds.has(c.id)),
+            ...(prev.clients ?? []).filter((c) => isUuid(c.id) && !remoteIds.has(c.id)),
+          ];
+          const dedup = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+          next = { ...next, clients: dedup };
+        } else if ("error" in clientsRes) {
+          console.warn("[clients] sync:", clientsRes.error);
+        }
       }
       next = {
         ...next,
@@ -2453,19 +2457,12 @@ export function AppStoreProvider({
               : input.body!.trim();
 
       const cloud = isSupabaseConfigured() && isUuid(input.client_id);
-      const financeChannel =
-        input.channel === "financeiro" || currentUser.role === "tesouraria";
       const message: Message = {
         id: cloud ? crypto.randomUUID() : uid("msg"),
         client_id: input.client_id,
         sender_id: currentUser.id,
         sender_role: currentUser.role,
         sender_name: currentUser.full_name,
-        recipient_role: financeChannel
-          ? currentUser.role === "cliente"
-            ? "tesouraria"
-            : "cliente"
-          : undefined,
         body,
         kind,
         audio_data_url: kind === "audio" ? input.audio_data_url : undefined,
@@ -2493,35 +2490,19 @@ export function AppStoreProvider({
                 : body;
         const notification: AppNotification = {
           id: uid("ntf"),
-          title: financeChannel
-            ? fromClient
-              ? "Mensagem para o Financeiro"
-              : "Mensagem do Financeiro"
-            : fromClient
-              ? "Nova mensagem do cliente"
-              : "Nova mensagem da casa",
+          title: fromClient ? "Nova mensagem do cliente" : "Nova mensagem da casa",
           body: fromClient
             ? `${clientName ?? client?.full_name ?? "Cliente"}: ${preview}`
             : `${currentUser.full_name}: ${preview}`,
           type: "chat",
-          audience: financeChannel
-            ? fromClient
-              ? ["tesouraria", "administrador"]
-              : ["cliente"]
-            : fromClient
-              ? ["pai_de_santo"]
-              : ["cliente"],
+          audience: fromClient ? ["pai_de_santo"] : ["cliente"],
           related_id: input.client_id,
           read: false,
-          href: financeChannel
-            ? fromClient
-              ? `/conversas/${input.client_id}`
-              : `/cliente/financeiro-chat`
-            : fromClient
-              ? `/conversas/${input.client_id}`
-              : guestThread
-                ? `/marcar/chat`
-                : `/cliente/mensagens`,
+          href: fromClient
+            ? `/conversas/${input.client_id}`
+            : guestThread
+              ? `/marcar/chat`
+              : `/cliente/mensagens`,
           created_at: stamp,
         };
         const hiddenMap = normalizeStaffHidden(
@@ -2607,24 +2588,20 @@ export function AppStoreProvider({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  audience: financeChannel ? "tesouraria" : "staff",
-                  channel: financeChannel ? "financeiro" : "casa",
+                  audience: "staff",
+                  channel: "casa",
                   client_id: input.client_id,
                   preview: body,
                   sender_name: currentUser.full_name,
                 }),
               }).catch(() => null);
-            } else if (
-              currentUser.role === "pai_de_santo" ||
-              currentUser.role === "administrador" ||
-              currentUser.role === "tesouraria"
-            ) {
+            } else if (currentUser.role === "pai_de_santo") {
               void fetch("/api/push/notify-chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   audience: "cliente",
-                  channel: financeChannel ? "financeiro" : "casa",
+                  channel: "casa",
                   client_id: input.client_id,
                   preview: body,
                   sender_name: currentUser.full_name,

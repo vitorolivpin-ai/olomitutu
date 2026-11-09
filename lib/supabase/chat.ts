@@ -37,7 +37,6 @@ export type ClientRow = {
 export function mapMessageRow(row: MessageRow): Message {
   return {
     id: row.id,
-    responsible_profile_id: row.responsible_profile_id ?? undefined,
     client_id: row.client_id,
     sender_id: row.sender_id ?? undefined,
     sender_role: row.sender_role,
@@ -59,6 +58,7 @@ export function mapMessageRow(row: MessageRow): Message {
 export function mapClientRow(row: ClientRow): Client {
   return {
     id: row.id,
+    responsible_profile_id: row.responsible_profile_id ?? undefined,
     full_name: row.full_name,
     phone: row.phone,
     email: row.email ?? undefined,

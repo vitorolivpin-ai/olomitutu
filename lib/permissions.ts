@@ -17,7 +17,9 @@ export type AppModule =
   | "library"
   | "house_content"
   | "shop"
-  | "oficinas";
+  | "oficinas"
+  | "workshops"
+  | "certificates";
 
 /** Acesso completo — só Pai de Santo. */
 export const HOUSE_FULL_MODULES: AppModule[] = [
