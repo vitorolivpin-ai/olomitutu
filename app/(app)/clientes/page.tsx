@@ -2,7 +2,7 @@
 
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import Link from "next/link";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { formatDate } from "@/lib/format";
+import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { Client } from "@/types";
 
 export default function ClientsPage() {
   return (
@@ -21,7 +23,14 @@ export default function ClientsPage() {
 }
 
 function ClientsPageInner() {
-  const { state, upsertClient, removeClient, currentUser } = useAppStore();
+  const {
+    state,
+    upsertClient,
+    removeClient,
+    claimUnassignedClient,
+    currentUser,
+    refreshCloudChat,
+  } = useAppStore();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
 
@@ -34,26 +43,65 @@ function ClientsPageInner() {
   const [notes, setNotes] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [unassigned, setUnassigned] = useState<Client[]>([]);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const canManage =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+    currentUser?.role === "pai_de_santo";
 
-  const clients =
-    currentUser?.role === "cliente"
-      ? state.clients.filter((c) => c.id === currentUser.client_id)
-      : currentUser?.role === "pai_de_santo"
-        ? state.clients
-        : // Marcação pública: ficha/guest só o Pai vê na lista
-          state.clients.filter((c) => !c.is_guest);
+  const loadUnassigned = useCallback(async () => {
+    if (currentUser?.role !== "pai_de_santo") return;
+    if (!isSupabaseConfigured()) {
+      setUnassigned(state.clients.filter((client) => !client.responsible_profile_id));
+      return;
+    }
+    const supabase = createBrowserClient();
+    if (!supabase) return;
+    const { data, error: queryError } = await supabase.rpc("list_unassigned_clients");
+    if (queryError) {
+      setError("Não foi possível carregar registros pendentes de associação.");
+      return;
+    }
+    setUnassigned((data ?? []) as Client[]);
+  }, [currentUser?.role, state.clients]);
 
-  function onSubmit(e: FormEvent) {
+  useEffect(() => {
+    void loadUnassigned();
+  }, [loadUnassigned]);
+
+  if (currentUser?.role !== "pai_de_santo") {
+    return <EmptyState title="Acesso não autorizado" />;
+  }
+
+  const clients = state.clients.filter(
+    (client) => client.responsible_profile_id === currentUser.id,
+  );
+
+  async function claimClient(clientId: string) {
+    setClaimingId(clientId);
+    const claimed = await claimUnassignedClient(clientId);
+    setClaimingId(null);
+    if (!claimed) {
+      setError("Não foi possível associar este cadastro. Atualize e tente novamente.");
+      return;
+    }
+    setUnassigned((items) => items.filter((client) => client.id !== clientId));
+    if (isSupabaseConfigured()) await refreshCloudChat();
+  }
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    upsertClient({
+    setError("");
+    const saved = await upsertClient({
       full_name: fullName,
       phone,
       email: email || undefined,
       notes: notes || undefined,
     });
+    if (!saved) {
+      setError("Não foi possível salvar este cadastro.");
+      return;
+    }
     setOpen(false);
     setFullName("");
     setPhone("");
@@ -91,6 +139,30 @@ function ClientsPageInner() {
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      {unassigned.length > 0 ? (
+        <Card>
+          <CardTitle>Registros pendentes de associação</CardTitle>
+          <p className="mt-1 text-sm text-navy/60">
+            Confirme manualmente quais registros pertencem aos seus atendimentos.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unassigned.map((client) => (
+              <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-navy/10 pt-3">
+                <span className="min-w-0 text-sm text-navy">{client.full_name}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={claimingId === client.id}
+                  onClick={() => void claimClient(client.id)}
+                >
+                  {claimingId === client.id ? "Associando…" : "Associar"}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {open ? (
         <Card>

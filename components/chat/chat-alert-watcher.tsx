@@ -37,8 +37,7 @@ export function ChatAlertWatcher() {
   const pathname = usePathname();
   const primed = useRef(false);
 
-  const isStaffChat =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const isStaffChat = currentUser?.role === "pai_de_santo";
   const isFinanceChat = currentUser?.role === "tesouraria";
   const isClient = currentUser?.role === "cliente";
 

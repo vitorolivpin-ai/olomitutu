@@ -12,8 +12,10 @@ export type MessageRow = {
   body: string;
   kind: MessageKind | null;
   audio_url: string | null;
+  audio_path: string | null;
   audio_duration_sec: number | null;
   video_url: string | null;
+  video_path: string | null;
   call_url: string | null;
   appointment_id: string | null;
   created_at: string;
@@ -21,6 +23,7 @@ export type MessageRow = {
 
 export type ClientRow = {
   id: string;
+  responsible_profile_id: string | null;
   full_name: string;
   phone: string;
   email: string | null;
@@ -34,6 +37,7 @@ export type ClientRow = {
 export function mapMessageRow(row: MessageRow): Message {
   return {
     id: row.id,
+    responsible_profile_id: row.responsible_profile_id ?? undefined,
     client_id: row.client_id,
     sender_id: row.sender_id ?? undefined,
     sender_role: row.sender_role,
@@ -42,8 +46,10 @@ export function mapMessageRow(row: MessageRow): Message {
     body: row.body,
     kind: row.kind ?? "text",
     audio_url: row.audio_url ?? undefined,
+    audio_path: row.audio_path ?? undefined,
     audio_duration_sec: row.audio_duration_sec ?? undefined,
     video_url: row.video_url ?? undefined,
+    video_path: row.video_path ?? undefined,
     call_url: row.call_url ?? undefined,
     appointment_id: row.appointment_id ?? undefined,
     created_at: row.created_at,
@@ -106,7 +112,7 @@ export async function uploadChatMedia(
   clientId: string,
   dataUrl: string,
   folder: "audio" | "video",
-): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
   try {
     const { blob, contentType } = dataUrlToBlob(dataUrl);
     const ext =
@@ -125,9 +131,7 @@ export async function uploadChatMedia(
       upsert: false,
     });
     if (error) return { ok: false, error: error.message };
-    const { data } = supabase.storage.from("chat").getPublicUrl(path);
-    if (!data?.publicUrl) return { ok: false, error: "Falha ao obter URL do arquivo." };
-    return { ok: true, url: data.publicUrl };
+    return { ok: true, path };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Falha no upload." };
   }
@@ -141,7 +145,25 @@ export async function fetchChatMessages(
     .select("*")
     .order("created_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, items: ((data ?? []) as MessageRow[]).map(mapMessageRow) };
+  const items = await Promise.all(
+    ((data ?? []) as MessageRow[]).map(async (row) => {
+      const message = mapMessageRow(row);
+      const [audio, video] = await Promise.all([
+        message.audio_path
+          ? supabase.storage.from("chat").createSignedUrl(message.audio_path, 60 * 15)
+          : Promise.resolve({ data: null }),
+        message.video_path
+          ? supabase.storage.from("chat").createSignedUrl(message.video_path, 60 * 15)
+          : Promise.resolve({ data: null }),
+      ]);
+      return {
+        ...message,
+        audio_url: audio.data?.signedUrl,
+        video_url: video.data?.signedUrl,
+      };
+    }),
+  );
+  return { ok: true, items };
 }
 
 export async function fetchClientsRemote(
@@ -175,8 +197,10 @@ export async function insertMessageRemote(
     body: message.body,
     kind: message.kind ?? "text",
     audio_url: message.audio_url ?? null,
+    audio_path: message.audio_path ?? null,
     audio_duration_sec: message.audio_duration_sec ?? null,
     video_url: message.video_url ?? null,
+    video_path: message.video_path ?? null,
     call_url: message.call_url ?? null,
     appointment_id:
       message.appointment_id && isUuid(message.appointment_id)

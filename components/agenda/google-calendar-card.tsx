@@ -20,8 +20,7 @@ export function GoogleCalendarCard() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const canConnect =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const canConnect = currentUser?.role === "pai_de_santo";
 
   useEffect(() => {
     const gcal = search.get("gcal");
@@ -30,7 +29,7 @@ export function GoogleCalendarCard() {
     if (gcal === "config") {
       setMessage("Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no Vercel.");
     }
-    if (gcal === "forbidden") setMessage("Só o Pai de Santo ou Admin pode conectar.");
+    if (gcal === "forbidden") setMessage("Só o Pai de Santo pode conectar.");
     if (gcal === "norefresh") {
       setMessage("Google não enviou refresh token. Desconecte o app no Google e tente de novo.");
     }

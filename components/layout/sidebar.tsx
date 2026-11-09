@@ -98,12 +98,6 @@ const filhoLinks = [
     icon: MessageCircle,
     external: false,
   },
-  {
-    href: "/filho/financeiro-chat",
-    label: "Chat com o Financeiro",
-    icon: Wallet,
-    external: false,
-  },
   { href: "/filho/notificacoes", label: "Notificações", icon: Bell, external: false },
   { href: "/filho/conta", label: "Menu / conta", icon: Settings2, external: false },
   {

@@ -13,6 +13,7 @@ import {
   type AppModule,
 } from "@/lib/permissions";
 import { PageLoader } from "@/components/brand/page-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { homePathForUser, isFilhoDeSanto, isFilhoPortalPath } from "@/lib/filho";
 import { isClientPortalPath, isMemberPortalPath } from "@/lib/navigation";
@@ -86,6 +87,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const sessionId = state.currentUserId;
   const [menuOpen, setMenuOpen] = useState(false);
+  const protectedRoute = routeModules.find((route) => pathname.startsWith(route.prefix));
+  const routeDenied = Boolean(
+    currentUser && protectedRoute && !canAccess(currentUser.role, protectedRoute.module),
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -132,16 +137,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const match = routeModules.find((r) => pathname.startsWith(r.prefix));
-    if (match && !canAccess(currentUser.role, match.module)) {
+    if (protectedRoute && !canAccess(currentUser.role, protectedRoute.module)) {
       router.replace(home);
     }
-  }, [ready, currentUser, sessionId, pathname, router]);
+  }, [ready, currentUser, sessionId, pathname, router, protectedRoute]);
 
   if (!ready || !currentUser) {
     // Aguarda sessao/perfil ? sem brasao (splash so no cold start).
     return (
       <PageLoader label="Preparando o app?" delayMs={150} className="min-h-dvh" />
+    );
+  }
+
+  if (routeDenied) {
+    return (
+      <main className="min-h-dvh bg-background px-4 py-10">
+        <EmptyState title="Acesso não autorizado" />
+      </main>
     );
   }
 

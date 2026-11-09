@@ -174,6 +174,8 @@ export interface Expense {
 
 export interface Client {
   id: string;
+  /** Pai de Santo responsável; null/ausente significa pendente de associação. */
+  responsible_profile_id?: string;
   full_name: string;
   phone: string;
   email?: string;
@@ -250,11 +252,13 @@ export interface Message {
   kind?: MessageKind;
   audio_data_url?: string;
   audio_url?: string;
+  audio_path?: string;
   audio_duration_sec?: number;
   /** Vídeo enviado no chat (data URL no demo / local). */
   video_data_url?: string;
   /** URL pública do vídeo (Storage). */
   video_url?: string;
+  video_path?: string;
   /** Link da sala de chamada de vídeo (Jitsi). */
   call_url?: string;
   appointment_id?: string;

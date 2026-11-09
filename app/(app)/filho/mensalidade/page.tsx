@@ -1,7 +1,6 @@
 "use client";
 
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -275,9 +274,6 @@ export default function FilhoMensalidadePage() {
         </div>
       ) : null}
 
-      <Link href="/filho/financeiro-chat" className="block text-sm text-gold-deep">
-        Dúvidas? Falar com o Financeiro →
-      </Link>
     </div>
   );
 }

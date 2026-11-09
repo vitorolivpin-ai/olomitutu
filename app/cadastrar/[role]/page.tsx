@@ -141,22 +141,6 @@ export default function CadastrarAreaPage() {
       return;
     }
 
-    if (data.user) {
-      const waitApproval = needsApproval || houseForm || filhoForm;
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName,
-          requested_role: authRole,
-          signup_area: authRole,
-          person_kind: kind,
-          approval_status: waitApproval ? "pending" : "approved",
-          role: authRole,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", data.user.id);
-    }
-
     if (needsApproval || houseForm || filhoForm) {
       if (data.session) {
         await supabase.auth.signOut();

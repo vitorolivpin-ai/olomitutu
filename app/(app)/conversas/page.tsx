@@ -7,8 +7,7 @@ import { useAppStore } from "@/hooks/use-app-store";
 /** Painel direito no desktop (WhatsApp Web). No mobile a lista vem do layout. */
 export default function ConversationsPage() {
   const { currentUser } = useAppStore();
-  const showPushBanner =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const showPushBanner = currentUser?.role === "pai_de_santo";
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-background px-6">

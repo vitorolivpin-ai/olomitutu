@@ -11,10 +11,13 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { createSeedState, DEMO_PASSWORD } from "@/lib/seed";
+import { clearGuestChatSession } from "@/lib/guest-chat-session";
 import {
   DATA_KEY,
+  loadPrivateData,
   loadSessionUserId,
   loadSharedData,
+  persistPrivateData,
   persistSessionUserId,
   persistSharedData,
   stripSession,
@@ -179,7 +182,8 @@ type AppStore = {
     decision: "approved" | "rejected",
   ) => { ok: true } | { ok: false; error: string };
   upsertExpense: (expense: Omit<Expense, "id" | "created_at" | "updated_at"> & { id?: string }) => Expense;
-  upsertClient: (client: Omit<Client, "id" | "created_at" | "updated_at"> & { id?: string }) => Client;
+  upsertClient: (client: Omit<Client, "id" | "created_at" | "updated_at"> & { id?: string }) => Promise<Client | null>;
+  claimUnassignedClient: (clientId: string) => Promise<boolean>;
   removeClient: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   saveClientRegistration: (input: {
     full_name: string;
@@ -383,6 +387,165 @@ function toAppState(data: SharedData, currentUserId: string | null): AppState {
   return { ...data, currentUserId };
 }
 
+function scopePrivateState(state: AppState, user: Profile | null): AppState {
+  const clientIds = new Set(
+    user?.role === "pai_de_santo"
+      ? state.clients
+          .filter((client) => client.responsible_profile_id === user.id)
+          .map((client) => client.id)
+      : user?.role === "cliente" && user.client_id
+        ? [user.client_id]
+        : [],
+  );
+  const appointments = state.appointments.filter((item) => clientIds.has(item.client_id));
+  const appointmentIds = new Set(appointments.map((item) => item.id));
+
+  return {
+    ...state,
+    profiles: state.profiles.filter(
+      (profile) => profile.role !== "cliente" || profile.id === user?.id ||
+        (profile.client_id ? clientIds.has(profile.client_id) : false),
+    ),
+    clients: state.clients.filter(
+      (client) =>
+        clientIds.has(client.id) ||
+        (user?.role === "pai_de_santo" && !client.responsible_profile_id),
+    ),
+    appointments,
+    messages: state.messages.filter((message) => clientIds.has(message.client_id)),
+    internalNotes: user?.role === "pai_de_santo"
+      ? state.internalNotes.filter((note) => clientIds.has(note.client_id))
+      : [],
+    notifications: state.notifications.filter((notification) => {
+        const privateType = ["chat", "agenda", "atendimento"].includes(notification.type);
+      if (user?.role === "pai_de_santo") {
+        return !privateType || Boolean(
+          notification.related_id &&
+            (clientIds.has(notification.related_id) || appointmentIds.has(notification.related_id)),
+        );
+      }
+      if (user?.role === "cliente") {
+        return notification.user_id === user.id ||
+          notification.related_id === user.client_id;
+      }
+        if (user?.role === "tesouraria") {
+          return !privateType && Boolean(notification.audience?.includes("tesouraria"));
+        }
+        return !privateType && notification.type !== "financeiro";
+    }),
+    shopPurchases: user?.role === "pai_de_santo" || user?.role === "tesouraria"
+      ? state.shopPurchases.filter((purchase) => !purchase.client_id || clientIds.has(purchase.client_id) || user.role === "tesouraria")
+      : user?.role === "cliente"
+        ? state.shopPurchases.filter((purchase) => purchase.client_id === user.client_id)
+        : [],
+    staffHiddenClientIds: user?.role === "pai_de_santo"
+      ? state.staffHiddenClientIds.filter((id) => clientIds.has(id))
+      : [],
+    staffHiddenAt: user?.role === "pai_de_santo"
+      ? Object.fromEntries(
+          Object.entries(state.staffHiddenAt).filter(([id]) => clientIds.has(id)),
+        )
+      : {},
+  };
+}
+
+function persistAppState(
+  state: AppState,
+  user: Profile | null,
+  cacheUser: Profile | null = user,
+) {
+  const scoped = scopePrivateState(state, user);
+  const cachedPrivate = scopePrivateState(state, cacheUser);
+  const persisted = {
+    ...scoped,
+    clients: [],
+    appointments: [],
+    messages: [],
+    internalNotes: [],
+    shopPurchases: [],
+    notifications: scoped.notifications.filter(
+      (notification) => !["chat", "agenda", "atendimento", "financeiro"].includes(notification.type),
+    ),
+    profiles: scoped.profiles.filter((profile) => profile.role !== "cliente"),
+    staffHiddenClientIds: [],
+    staffHiddenAt: {},
+  };
+  persistSharedData(stripSession(persisted));
+  persistPrivateData(
+    !isSupabaseConfigured() && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
+      ? cacheUser.id
+      : null,
+    !isSupabaseConfigured() && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
+      ? {
+          clients: cachedPrivate.clients,
+          appointments: cachedPrivate.appointments,
+          messages: cachedPrivate.messages,
+          internalNotes: cachedPrivate.internalNotes,
+          shopPurchases: cachedPrivate.shopPurchases,
+          notifications: cachedPrivate.notifications,
+          profiles: cachedPrivate.profiles.filter((profile) => profile.role === "cliente"),
+        }
+      : undefined,
+  );
+  persistSessionUserId(scoped.currentUserId);
+  return scoped;
+}
+
+function initialAppState(initialUserId: string | null, authMode: boolean): AppState {
+  const userId = loadSessionUserId() ?? initialUserId;
+  const shared = loadSharedData();
+  if (authMode) return scopePrivateState(toAppState(shared, userId), null);
+
+  const seed = createSeedState();
+  const user = [...shared.profiles, ...seed.profiles].find((profile) => profile.id === userId) ?? null;
+  const seedProfile = seed.profiles.find((profile) => profile.id === userId);
+  const saved = loadPrivateData(userId);
+  const privateData = saved.clients
+    ? saved
+    : user?.role === "pai_de_santo"
+      ? {
+          clients: seed.clients,
+          appointments: seed.appointments,
+          messages: seed.messages,
+          internalNotes: seed.internalNotes,
+          shopPurchases: seed.shopPurchases,
+          notifications: seed.notifications,
+          profiles: seed.profiles.filter((profile) => profile.role === "cliente"),
+        }
+      : user?.role === "cliente" && user.client_id
+        ? {
+            clients: seed.clients.filter((client) => client.id === user.client_id),
+            appointments: seed.appointments.filter((item) => item.client_id === user.client_id),
+            messages: seed.messages.filter((item) => item.client_id === user.client_id),
+            internalNotes: [],
+            shopPurchases: seed.shopPurchases.filter((purchase) => purchase.client_id === user.client_id),
+            notifications: seed.notifications.filter(
+              (item) => item.related_id === user.client_id || item.user_id === user.id,
+            ),
+            profiles: seed.profiles.filter((profile) => profile.id === user.id),
+          }
+        : user?.role === "tesouraria"
+          ? {
+              shopPurchases: seed.shopPurchases,
+              notifications: seed.notifications.filter((item) => item.audience?.includes("tesouraria")),
+              profiles: seed.profiles.filter((profile) => profile.role === "tesouraria"),
+            }
+          : {};
+  const profiles = Array.from(
+    new Map(
+      [
+        ...shared.profiles,
+        ...(privateData.profiles ?? []),
+        ...(seedProfile ? [seedProfile] : []),
+      ].map((profile) => [profile.id, profile]),
+    ).values(),
+  );
+  return scopePrivateState(
+    toAppState({ ...shared, ...privateData, profiles }, userId),
+    user,
+  );
+}
+
 export function AppStoreProvider({
   children,
   initialUserId = null,
@@ -392,9 +555,7 @@ export function AppStoreProvider({
 }) {
   const authMode = isSupabaseConfigured();
   // Providers só monta no cliente → podemos ler storage já no 1º render
-  const [state, setState] = useState<AppState>(() =>
-    toAppState(loadSharedData(), loadSessionUserId() ?? initialUserId),
-  );
+  const [state, setState] = useState<AppState>(() => initialAppState(initialUserId, authMode));
   // Com Supabase: não liberar o shell até a 1ª leitura da sessão
   // (senão o AppShell manda pra / porque o perfil Auth ainda não chegou).
   const [ready, setReady] = useState(!authMode);
@@ -404,12 +565,18 @@ export function AppStoreProvider({
     try {
       const data = loadSharedData();
       const userId = loadSessionUserId();
-      setState(toAppState(data, userId));
+      setState((prev) => {
+        const resolvedUserId = userId ?? initialUserId;
+        const privateData = authMode ? {} : loadPrivateData(resolvedUserId);
+        const next = toAppState({ ...data, ...privateData }, resolvedUserId);
+        const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
+        return persistAppState(next, user);
+      });
     } catch {
       // ignore
     }
     if (!isSupabaseConfigured()) setReady(true);
-  }, []);
+  }, [authMode, initialUserId]);
 
   // Sessão Auth Supabase → injeta perfil real e currentUserId
   useEffect(() => {
@@ -443,8 +610,7 @@ export function AppStoreProvider({
         }
         setState((prev) => {
           const next = { ...prev, currentUserId: null };
-          persistSessionUserId(null);
-          return next;
+          return persistAppState(next, null);
         });
         markReady();
         return;
@@ -452,14 +618,9 @@ export function AppStoreProvider({
       let row = await fetchProfileRow(supabase!, userId);
       if (cancelled) return;
       if (!row) {
-        if (!opts.allowClear) {
-          markReady();
-          return;
-        }
         setState((prev) => {
           const next = { ...prev, currentUserId: null };
-          persistSessionUserId(null);
-          return next;
+          return persistAppState(next, null);
         });
         markReady();
         return;
@@ -514,15 +675,13 @@ export function AppStoreProvider({
             ];
           }
         }
-        const next = {
+        const next = persistAppState({
           ...prev,
           profiles,
           clients,
           messages,
           currentUserId: authProfile.id,
-        };
-        persistSharedData(stripSession(next));
-        persistSessionUserId(authProfile.id);
+        }, authProfile);
         return next;
       });
       markReady();
@@ -531,7 +690,7 @@ export function AppStoreProvider({
     // getSession é mais estável no celular que getUser no 1º paint
     supabase.auth.getSession().then(({ data }) => {
       if (data.session?.user?.id) void applyUser(data.session.user.id);
-      else markReady();
+      else void applyUser(null, { allowClear: true });
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -562,7 +721,11 @@ export function AppStoreProvider({
       if (e.key !== DATA_KEY || !e.newValue) return;
       try {
         const shared = JSON.parse(e.newValue) as SharedData;
-        setState((prev) => toAppState(shared, prev.currentUserId));
+        setState((prev) => {
+          const next = toAppState(shared, prev.currentUserId);
+          const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
+          return scopePrivateState(next, user);
+        });
       } catch {
         // ignore
       }
@@ -582,10 +745,12 @@ export function AppStoreProvider({
       return;
     }
 
-    const [libRes, msgRes, clientsRes, blogRes, eduRes, shopRes] = await Promise.all([
+      const activeProfile = state.profiles.find((profile) => profile.id === state.currentUserId);
+      const canReadPrivate = activeProfile?.role === "pai_de_santo" || activeProfile?.role === "cliente";
+      const [libRes, msgRes, clientsRes, blogRes, eduRes, shopRes] = await Promise.all([
       fetchLibraryItems(supabase),
-      fetchChatMessages(supabase),
-      fetchClientsRemote(supabase),
+        canReadPrivate ? fetchChatMessages(supabase) : Promise.resolve({ ok: true as const, items: [] }),
+        canReadPrivate ? fetchClientsRemote(supabase) : Promise.resolve({ ok: true as const, items: [] }),
       fetchBlogPostsRemote(supabase),
       fetchEducationRemote(supabase),
       fetchShopRemote(supabase),
@@ -625,7 +790,7 @@ export function AppStoreProvider({
       } else {
         console.warn("[loja] sync:", shopRes.error);
       }
-      if (msgRes.ok) {
+      if (canReadPrivate && msgRes.ok) {
         const byId = new Map<string, Message>();
         for (const m of msgRes.items) byId.set(m.id, m);
         // Mantém mensagens locais ainda não refletidas na nuvem (UUID otimista
@@ -650,7 +815,7 @@ export function AppStoreProvider({
       } else {
         console.warn("[chat] sync:", msgRes.error);
       }
-      if (clientsRes.ok) {
+      if (canReadPrivate && clientsRes.ok) {
         const remoteIds = new Set(clientsRes.items.map((c) => c.id));
         const localOnly = (prev.clients ?? []).filter((c) => !isUuid(c.id));
         const merged = [
@@ -667,14 +832,15 @@ export function AppStoreProvider({
         ...next,
         clients: ensureClientsFromMessages(next.clients ?? [], next.messages ?? []),
       };
-      persistSharedData(stripSession(next));
-      return next;
+      return persistAppState(next, activeProfile ?? null);
     });
-  }, [authMode]);
+  }, [authMode, state.currentUserId, state.profiles]);
 
   // Biblioteca + chat + clientes na nuvem (Supabase)
   useEffect(() => {
     if (!ready || !authMode || !state.currentUserId) return;
+    const activeProfile = state.profiles.find((profile) => profile.id === state.currentUserId);
+    if (activeProfile?.role !== "pai_de_santo" && activeProfile?.role !== "cliente") return;
     const supabase = createBrowserClient();
     if (!supabase) return;
 
@@ -745,20 +911,24 @@ export function AppStoreProvider({
       window.removeEventListener("focus", onVisible);
       void supabase.removeChannel(channel);
     };
-  }, [ready, authMode, state.currentUserId, refreshCloudChat]);
+  }, [ready, authMode, state.currentUserId, state.profiles, refreshCloudChat]);
 
   /**
    * Persistência síncrona — funções que devolvem { ok, error } leem o
    * resultado do updater. No React 19 o setState pode adiar o updater;
    * sem flushSync o retorno fica preso em "Falha.".
    */
-  const commit = useCallback((updater: (prev: AppState) => AppState) => {
+  const commit = useCallback((updater: (prev: AppState) => AppState, cacheUser?: Profile) => {
     flushSync(() => {
       setState((prev) => {
         const next = updater(prev);
-        persistSharedData(stripSession(next));
-        persistSessionUserId(next.currentUserId);
-        return next;
+        const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
+        const privateCacheUser = user
+          ? user.role === "pai_de_santo"
+            ? user
+            : null
+          : cacheUser ?? null;
+        return persistAppState(next, user, privateCacheUser);
       });
     });
   }, []);
@@ -771,6 +941,10 @@ export function AppStoreProvider({
     if (paiCanOpenArea(base.role)) return actingProfileForArea(base, viewAs);
     return base;
   }, [state.profiles, state.currentUserId]);
+
+  useEffect(() => {
+    if (currentUser) clearGuestChatSession();
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!ready || !currentUser || currentUser.person_kind !== "filho_de_santo") return;
@@ -836,9 +1010,7 @@ export function AppStoreProvider({
         currentUserId: profile.id,
       };
       next = ensureFilhoMemberState(next, profile);
-      persistSharedData(stripSession(next));
-      persistSessionUserId(profile.id);
-      return next;
+      return persistAppState(next, profile);
     });
     setReady(true);
   }, []);
@@ -866,6 +1038,7 @@ export function AppStoreProvider({
 
   const logout = useCallback(() => {
     writeViewAsArea(null);
+    clearGuestChatSession();
     if (isSupabaseConfigured()) {
       const supabase = createBrowserClient();
       void supabase?.auth.signOut();
@@ -875,8 +1048,11 @@ export function AppStoreProvider({
 
   const resetDemo = useCallback(() => {
     const seed = createSeedState();
-    persistSharedData(stripSession(seed));
-    setState((prev) => toAppState(stripSession(seed), prev.currentUserId));
+    setState((prev) => {
+      const next = toAppState(stripSession(seed), prev.currentUserId);
+      const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
+      return persistAppState(next, user);
+    });
   }, []);
 
   const updateProfile: AppStore["updateProfile"] = useCallback(
@@ -1021,7 +1197,7 @@ export function AppStoreProvider({
         title: "Nova compra na loja",
         body: `${currentUser.full_name} pediu: ${product.name} (R$ ${product.price.toFixed(2)}) — liberar na conta.`,
         type: "financeiro" as const,
-        audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+        audience: ["tesouraria", "pai_de_santo"] as UserRole[],
         related_id: purchase.id,
         read: false,
         href: "/loja/liberacoes",
@@ -1100,7 +1276,7 @@ export function AppStoreProvider({
         title: "Compra sem conta (e-mail + NF)",
         body: `${full_name} (${email}) pediu ${product.name} — enviar por e-mail após Pix/NF.`,
         type: "financeiro" as const,
-        audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+        audience: ["tesouraria", "pai_de_santo"] as UserRole[],
         related_id: purchase.id,
         read: false,
         href: "/loja/liberacoes",
@@ -1135,7 +1311,6 @@ export function AppStoreProvider({
       if (
         !currentUser ||
         (currentUser.role !== "tesouraria" &&
-          currentUser.role !== "administrador" &&
           currentUser.role !== "pai_de_santo")
       ) {
         return { ok: false, error: "Só Pai, Financeiro ou Admin libera compras." };
@@ -1155,7 +1330,7 @@ export function AppStoreProvider({
             title: "Enviar conteúdo por e-mail",
             body: `${product?.name ?? "Produto"} → ${purchase.guest_email ?? purchase.invoice?.email ?? "e-mail"}. Use a ficha NF do pedido.`,
             type: "financeiro" as const,
-            audience: ["tesouraria", "pai_de_santo", "administrador"] as UserRole[],
+            audience: ["tesouraria", "pai_de_santo"] as UserRole[],
             related_id: purchase.id,
             read: false,
             href: "/loja/liberacoes",
@@ -1478,37 +1653,114 @@ export function AppStoreProvider({
   );
 
   const upsertClient: AppStore["upsertClient"] = useCallback(
-    (input) => {
+    async (input) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       const stamp = nowIso();
-      let saved!: Client;
-      commit((prev) => {
-        if (input.id) {
-          saved = {
-            ...(prev.clients.find((c) => c.id === input.id) as Client),
-            ...input,
-            id: input.id,
-            updated_at: stamp,
-          };
-          return {
-            ...prev,
-            clients: prev.clients.map((c) => (c.id === input.id ? saved : c)),
-          };
-        }
-        saved = { ...input, id: uid("cli"), created_at: stamp, updated_at: stamp };
-        return { ...prev, clients: [saved, ...prev.clients] };
-      });
+      let saved: Client | null = null;
+      const existing = input.id
+        ? state.clients.find((client) => client.id === input.id)
+        : undefined;
+      if (input.id && (!existing || existing.responsible_profile_id !== currentUser.id)) {
+        return null;
+      }
+      const clientId = existing?.id ?? (isSupabaseConfigured() ? crypto.randomUUID() : uid("cli"));
+      const row = {
+        ...existing,
+        ...input,
+        id: clientId,
+        responsible_profile_id: currentUser.id,
+        created_at: existing?.created_at ?? stamp,
+        updated_at: stamp,
+      } as Client;
+
+      if (isSupabaseConfigured()) {
+        const supabase = createBrowserClient();
+        if (!supabase) return null;
+        const { data, error } = existing
+          ? await supabase.rpc("update_owned_client", {
+              p_client_id: clientId,
+              p_full_name: row.full_name,
+              p_phone: row.phone,
+              p_email: row.email ?? null,
+              p_notes: row.notes ?? null,
+            })
+          : await supabase
+              .from("clients")
+              .insert({
+                id: clientId,
+                responsible_profile_id: currentUser.id,
+                full_name: row.full_name,
+                phone: row.phone,
+                email: row.email ?? null,
+                notes: row.notes ?? null,
+                registration_complete: false,
+                created_at: stamp,
+                updated_at: stamp,
+              })
+              .select("*")
+              .single();
+        if (error || !data) return null;
+        saved = {
+          ...row,
+          ...data,
+          responsible_profile_id: currentUser.id,
+        } as Client;
+      } else {
+        saved = row;
+      }
+
+      commit((prev) => ({
+        ...prev,
+        clients: existing
+          ? prev.clients.map((client) => (client.id === clientId ? saved! : client))
+          : [saved!, ...prev.clients],
+      }));
       return saved;
     },
-    [commit],
+    [commit, currentUser, state.clients],
+  );
+
+  const claimUnassignedClient: AppStore["claimUnassignedClient"] = useCallback(
+    async (clientId) => {
+      if (currentUser?.role !== "pai_de_santo") return false;
+      if (isSupabaseConfigured()) {
+        const supabase = createBrowserClient();
+        if (!supabase) return false;
+        const { error } = await supabase.rpc("claim_unassigned_client", {
+          p_client_id: clientId,
+        });
+        return !error;
+      }
+      let claimed = false;
+      commit((prev) => {
+        const client = prev.clients.find((item) => item.id === clientId);
+        if (!client || client.responsible_profile_id) return prev;
+        claimed = true;
+        return {
+          ...prev,
+          clients: prev.clients.map((item) =>
+            item.id === clientId
+              ? { ...item, responsible_profile_id: currentUser.id, updated_at: nowIso() }
+              : item,
+          ),
+        };
+      });
+      return claimed;
+    },
+    [commit, currentUser],
   );
 
   const removeClient: AppStore["removeClient"] = useCallback(
     async (id) => {
       if (
         !currentUser ||
-        (currentUser.role !== "pai_de_santo" && currentUser.role !== "administrador")
+        currentUser.role !== "pai_de_santo"
       ) {
         return { ok: false, error: "Sem permissão para excluir cliente." };
+      }
+      const target = state.clients.find((client) => client.id === id);
+      if (!target || target.responsible_profile_id !== currentUser.id) {
+        return { ok: false, error: "Acesso não autorizado." };
       }
 
       if (isSupabaseConfigured() && isUuid(id)) {
@@ -1546,7 +1798,7 @@ export function AppStoreProvider({
       }));
       return { ok: true };
     },
-    [commit, currentUser],
+    [commit, currentUser, state.clients],
   );
 
   const saveClientRegistration: AppStore["saveClientRegistration"] = useCallback(
@@ -1625,11 +1877,25 @@ export function AppStoreProvider({
 
   const createAppointment: AppStore["createAppointment"] = useCallback(
     (input) => {
+      if (
+        currentUser?.role !== "pai_de_santo" &&
+        !(currentUser?.role === "cliente" && currentUser.client_id === input.client_id)
+      ) {
+        return { ok: false, error: "Acesso não autorizado." };
+      }
       let result: ReturnType<AppStore["createAppointment"]> = {
         ok: false,
         error: "Falha ao criar.",
       };
       commit((prev) => {
+        const client = prev.clients.find((item) => item.id === input.client_id);
+        const isAllowed = currentUser?.role === "pai_de_santo"
+          ? client?.responsible_profile_id === currentUser.id
+          : currentUser?.role === "cliente" && currentUser.client_id === input.client_id;
+        if (!isAllowed) {
+          result = { ok: false, error: "Acesso não autorizado." };
+          return prev;
+        }
         const published = (prev.publishedSlots ?? []).some(
           (s) => s.scheduled_at === input.scheduled_at,
         );
@@ -1659,7 +1925,7 @@ export function AppStoreProvider({
           title: "Novo jogo na agenda",
           body: `${client?.full_name ?? "Cliente"} solicitou atendimento em ${new Date(input.scheduled_at).toLocaleString("pt-BR")}.`,
           type: "agenda",
-          audience: ["pai_de_santo", "administrador"],
+          audience: ["pai_de_santo"],
           related_id: input.client_id,
           read: false,
           href: "/agenda",
@@ -1674,7 +1940,7 @@ export function AppStoreProvider({
       });
       return result;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const bookGuestAppointment: AppStore["bookGuestAppointment"] = useCallback(
@@ -1716,6 +1982,8 @@ export function AppStoreProvider({
         const fichaCode = `FC-${aptId.slice(-8).toUpperCase()}`;
         const guestClient: Client = {
           id: clientId,
+          responsible_profile_id:
+            prev.profiles.find((profile) => profile.role === "pai_de_santo")?.id,
           full_name: name,
           phone,
           email: input.ficha.email?.trim() || undefined,
@@ -1768,7 +2036,7 @@ export function AppStoreProvider({
           appointments: [appointment, ...prev.appointments],
           notifications: [notification, ...prev.notifications],
         };
-      });
+      }, createSeedState().profiles.find((profile) => profile.role === "pai_de_santo"));
 
       return result;
     },
@@ -1798,6 +2066,8 @@ export function AppStoreProvider({
         clientId = uid("cli");
         const guest: Client = {
           id: clientId,
+          responsible_profile_id:
+            prev.profiles.find((profile) => profile.role === "pai_de_santo")?.id,
           full_name: name,
           phone,
           registration_complete: true,
@@ -1807,7 +2077,7 @@ export function AppStoreProvider({
           updated_at: stamp,
         };
         return { ...prev, clients: [guest, ...prev.clients] };
-      });
+      }, createSeedState().profiles.find((profile) => profile.role === "pai_de_santo"));
       return { ok: true, client_id: clientId };
     },
     [commit],
@@ -1872,7 +2142,7 @@ export function AppStoreProvider({
           title: "Mensagem na marcação",
           body: `${message.sender_name}: ${preview}`,
           type: "chat",
-          audience: ["pai_de_santo", "administrador"],
+          audience: ["pai_de_santo"],
           related_id: input.client_id,
           read: false,
           href: `/conversas/${input.client_id}`,
@@ -1890,7 +2160,7 @@ export function AppStoreProvider({
           staffHiddenAt: nextHidden,
           staffHiddenClientIds: Object.keys(nextHidden),
         };
-      });
+      }, createSeedState().profiles.find((profile) => profile.role === "pai_de_santo"));
       return message;
     },
     [commit],
@@ -1898,6 +2168,7 @@ export function AppStoreProvider({
 
   const updateAppointmentStatus: AppStore["updateAppointmentStatus"] = useCallback(
     (id, status) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       let updated: Appointment | null = null;
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
@@ -1932,7 +2203,7 @@ export function AppStoreProvider({
                 title: "Jogo confirmado",
                 body: `${client?.full_name ?? "Cliente"} — ${new Date(current.scheduled_at).toLocaleString("pt-BR")}`,
                 type: "agenda",
-                audience: ["pai_de_santo", "administrador"],
+                audience: ["pai_de_santo"],
                 related_id: current.client_id,
                 read: false,
                 href: "/agenda",
@@ -1951,11 +2222,12 @@ export function AppStoreProvider({
       });
       return updated;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const cancelAppointment: AppStore["cancelAppointment"] = useCallback(
     (id) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       let updated: Appointment | null = null;
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
@@ -1994,7 +2266,7 @@ export function AppStoreProvider({
           title: "Consulta cancelada",
           body: `${client?.full_name ?? "Cliente"} cancelou ${freedSlotMessage(current.scheduled_at).replace("Horário liberado: ", "")}`,
           type: "agenda",
-          audience: ["pai_de_santo", "administrador"],
+          audience: ["pai_de_santo"],
           read: false,
           href: "/agenda",
           created_at: stamp,
@@ -2007,11 +2279,12 @@ export function AppStoreProvider({
       });
       return updated;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const patchAppointment: AppStore["patchAppointment"] = useCallback(
     (id, patch) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       let updated: Appointment | null = null;
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
@@ -2024,7 +2297,7 @@ export function AppStoreProvider({
       });
       return updated;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const addPublishedSlot: AppStore["addPublishedSlot"] = useCallback(
@@ -2090,6 +2363,7 @@ export function AppStoreProvider({
 
   const startAppointment: AppStore["startAppointment"] = useCallback(
     (id) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       let updated: Appointment | null = null;
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
@@ -2108,11 +2382,12 @@ export function AppStoreProvider({
       });
       return updated;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const finishAppointment: AppStore["finishAppointment"] = useCallback(
     (id) => {
+      if (currentUser?.role !== "pai_de_santo") return null;
       let updated: Appointment | null = null;
       commit((prev) => {
         const current = prev.appointments.find((a) => a.id === id);
@@ -2132,12 +2407,22 @@ export function AppStoreProvider({
       });
       return updated;
     },
-    [commit],
+    [commit, currentUser],
   );
 
   const sendMessage: AppStore["sendMessage"] = useCallback(
     (input) => {
-      if (!currentUser) return null;
+      if (
+        !currentUser ||
+        input.channel === "financeiro" ||
+        (currentUser.role !== "pai_de_santo" && currentUser.role !== "cliente")
+      ) return null;
+      const targetClient = state.clients.find((client) => client.id === input.client_id);
+      if (
+        !targetClient ||
+        (currentUser.role === "pai_de_santo" && targetClient.responsible_profile_id !== currentUser.id) ||
+        (currentUser.role === "cliente" && currentUser.client_id !== input.client_id)
+      ) return null;
       const kind =
         input.kind ??
         (input.video_data_url
@@ -2224,7 +2509,7 @@ export function AppStoreProvider({
               ? ["tesouraria", "administrador"]
               : ["cliente"]
             : fromClient
-              ? ["pai_de_santo", "administrador"]
+              ? ["pai_de_santo"]
               : ["cliente"],
           related_id: input.client_id,
           read: false,
@@ -2258,8 +2543,8 @@ export function AppStoreProvider({
         const supabase = createBrowserClient();
         if (supabase) {
           void (async () => {
-            let audio_url = message.audio_url;
-            let video_url = message.video_url;
+            let audio_path = message.audio_path;
+            let video_path = message.video_path;
             let audio_data_url = message.audio_data_url;
             let video_data_url = message.video_data_url;
 
@@ -2274,7 +2559,7 @@ export function AppStoreProvider({
                 console.warn("[chat] upload áudio:", up.error);
                 return;
               }
-              audio_url = up.url;
+              audio_path = up.path;
               audio_data_url = undefined;
             }
             if (kind === "video" && input.video_data_url) {
@@ -2288,14 +2573,14 @@ export function AppStoreProvider({
                 console.warn("[chat] upload vídeo:", up.error);
                 return;
               }
-              video_url = up.url;
+              video_path = up.path;
               video_data_url = undefined;
             }
 
             const remote = await insertMessageRemote(supabase, {
               ...message,
-              audio_url,
-              video_url,
+              audio_path,
+              video_path,
               audio_data_url: undefined,
               video_data_url: undefined,
             });
@@ -2356,7 +2641,7 @@ export function AppStoreProvider({
 
       return message;
     },
-    [commit, currentUser],
+    [commit, currentUser, state.clients],
   );
 
   const hideStaffChat: AppStore["hideStaffChat"] = useCallback(
@@ -2404,7 +2689,11 @@ export function AppStoreProvider({
 
   const addInternalNote: AppStore["addInternalNote"] = useCallback(
     (client_id, body) => {
-      if (!currentUser || currentUser.role === "cliente") return null;
+      const client = state.clients.find((item) => item.id === client_id);
+      if (
+        currentUser?.role !== "pai_de_santo" ||
+        client?.responsible_profile_id !== currentUser.id
+      ) return null;
       const note: InternalNote = {
         id: uid("note"),
         client_id,
@@ -2415,7 +2704,7 @@ export function AppStoreProvider({
       commit((prev) => ({ ...prev, internalNotes: [note, ...prev.internalNotes] }));
       return note;
     },
-    [commit, currentUser],
+    [commit, currentUser, state.clients],
   );
 
   const markNotificationRead = useCallback(
@@ -3961,6 +4250,7 @@ export function AppStoreProvider({
     confirmFeePayment,
     upsertExpense,
     upsertClient,
+    claimUnassignedClient,
     removeClient,
     saveClientRegistration,
     createAppointment,

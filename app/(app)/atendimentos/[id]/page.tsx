@@ -27,10 +27,13 @@ export default function AppointmentDetailPage() {
   const apt = state.appointments.find((a) => a.id === params.id);
   const client = state.clients.find((c) => c.id === apt?.client_id);
 
-  if (!apt) return <EmptyState title="Atendimento não encontrado" />;
-
-  if (currentUser?.role === "cliente") {
-    return <EmptyState title="Acesso negado" />;
+  if (
+    currentUser?.role !== "pai_de_santo" ||
+    !apt ||
+    !client ||
+    client.responsible_profile_id !== currentUser.id
+  ) {
+    return <EmptyState title="Acesso não autorizado" />;
   }
 
   const canSeeFicha = canSeeAppointmentFicha(currentUser?.role, apt);

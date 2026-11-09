@@ -104,7 +104,7 @@ function AgendaPageInner() {
         </Link>
       </div>
 
-      {currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador" ? (
+      {currentUser?.role === "pai_de_santo" ? (
         <GoogleCalendarCard />
       ) : null}
 

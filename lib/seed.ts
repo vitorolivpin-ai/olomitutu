@@ -265,6 +265,7 @@ export function createSeedState(): AppState {
     clients: [
       {
         id: "cli_juliana",
+        responsible_profile_id: "usr_pai",
         full_name: "Juliana Ferreira",
         phone: "(11) 95555-4004",
         email: "cliente@ileoloroke.demo",
@@ -276,6 +277,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_ana",
+        responsible_profile_id: "usr_pai",
         full_name: "Ana Souza",
         phone: "(11) 98888-1001",
         email: "filho@ileoloroke.demo",
@@ -287,6 +289,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_roberto",
+        responsible_profile_id: "usr_pai",
         full_name: "Roberto Alves",
         phone: "(11) 94444-5005",
         email: "roberto@email.com",
@@ -298,6 +301,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_patricia",
+        responsible_profile_id: "usr_pai",
         full_name: "Patrícia Mendes",
         phone: "(11) 93333-6006",
         birth_date: "1995-07-22",
