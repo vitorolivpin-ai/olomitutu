@@ -17,8 +17,7 @@ export type AppModule =
   | "library"
   | "house_content"
   | "shop"
-  | "workshops"
-  | "certificates";
+  | "oficinas";
 
 /** Acesso completo — só Pai de Santo. */
 export const HOUSE_FULL_MODULES: AppModule[] = [
@@ -38,8 +37,7 @@ export const HOUSE_FULL_MODULES: AppModule[] = [
   "library",
   "house_content",
   "shop",
-  "workshops",
-  "certificates",
+  "oficinas",
 ];
 
 /** Papéis da casa (não Cliente / Filho). */
@@ -69,6 +67,7 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "notifications",
     "house_content",
     "shop",
+    "oficinas",
     "chat",
     "internal_notes",
     "workshops",
@@ -108,6 +107,11 @@ export function canManageHouseContent(role: UserRole | null | undefined) {
     role === "administrador" ||
     role === "biblioteca"
   );
+}
+
+/** Quem gerencia Oficinas (criar, editar, inscritos) */
+export function canManageOficinas(role: UserRole | null | undefined) {
+  return role === "pai_de_santo" || role === "administrador";
 }
 
 export function canAccess(role: UserRole | null | undefined, module: AppModule) {

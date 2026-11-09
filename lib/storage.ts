@@ -58,6 +58,15 @@ export function loadSharedData(): SharedData {
         ...p,
         delivery: p.delivery ?? (p.client_id ? "conta" : "email"),
       })),
+      oficinas: (() => {
+        const local = parsed.oficinas ?? [];
+        const byId = new Map(local.map((o) => [o.id, o]));
+        for (const s of seed.oficinas ?? []) {
+          if (!byId.has(s.id)) byId.set(s.id, s);
+        }
+        return [...byId.values()];
+      })(),
+      inscricoesOficina: parsed.inscricoesOficina ?? seed.inscricoesOficina ?? [],
       houseSettings: {
         ...(seed.houseSettings ?? {}),
         ...(parsed.houseSettings ?? {}),

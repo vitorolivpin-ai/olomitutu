@@ -430,6 +430,68 @@ export interface PhotoAlbum {
   updated_at: string;
 }
 
+export type OficinaModalidade = "Presencial" | "Online";
+
+export type OficinaStatus =
+  | "Rascunho"
+  | "Publicada"
+  | "Em breve"
+  | "Encerrada"
+  | "Cancelada";
+
+export type InscricaoOficinaStatus =
+  | "Confirmada"
+  | "Lista de espera"
+  | "Cancelada"
+  | "Presente";
+
+export type FilhoDaCasaResposta = "Sim" | "Não" | "Frequentador";
+
+export interface Oficina {
+  id: string;
+  titulo: string;
+  descricao_curta: string;
+  sobre: string;
+  conteudo: string[];
+  imagem?: string;
+  modalidade: OficinaModalidade;
+  status: OficinaStatus;
+  /** YYYY-MM-DD; vazio quando "Em breve" / a definir */
+  data?: string;
+  hora_inicio?: string;
+  hora_fim?: string;
+  local?: string;
+  link?: string;
+  /** 0 = sem limite */
+  total_vagas: number;
+  permitir_lista_espera: boolean;
+  data_limite_inscricao?: string;
+  /** 0 / undefined = gratuita */
+  valor?: number;
+  criado_por: string;
+  atualizado_por?: string;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface InscricaoOficina {
+  id: string;
+  oficina_id: string;
+  usuario_id?: string;
+  nome_completo: string;
+  telefone: string;
+  email: string;
+  data_nascimento?: string;
+  e_filho_da_casa: FilhoDaCasaResposta;
+  ja_participou_antes: boolean;
+  necessidade_especial_ou_acessibilidade?: string;
+  observacoes?: string;
+  aceite_termos: boolean;
+  status: InscricaoOficinaStatus;
+  criado_em: string;
+  atualizado_em?: string;
+}
+
 export interface AppState {
   profiles: Profile[];
   currentUserId: string | null;
@@ -459,6 +521,8 @@ export interface AppState {
   photoAlbums: PhotoAlbum[];
   shopProducts: ShopProduct[];
   shopPurchases: ShopPurchase[];
+  oficinas: Oficina[];
+  inscricoesOficina: InscricaoOficina[];
   houseSettings: HouseSettings;
   /**
    * @deprecated Preferir staffHiddenAt — mantido para migração local.

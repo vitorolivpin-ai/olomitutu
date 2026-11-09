@@ -48,13 +48,19 @@ import type {
   ChecklistItem,
   EducationItem,
   FeeReceipt,
+  FilhoDaCasaResposta,
   HierarchyPerson,
+  InscricaoOficina,
+  InscricaoOficinaStatus,
   InternalNote,
   LibraryItem,
   LibraryKind,
   Member,
   Message,
   MonthlyFee,
+  Oficina,
+  OficinaModalidade,
+  OficinaStatus,
   Payment,
   PaymentMethod,
   PhotoAlbum,
@@ -69,7 +75,21 @@ import type {
 } from "@/types";
 import { ensureFilhoMemberState } from "@/lib/ensure-filho-member";
 import { formatCompetence } from "@/lib/format";
-import { canAccess, canManageHouseContent, canManageLibrary } from "@/lib/permissions";
+import {
+  canDeleteOficina,
+  countOccupied,
+  findActiveInscricao,
+  isValidEmail,
+  isValidPhone,
+  tomorrowIsoDate,
+  vagasRestantes,
+} from "@/lib/oficinas";
+import {
+  canAccess,
+  canManageHouseContent,
+  canManageLibrary,
+  canManageOficinas as roleCanManageOficinas,
+} from "@/lib/permissions";
 import { formatAudioDuration } from "@/lib/chat";
 import {
   deleteLibraryItemRemote,
@@ -300,6 +320,61 @@ type AppStore = {
     input: Omit<ShopProduct, "id" | "created_at" | "updated_at"> & { id?: string },
   ) => Promise<{ ok: true; item: ShopProduct } | { ok: false; error: string }>;
   removeShopProduct: (id: string) => Promise<void>;
+  upsertOficina: (input: {
+    id?: string;
+    titulo: string;
+    descricao_curta: string;
+    sobre: string;
+    conteudo: string[];
+    imagem?: string | null;
+    modalidade: OficinaModalidade;
+    status: OficinaStatus;
+    data?: string | null;
+    hora_inicio?: string | null;
+    hora_fim?: string | null;
+    local?: string | null;
+    link?: string | null;
+    total_vagas: number;
+    permitir_lista_espera: boolean;
+    data_limite_inscricao?: string | null;
+    valor?: number | null;
+  }) => { ok: true; item: Oficina } | { ok: false; error: string };
+  duplicateOficina: (id: string) =>
+    | { ok: true; item: Oficina }
+    | { ok: false; error: string };
+  encerrarOficina: (id: string) => { ok: true } | { ok: false; error: string };
+  removeOficina: (id: string) => { ok: true } | { ok: false; error: string };
+  inscreverOficina: (input: {
+    oficina_id: string;
+    nome_completo: string;
+    telefone: string;
+    email: string;
+    data_nascimento?: string;
+    e_filho_da_casa: FilhoDaCasaResposta;
+    ja_participou_antes: boolean;
+    necessidade_especial_ou_acessibilidade?: string;
+    observacoes?: string;
+    aceite_termos: boolean;
+    force_waitlist?: boolean;
+  }) =>
+    | { ok: true; inscricao: InscricaoOficina; waitlist: boolean }
+    | { ok: false; error: string };
+  cancelarInscricaoOficina: (inscricaoId: string) =>
+    | { ok: true }
+    | { ok: false; error: string };
+  atualizarStatusInscricaoOficina: (
+    inscricaoId: string,
+    status: InscricaoOficinaStatus,
+  ) => { ok: true } | { ok: false; error: string };
+  adicionarInscricaoManualOficina: (input: {
+    oficina_id: string;
+    nome_completo: string;
+    telefone: string;
+    email: string;
+    e_filho_da_casa?: FilhoDaCasaResposta;
+    status?: InscricaoOficinaStatus;
+  }) => { ok: true; inscricao: InscricaoOficina } | { ok: false; error: string };
+  runOficinaReminders: () => void;
 };
 
 const AppStoreContext = createContext<AppStore | null>(null);
@@ -3390,6 +3465,482 @@ export function AppStoreProvider({
     [commit, currentUser],
   );
 
+  const upsertOficina: AppStore["upsertOficina"] = useCallback(
+    (input) => {
+      if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+        return { ok: false, error: "Sem permissão para gerenciar oficinas." };
+      }
+      const titulo = input.titulo.trim();
+      const descricao = input.descricao_curta.trim();
+      if (!titulo) return { ok: false, error: "Informe o título." };
+      if (!descricao) return { ok: false, error: "Informe a descrição curta." };
+      if (descricao.length > 120) {
+        return { ok: false, error: "Descrição curta: máximo 120 caracteres." };
+      }
+      if (input.total_vagas < 0) {
+        return { ok: false, error: "Quantidade de vagas inválida." };
+      }
+
+      let saved: Oficina | null = null;
+      let error: string | undefined;
+      let publishedNotify = false;
+
+      commit((prev) => {
+        const list = prev.oficinas ?? [];
+        const existing = input.id ? list.find((o) => o.id === input.id) : undefined;
+        const ocupadas = existing
+          ? countOccupied(prev.inscricoesOficina ?? [], existing.id)
+          : 0;
+        if (
+          existing &&
+          input.total_vagas > 0 &&
+          input.total_vagas < ocupadas
+        ) {
+          error = `Há ${ocupadas} inscritos confirmados. Não é possível reduzir para ${input.total_vagas} vagas.`;
+          return prev;
+        }
+
+        const wasPublished = existing?.status === "Publicada";
+        const nextStatus = input.status;
+        publishedNotify =
+          !wasPublished &&
+          (nextStatus === "Publicada" || nextStatus === "Em breve");
+
+        const now = nowIso();
+        saved = {
+          id: existing?.id ?? uid("ofc"),
+          titulo,
+          descricao_curta: descricao,
+          sobre: input.sobre.trim(),
+          conteudo: (input.conteudo ?? []).map((c) => c.trim()).filter(Boolean),
+          imagem: input.imagem === null ? undefined : input.imagem ?? existing?.imagem,
+          modalidade: input.modalidade,
+          status: nextStatus,
+          data: input.data || undefined,
+          hora_inicio: input.hora_inicio || undefined,
+          hora_fim: input.hora_fim || undefined,
+          local: input.local || undefined,
+          link: input.link || undefined,
+          total_vagas: input.total_vagas,
+          permitir_lista_espera: input.permitir_lista_espera,
+          data_limite_inscricao: input.data_limite_inscricao || undefined,
+          valor: input.valor ?? 0,
+          criado_por: existing?.criado_por ?? currentUser.id,
+          atualizado_por: currentUser.id,
+          criado_em: existing?.criado_em ?? now,
+          atualizado_em: now,
+        };
+
+        const oficinas = existing
+          ? list.map((o) => (o.id === saved!.id ? saved! : o))
+          : [saved, ...list];
+
+        let notifications = prev.notifications ?? [];
+        if (publishedNotify && saved) {
+          const note: AppNotification = {
+            id: uid("ntf"),
+            title: "Nova oficina",
+            body: `${saved.titulo} está disponível. Confira e inscreva-se.`,
+            type: "oficina_publicada",
+            related_id: saved.id,
+            href: `/oficinas/${saved.id}`,
+            read: false,
+            created_at: now,
+          };
+          notifications = [note, ...notifications];
+        }
+
+        return { ...prev, oficinas, notifications };
+      });
+
+      if (error) return { ok: false, error };
+      if (!saved) return { ok: false, error: "Falha ao salvar oficina." };
+      return { ok: true, item: saved };
+    },
+    [commit, currentUser],
+  );
+
+  const duplicateOficina: AppStore["duplicateOficina"] = useCallback(
+    (id) => {
+      if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+        return { ok: false, error: "Sem permissão." };
+      }
+      const source = (state.oficinas ?? []).find((o) => o.id === id);
+      if (!source) return { ok: false, error: "Oficina não encontrada." };
+      return upsertOficina({
+        titulo: `${source.titulo} (cópia)`,
+        descricao_curta: source.descricao_curta,
+        sobre: source.sobre,
+        conteudo: source.conteudo,
+        imagem: source.imagem,
+        modalidade: source.modalidade,
+        status: "Rascunho",
+        data: source.data,
+        hora_inicio: source.hora_inicio,
+        hora_fim: source.hora_fim,
+        local: source.local,
+        link: source.link,
+        total_vagas: source.total_vagas,
+        permitir_lista_espera: source.permitir_lista_espera,
+        data_limite_inscricao: source.data_limite_inscricao,
+        valor: source.valor,
+      });
+    },
+    [currentUser, state.oficinas, upsertOficina],
+  );
+
+  const encerrarOficina: AppStore["encerrarOficina"] = useCallback(
+    (id) => {
+      const ofc = (state.oficinas ?? []).find((o) => o.id === id);
+      if (!ofc) return { ok: false, error: "Oficina não encontrada." };
+      if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+        return { ok: false, error: "Sem permissão." };
+      }
+      return upsertOficina({
+        id: ofc.id,
+        titulo: ofc.titulo,
+        descricao_curta: ofc.descricao_curta,
+        sobre: ofc.sobre,
+        conteudo: ofc.conteudo,
+        imagem: ofc.imagem,
+        modalidade: ofc.modalidade,
+        status: "Encerrada",
+        data: ofc.data,
+        hora_inicio: ofc.hora_inicio,
+        hora_fim: ofc.hora_fim,
+        local: ofc.local,
+        link: ofc.link,
+        total_vagas: ofc.total_vagas,
+        permitir_lista_espera: ofc.permitir_lista_espera,
+        data_limite_inscricao: ofc.data_limite_inscricao,
+        valor: ofc.valor,
+      }).ok
+        ? { ok: true }
+        : { ok: false, error: "Não foi possível encerrar." };
+    },
+    [currentUser, state.oficinas, upsertOficina],
+  );
+
+  const removeOficina: AppStore["removeOficina"] = useCallback(
+    (id) => {
+      if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+        return { ok: false, error: "Sem permissão." };
+      }
+      const ofc = (state.oficinas ?? []).find((o) => o.id === id);
+      if (!ofc) return { ok: false, error: "Oficina não encontrada." };
+      if (!canDeleteOficina(currentUser.role, ofc, currentUser.id)) {
+        return { ok: false, error: "Você só pode excluir oficinas que criou." };
+      }
+      const ativos = (state.inscricoesOficina ?? []).filter(
+        (i) => i.oficina_id === id && i.status !== "Cancelada",
+      );
+      if (ativos.length > 0) {
+        return {
+          ok: false,
+          error: "Há inscritos. Prefira Encerrar ou Cancelar a oficina.",
+        };
+      }
+      commit((prev) => ({
+        ...prev,
+        oficinas: (prev.oficinas ?? []).filter((o) => o.id !== id),
+        inscricoesOficina: (prev.inscricoesOficina ?? []).filter(
+          (i) => i.oficina_id !== id,
+        ),
+      }));
+      return { ok: true };
+    },
+    [commit, currentUser, state.oficinas, state.inscricoesOficina],
+  );
+
+  const inscreverOficina: AppStore["inscreverOficina"] = useCallback(
+    (input) => {
+      const nome = input.nome_completo.trim();
+      const email = input.email.trim().toLowerCase();
+      const telefone = input.telefone.trim();
+      if (!nome) return { ok: false, error: "Informe o nome completo." };
+      if (!isValidEmail(email)) return { ok: false, error: "E-mail inválido." };
+      if (!isValidPhone(telefone)) {
+        return { ok: false, error: "Telefone/WhatsApp inválido." };
+      }
+      if (!input.aceite_termos) {
+        return { ok: false, error: "É preciso aceitar as orientações da casa." };
+      }
+
+      let result:
+        | { ok: true; inscricao: InscricaoOficina; waitlist: boolean }
+        | { ok: false; error: string } = { ok: false, error: "Falha." };
+
+      commit((prev) => {
+        const oficina = (prev.oficinas ?? []).find((o) => o.id === input.oficina_id);
+        if (!oficina) {
+          result = { ok: false, error: "Oficina não encontrada." };
+          return prev;
+        }
+        if (oficina.status === "Rascunho" || oficina.status === "Cancelada") {
+          result = { ok: false, error: "Esta oficina não está aberta." };
+          return prev;
+        }
+        if (oficina.status === "Encerrada") {
+          result = { ok: false, error: "Inscrições encerradas." };
+          return prev;
+        }
+        if (oficina.data_limite_inscricao) {
+          const lim = new Date(`${oficina.data_limite_inscricao}T23:59:59`);
+          if (new Date() > lim) {
+            result = { ok: false, error: "Prazo de inscrição encerrado." };
+            return prev;
+          }
+        }
+
+        const userId = prev.currentUserId;
+        const dup = findActiveInscricao(prev.inscricoesOficina ?? [], oficina.id, {
+          usuarioId: userId,
+          email,
+        });
+        if (dup) {
+          result = { ok: false, error: "Você já possui inscrição nesta oficina." };
+          return prev;
+        }
+
+        const ocupadas = countOccupied(prev.inscricoesOficina ?? [], oficina.id);
+        const rest = vagasRestantes(oficina, ocupadas);
+        const emBreve = oficina.status === "Em breve";
+        const wantsWait =
+          input.force_waitlist ||
+          emBreve ||
+          (rest !== null && rest <= 0);
+
+        if (wantsWait) {
+          if (emBreve || oficina.permitir_lista_espera) {
+            // ok — lista de espera / avise-me
+          } else {
+            result = { ok: false, error: "Vagas esgotadas." };
+            return prev;
+          }
+        }
+
+        const now = nowIso();
+        const waitlist = wantsWait;
+        const inscricao: InscricaoOficina = {
+          id: uid("oins"),
+          oficina_id: oficina.id,
+          usuario_id: userId ?? undefined,
+          nome_completo: nome,
+          telefone,
+          email,
+          data_nascimento: input.data_nascimento || undefined,
+          e_filho_da_casa: input.e_filho_da_casa,
+          ja_participou_antes: input.ja_participou_antes,
+          necessidade_especial_ou_acessibilidade:
+            input.necessidade_especial_ou_acessibilidade?.trim() || undefined,
+          observacoes: input.observacoes?.trim() || undefined,
+          aceite_termos: true,
+          status: waitlist ? "Lista de espera" : "Confirmada",
+          criado_em: now,
+          atualizado_em: now,
+        };
+
+        let notifications = prev.notifications ?? [];
+        const newOccupied = waitlist ? ocupadas : ocupadas + 1;
+        if (
+          !waitlist &&
+          oficina.total_vagas > 0 &&
+          newOccupied >= oficina.total_vagas
+        ) {
+          const staffNote: AppNotification = {
+            id: uid("ntf"),
+            title: "Oficina lotada",
+            body: `${oficina.titulo} esgotou as vagas.`,
+            type: "oficina_lotada",
+            audience: ["pai_de_santo", "administrador"],
+            related_id: oficina.id,
+            href: `/oficinas/${oficina.id}/inscritos`,
+            read: false,
+            created_at: now,
+          };
+          notifications = [staffNote, ...notifications];
+        }
+
+        result = { ok: true, inscricao, waitlist };
+        return {
+          ...prev,
+          inscricoesOficina: [inscricao, ...(prev.inscricoesOficina ?? [])],
+          notifications,
+        };
+      });
+
+      return result;
+    },
+    [commit],
+  );
+
+  const cancelarInscricaoOficina: AppStore["cancelarInscricaoOficina"] = useCallback(
+    (inscricaoId) => {
+      let error: string | undefined;
+      commit((prev) => {
+        const list = prev.inscricoesOficina ?? [];
+        const target = list.find((i) => i.id === inscricaoId);
+        if (!target || target.status === "Cancelada") {
+          error = "Inscrição não encontrada.";
+          return prev;
+        }
+        const now = nowIso();
+        let next = list.map((i) =>
+          i.id === inscricaoId
+            ? { ...i, status: "Cancelada" as const, atualizado_em: now }
+            : i,
+        );
+
+        let notifications = prev.notifications ?? [];
+        if (target.status === "Confirmada" || target.status === "Presente") {
+          const waiting = next
+            .filter(
+              (i) =>
+                i.oficina_id === target.oficina_id &&
+                i.status === "Lista de espera",
+            )
+            .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
+          const promote = waiting[0];
+          if (promote) {
+            next = next.map((i) =>
+              i.id === promote.id
+                ? { ...i, status: "Confirmada" as const, atualizado_em: now }
+                : i,
+            );
+            const ofc = (prev.oficinas ?? []).find((o) => o.id === target.oficina_id);
+            const note: AppNotification = {
+              id: uid("ntf"),
+              title: "Vaga liberada",
+              body: `Sua inscrição em ${ofc?.titulo ?? "oficina"} saiu da lista de espera.`,
+              type: "oficina_espera_promovida",
+              user_id: promote.usuario_id,
+              related_id: promote.oficina_id,
+              href: `/oficinas/${promote.oficina_id}`,
+              read: false,
+              created_at: now,
+            };
+            notifications = [note, ...notifications];
+          }
+        }
+
+        return { ...prev, inscricoesOficina: next, notifications };
+      });
+      if (error) return { ok: false, error };
+      return { ok: true };
+    },
+    [commit],
+  );
+
+  const atualizarStatusInscricaoOficina: AppStore["atualizarStatusInscricaoOficina"] =
+    useCallback(
+      (inscricaoId, status) => {
+        if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+          return { ok: false, error: "Sem permissão." };
+        }
+        let error: string | undefined;
+        commit((prev) => {
+          const list = prev.inscricoesOficina ?? [];
+          const target = list.find((i) => i.id === inscricaoId);
+          if (!target) {
+            error = "Inscrição não encontrada.";
+            return prev;
+          }
+          if (status === "Confirmada" || status === "Presente") {
+            const ofc = (prev.oficinas ?? []).find((o) => o.id === target.oficina_id);
+            if (ofc) {
+              const ocupadas = countOccupied(list, ofc.id);
+              const already =
+                target.status === "Confirmada" || target.status === "Presente";
+              const rest = vagasRestantes(ofc, already ? ocupadas - 1 : ocupadas);
+              if (rest !== null && rest <= 0 && !already) {
+                error = "Sem vagas para confirmar.";
+                return prev;
+              }
+            }
+          }
+          return {
+            ...prev,
+            inscricoesOficina: list.map((i) =>
+              i.id === inscricaoId
+                ? { ...i, status, atualizado_em: nowIso() }
+                : i,
+            ),
+          };
+        });
+        if (error) return { ok: false, error };
+        return { ok: true };
+      },
+      [commit, currentUser],
+    );
+
+  const adicionarInscricaoManualOficina: AppStore["adicionarInscricaoManualOficina"] =
+    useCallback(
+      (input) => {
+        if (!currentUser || !roleCanManageOficinas(currentUser.role)) {
+          return { ok: false, error: "Sem permissão." };
+        }
+        return inscreverOficina({
+          oficina_id: input.oficina_id,
+          nome_completo: input.nome_completo,
+          telefone: input.telefone,
+          email: input.email,
+          e_filho_da_casa: input.e_filho_da_casa ?? "Frequentador",
+          ja_participou_antes: false,
+          aceite_termos: true,
+          force_waitlist: input.status === "Lista de espera",
+        });
+      },
+      [currentUser, inscreverOficina],
+    );
+
+  const runOficinaReminders: AppStore["runOficinaReminders"] = useCallback(() => {
+    const tomorrow = tomorrowIsoDate();
+    commit((prev) => {
+      const oficinas = (prev.oficinas ?? []).filter(
+        (o) => o.data === tomorrow && o.status === "Publicada",
+      );
+      if (oficinas.length === 0) return prev;
+      let notifications = prev.notifications ?? [];
+      const stamp = nowIso().slice(0, 10);
+      for (const ofc of oficinas) {
+        const already = notifications.some(
+          (n) =>
+            n.type === "oficina_lembrete" &&
+            n.related_id === ofc.id &&
+            n.created_at.startsWith(stamp),
+        );
+        if (already) continue;
+        const inscritos = (prev.inscricoesOficina ?? []).filter(
+          (i) =>
+            i.oficina_id === ofc.id &&
+            (i.status === "Confirmada" || i.status === "Presente"),
+        );
+        for (const i of inscritos) {
+          notifications = [
+            {
+              id: uid("ntf"),
+              title: "Lembrete de oficina",
+              body: `${ofc.titulo} é amanhã${ofc.hora_inicio ? ` às ${ofc.hora_inicio}` : ""}.`,
+              type: "oficina_lembrete",
+              user_id: i.usuario_id,
+              related_id: ofc.id,
+              href: `/oficinas/${ofc.id}`,
+              read: false,
+              created_at: nowIso(),
+            },
+            ...notifications,
+          ];
+        }
+      }
+      return { ...prev, notifications };
+    });
+  }, [commit]);
+
+  useEffect(() => {
+    if (!ready) return;
+    runOficinaReminders();
+  }, [ready, runOficinaReminders]);
+
   const value: AppStore = {
     ready,
     state,
@@ -3456,6 +4007,15 @@ export function AppStoreProvider({
     removePhotoAlbum,
     upsertShopProduct,
     removeShopProduct,
+    upsertOficina,
+    duplicateOficina,
+    encerrarOficina,
+    removeOficina,
+    inscreverOficina,
+    cancelarInscricaoOficina,
+    atualizarStatusInscricaoOficina,
+    adicionarInscricaoManualOficina,
+    runOficinaReminders,
   };
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
