@@ -6,7 +6,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
@@ -131,11 +131,9 @@ function ClientsPageInner() {
         subtitle="Separado dos membros do barracão"
       />
       <div className="flex justify-center gap-3 empty:hidden">
-        {currentUser?.role !== "cliente" ? (
-          <Button size="md" onClick={() => setOpen((v) => !v)}>
-            <Plus className="h-4 w-4" /> Novo
-          </Button>
-        ) : null}
+        <Button size="md" onClick={() => setOpen((v) => !v)}>
+          <Plus className="h-4 w-4" /> Novo
+        </Button>
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
