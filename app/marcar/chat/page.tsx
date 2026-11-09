@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChatRoom } from "@/components/chat/chat-room";
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
@@ -11,35 +12,61 @@ import { ErrorMessage } from "@/components/ui/empty-state";
 import { Input, Label } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
-import { videoCallRoomUrl } from "@/lib/chat";
 import {
   loadGuestChatSession,
   saveGuestChatSession,
   type GuestChatSession,
 } from "@/lib/guest-chat-session";
+import { loadGuestJogoSession } from "@/lib/guest-jogo-session";
+import { visitorAccessPath } from "@/lib/jogo";
 
-/** Chat com o Pai na marcação — sem criar conta. */
+/**
+ * Chat Visitante ↔ Pai — liberado somente após aprovação do Jogo.
+ * Admin / Financeiro / outros visitantes não participam.
+ */
 export default function MarcarChatPage() {
-  const { state, ensureGuestChatClient, sendGuestMessage } = useAppStore();
+  const { state, sendGuestMessage, resolveJogoAccess } = useAppStore();
   const [session, setSession] = useState<GuestChatSession | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [accessHref, setAccessHref] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = loadGuestChatSession();
-    if (saved) {
-      setSession(saved);
-      setFullName(saved.fullName);
-      setPhone(saved.phone);
+    const chat = loadGuestChatSession();
+    const jogo = loadGuestJogoSession();
+    if (chat) {
+      setSession(chat);
+      setFullName(chat.fullName);
+      setPhone(chat.phone);
+    }
+    if (jogo?.accessToken) {
+      const entry = resolveJogoAccess(jogo.accessToken);
+      if (entry?.chat_unlocked) {
+        setUnlocked(true);
+        setAccessHref(visitorAccessPath(jogo.accessToken));
+        if (chat) {
+          /* ok */
+        } else if (jogo.clientId) {
+          const next: GuestChatSession = {
+            clientId: jogo.clientId,
+            fullName: jogo.fullName || "Visitante",
+            phone: jogo.phone || "",
+            fichaCode: jogo.fichaCode,
+          };
+          saveGuestChatSession(next);
+          setSession(next);
+        }
+      }
+    } else if (jogo?.jogoStatus === "confirmado" && jogo.accessToken) {
+      setAccessHref(visitorAccessPath(jogo.accessToken));
     }
     setReady(true);
-  }, []);
+  }, [resolveJogoAccess]);
 
-  const pai =
-    state.profiles.find((p) => p.role === "pai_de_santo") ??
-    state.profiles.find((p) => p.role === "administrador");
+  const pai = state.profiles.find((p) => p.role === "pai_de_santo");
   const paiName = "Vitor Cardozo - Ògún Yande";
 
   const messages = useMemo(() => {
@@ -50,43 +77,65 @@ export default function MarcarChatPage() {
   function onStart(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const result = ensureGuestChatClient({ full_name: fullName, phone });
-    if (!result.ok) {
-      setError(result.error);
+    const jogo = loadGuestJogoSession();
+    if (!jogo?.accessToken) {
+      setError(
+        "O chat do Jogo libera após a aprovação do Pai de Santo. Use o link do e-mail.",
+      );
+      return;
+    }
+    const entry = resolveJogoAccess(jogo.accessToken);
+    if (!entry?.chat_unlocked) {
+      setError("Este atendimento ainda não liberou o chat.");
+      return;
+    }
+    if (fullName.trim().length < 3 || phone.trim().length < 8) {
+      setError("Informe nome e WhatsApp.");
       return;
     }
     const next: GuestChatSession = {
-      clientId: result.client_id,
+      clientId: jogo.clientId,
       fullName: fullName.trim(),
       phone: phone.trim(),
+      fichaCode: jogo.fichaCode,
     };
     saveGuestChatSession(next);
     setSession(next);
+    setUnlocked(true);
   }
 
   if (!ready) {
     return <p className="p-8 text-center text-sm text-navy/50">Carregando…</p>;
   }
 
-  if (!session) {
+  if (!unlocked || !session) {
     return (
       <div className="relative min-h-dvh overflow-x-hidden bg-background px-5 py-6 sm:px-6">
         <BrandWatermarks />
         <div className="relative z-10 mx-auto max-w-md space-y-5 pb-28">
           <BrandPageHeader
-            title="Chat do jogo"
-            subtitle="Vitor Cardozo - Ògún Yande · o atendimento acontece aqui no app"
+            title="Chat do Jogo"
+            subtitle="Visitante ↔ Pai de Santo · após aprovação"
             backHref="/marcar"
-            backLabel="Voltar à agenda"
-            priority
+            backLabel="Voltar"
           />
 
           <Card>
-            <CardTitle>Identifique-se para o chat</CardTitle>
+            <CardTitle>Chat liberado só após confirmação</CardTitle>
+            <p className="mt-2 text-sm text-navy/65">
+              Administrador e Financeiro não acessam esta conversa. Outros visitantes
+              também não.
+            </p>
+            {accessHref ? (
+              <Link href={accessHref} className="mt-3 inline-block text-sm font-semibold text-gold-deep">
+                Abrir meu atendimento →
+              </Link>
+            ) : null}
             <form onSubmit={onStart} className="mt-4 space-y-3">
               <div>
-                <Label>Nome</Label>
+                <Label htmlFor="chat-nome">Nome</Label>
                 <Input
+                  id="chat-nome"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -94,8 +143,9 @@ export default function MarcarChatPage() {
                 />
               </div>
               <div>
-                <Label>Telefone</Label>
+                <Label htmlFor="chat-phone">WhatsApp</Label>
                 <Input
+                  id="chat-phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
@@ -104,8 +154,8 @@ export default function MarcarChatPage() {
                 />
               </div>
               {error ? <ErrorMessage message={error} /> : null}
-              <Button type="submit" variant="gold" className="w-full">
-                Abrir chat
+              <Button type="submit" variant="gold" className="w-full min-h-11">
+                Entrar no chat autorizado
               </Button>
             </form>
           </Card>
@@ -113,20 +163,12 @@ export default function MarcarChatPage() {
           <div className="space-y-2 text-center text-sm text-navy/50">
             <button
               type="button"
-              className="block w-full underline"
+              className="block w-full min-h-11 underline"
               onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
             >
-              Dúvidas? WhatsApp (último caso)
-            </button>
-            <button
-              type="button"
-              className="block w-full underline"
-              onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-            >
-              Grupo · {CLIENT_WHATSAPP.grupo.label}
+              Dúvidas antes da aprovação? WhatsApp (último caso)
             </button>
           </div>
-
         </div>
         <PublicBottomNav />
       </div>
@@ -173,34 +215,16 @@ export default function MarcarChatPage() {
             })
           }
           onStartCall={() => {
-            const url = videoCallRoomUrl(session.clientId);
+            /* Etapa futura: WebRTC. Mantém registro sem abrir plataforma externa obrigatória. */
             sendGuestMessage({
               client_id: session.clientId,
               guest_name: session.fullName,
               kind: "call",
-              call_url: url,
-              body: "Chamada de vídeo iniciada — toque para entrar.",
+              body: "Chamada será liberada no horário do atendimento (etapa futura).",
             });
-            window.open(url, "_blank", "noopener,noreferrer");
           }}
           placeholder="Mensagem para Vitor Cardozo…"
         />
-      </div>
-      <div className="shrink-0 space-y-1 border-t border-navy/10 bg-white px-3 py-2 text-center">
-        <button
-          type="button"
-          className="block w-full text-xs text-navy/45 underline"
-          onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
-        >
-          Dúvidas? Abrir WhatsApp
-        </button>
-        <button
-          type="button"
-          className="block w-full text-xs text-navy/45 underline"
-          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-        >
-          Entrar no grupo
-        </button>
       </div>
     </div>
   );

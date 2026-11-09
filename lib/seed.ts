@@ -589,8 +589,11 @@ export function createSeedState(): AppState {
     houseSettings: {
       pix_key: "",
       pix_holder_name: "ILÉ OLÓRÒKÈ ÀṢẸ",
+      jogo_amount: 150,
       updated_at: now.toISOString(),
     },
+    jogoSlotHolds: [],
+    jogoAccessIndex: [],
     shopPurchases: [],
     inscricoesOficina: [],
     oficinas: [

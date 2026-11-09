@@ -38,7 +38,11 @@ export default function ClienteHorariosPage() {
 
   const freeSlots = useMemo(
     () =>
-      buildSlotViews(state.publishedSlots ?? [], state.appointments ?? []).filter(
+      buildSlotViews(
+        state.publishedSlots ?? [],
+        state.appointments ?? [],
+        state.jogoSlotHolds,
+      ).filter(
         (v) => v.status === "livre",
       ),
     [state.publishedSlots, state.appointments],

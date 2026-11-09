@@ -94,6 +94,8 @@ export function loadSharedData(): SharedData {
         ...(seed.houseSettings ?? {}),
         ...(parsed.houseSettings ?? {}),
       },
+      jogoSlotHolds: parsed.jogoSlotHolds ?? seed.jogoSlotHolds ?? [],
+      jogoAccessIndex: parsed.jogoAccessIndex ?? seed.jogoAccessIndex ?? [],
       staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
       staffHiddenAt: {
         ...Object.fromEntries(

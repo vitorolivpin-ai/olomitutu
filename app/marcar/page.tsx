@@ -12,6 +12,7 @@ import {
   Hourglass,
   Lock,
   MessageCircle,
+  Monitor,
   Phone,
   Users,
   Wallet,
@@ -26,14 +27,32 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { useAppStore } from "@/hooks/use-app-store";
 import { CLIENT_WHATSAPP, openWhatsApp } from "@/lib/client-whatsapp";
 import { formatCurrency, formatTime } from "@/lib/format";
-import { saveGuestChatSession } from "@/lib/guest-chat-session";
+import {
+  clearGuestJogoSession,
+  loadGuestJogoSession,
+  saveGuestJogoSession,
+  type GuestJogoSession,
+} from "@/lib/guest-jogo-session";
+import {
+  DEFAULT_JOGO_AMOUNT,
+  modalidadeLabel,
+  readFileAsDataUrl,
+  validateJogoProofFile,
+  visitorAccessPath,
+} from "@/lib/jogo";
 import { buildPixCopyPaste, pixQrDataUrl } from "@/lib/pix";
 import { buildSlotViews, type SlotView } from "@/lib/slots";
 import { cn } from "@/lib/utils";
+import type { JogoModalidade } from "@/types";
 
-const DEFAULT_AMOUNT = 150;
-
-type FlowStep = "selecao" | "ficha" | "pix" | "ok";
+type FlowStep =
+  | "aviso"
+  | "modalidade"
+  | "selecao"
+  | "ficha"
+  | "pix"
+  | "comprovante"
+  | "status";
 
 function dayKey(iso: string) {
   const d = new Date(iso);
@@ -79,12 +98,20 @@ function longDateLabel(key: string) {
 }
 
 /**
- * Marcação pública — sem criar conta.
- * UI: dia → horário → resumo → ficha → Pix.
+ * Marcação pública de Jogo — sem criar conta.
+ * Etapas: aviso → modalidade → data/hora (hold) → ficha → Pix → comprovante → status.
  */
 export default function MarcarPublicoPage() {
-  const { state, bookGuestAppointment } = useAppStore();
-  const [step, setStep] = useState<FlowStep>("selecao");
+  const {
+    state,
+    holdGuestJogo,
+    completeGuestJogoFicha,
+    attachGuestJogoProof,
+    refreshJogoDeadlines,
+  } = useAppStore();
+
+  const [step, setStep] = useState<FlowStep>("aviso");
+  const [modalidade, setModalidade] = useState<JogoModalidade | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [slotAt, setSlotAt] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
@@ -92,23 +119,41 @@ export default function MarcarPublicoPage() {
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [observation, setObservation] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [fichaCode, setFichaCode] = useState("");
-  const [confirmedAt, setConfirmedAt] = useState("");
-  const [guestClientId, setGuestClientId] = useState<string | null>(null);
-  /** Evita mismatch SSR/cliente (Date.now nos slots). */
+  const [session, setSession] = useState<GuestJogoSession | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  /** Página do seletor de dias (grupos de 5 no mobile / 7 no desktop). */
   const [dayPage, setDayPage] = useState(0);
   const [daysPerPage, setDaysPerPage] = useState(5);
 
-  const amount = DEFAULT_AMOUNT;
+  const amount = state.houseSettings?.jogo_amount ?? DEFAULT_JOGO_AMOUNT;
   const house = state.houseSettings ?? {};
 
   useEffect(() => {
     setHydrated(true);
-  }, []);
+    refreshJogoDeadlines();
+    const saved = loadGuestJogoSession();
+    if (saved) {
+      setSession(saved);
+      setModalidade(saved.modalidade);
+      setSlotAt(saved.scheduledAt);
+      setSelectedDay(dayKey(saved.scheduledAt));
+      setFullName(saved.fullName);
+      setPhone(saved.phone);
+      setEmail(saved.email);
+      if (
+        saved.jogoStatus === "aguardando_aprovacao" ||
+        saved.jogoStatus === "prazo_analise_atingido" ||
+        saved.jogoStatus === "confirmado" ||
+        saved.jogoStatus === "recusado"
+      ) {
+        setStep("status");
+      }
+    }
+  }, [refreshJogoDeadlines]);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -120,10 +165,12 @@ export default function MarcarPublicoPage() {
 
   const livres = useMemo(() => {
     if (!hydrated) return [];
-    return buildSlotViews(state.publishedSlots ?? [], state.appointments).filter(
-      (v) => v.status === "livre",
-    );
-  }, [state.publishedSlots, state.appointments, hydrated]);
+    return buildSlotViews(
+      state.publishedSlots ?? [],
+      state.appointments,
+      state.jogoSlotHolds,
+    ).filter((v) => v.status === "livre");
+  }, [state.publishedSlots, state.appointments, state.jogoSlotHolds, hydrated]);
 
   const daysWithSlots = useMemo(() => {
     const map = new Map<string, SlotView[]>();
@@ -142,9 +189,7 @@ export default function MarcarPublicoPage() {
   }, [livres]);
 
   useEffect(() => {
-    if (!selectedDay && daysWithSlots.length > 0) {
-      setSelectedDay(daysWithSlots[0].key);
-    }
+    if (!selectedDay && daysWithSlots.length > 0) setSelectedDay(daysWithSlots[0].key);
     if (selectedDay && !daysWithSlots.some((d) => d.key === selectedDay)) {
       setSelectedDay(daysWithSlots[0]?.key ?? null);
       setSlotAt(null);
@@ -152,7 +197,6 @@ export default function MarcarPublicoPage() {
   }, [daysWithSlots, selectedDay]);
 
   const dayPageCount = Math.max(1, Math.ceil(daysWithSlots.length / daysPerPage));
-
   useEffect(() => {
     setDayPage((p) => Math.min(p, Math.max(0, dayPageCount - 1)));
   }, [dayPageCount]);
@@ -171,18 +215,7 @@ export default function MarcarPublicoPage() {
     () => (slotAt ? livres.find((s) => s.scheduled_at === slotAt) ?? null : null),
     [livres, slotAt],
   );
-
   const duration = selectedSlot?.duration_minutes ?? daySlots[0]?.duration_minutes ?? 60;
-
-  useEffect(() => {
-    if (slotAt && !livres.some((s) => s.scheduled_at === slotAt)) {
-      setError("Este horário acabou de ser reservado. Escolha outro.");
-      setSlotAt(null);
-      if (step === "ficha" || step === "pix") setStep("selecao");
-    }
-  }, [livres, slotAt, step]);
-
-  const visualStep = !selectedDay ? 1 : !slotAt ? 2 : 3;
 
   function pixPayload(scheduledAt: string) {
     if (!house.pix_key) return "";
@@ -190,12 +223,35 @@ export default function MarcarPublicoPage() {
       key: house.pix_key,
       holderName: house.pix_holder_name,
       amount,
-      description: `Consulta ${scheduledAt.slice(0, 16)}`,
+      description: `Jogo ${scheduledAt.slice(0, 16)}`,
     });
   }
 
-  function onContinue() {
+  async function notifyEmail(payload: {
+    to: string;
+    event: "confirmado" | "recusado" | "novo_comprovante" | "comprovante_recebido";
+    scheduled_at: string;
+    modalidade: JogoModalidade;
+    access_token?: string;
+    ficha_code?: string;
+  }) {
+    try {
+      await fetch("/api/email/jogo-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // E-mail é best-effort; o fluxo do app continua.
+    }
+  }
+
+  function onHoldSlot() {
     setError("");
+    if (!modalidade) {
+      setError("Escolha a modalidade do Jogo.");
+      return;
+    }
     if (!selectedDay || !slotAt) {
       setError("Selecione o dia e o horário.");
       return;
@@ -205,86 +261,153 @@ export default function MarcarPublicoPage() {
       setSlotAt(null);
       return;
     }
+    const held = holdGuestJogo({
+      scheduled_at: slotAt,
+      modalidade,
+      amount,
+    });
+    if (!held.ok) {
+      setError(held.error);
+      setSlotAt(null);
+      return;
+    }
+    const next: GuestJogoSession = {
+      appointmentId: held.appointment.id,
+      clientId: held.client_id,
+      fullName: "",
+      phone: "",
+      email: "",
+      fichaCode: held.ficha_code,
+      scheduledAt: slotAt,
+      modalidade,
+      amount,
+      jogoStatus: "aguardando_pagamento",
+      holdExpiresAt: held.hold_expires_at,
+    };
+    saveGuestJogoSession(next);
+    setSession(next);
     setStep("ficha");
   }
 
   function onFicha(e: FormEvent) {
     e.preventDefault();
     setError("");
-    if (!slotAt) return;
-    if (fullName.trim().length < 3) {
-      setError("Informe seu nome completo.");
+    if (!session) {
+      setError("Reserva não encontrada. Escolha o horário novamente.");
+      setStep("selecao");
       return;
     }
-    if (phone.trim().length < 8) {
-      setError("Informe um telefone com DDD.");
+    const result = completeGuestJogoFicha({
+      appointment_id: session.appointmentId,
+      ficha: {
+        full_name: fullName,
+        phone,
+        email,
+        birth_date: birthDate,
+        observation: observation || undefined,
+        privacy_accepted: privacyAccepted,
+      },
+    });
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
+    const next = {
+      ...session,
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+    };
+    saveGuestJogoSession(next);
+    setSession(next);
     setStep("pix");
   }
 
   async function copyPix() {
-    if (!slotAt) return;
-    const payload = pixPayload(slotAt);
+    if (!slotAt && !session?.scheduledAt) return;
+    const at = slotAt ?? session!.scheduledAt;
+    const payload = pixPayload(at);
     if (!payload) return;
     await navigator.clipboard.writeText(payload);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function confirmBook() {
-    if (!slotAt) return;
+  async function onUploadProof(e: FormEvent) {
+    e.preventDefault();
     setError("");
-    const result = bookGuestAppointment({
-      scheduled_at: slotAt,
-      amount,
-      ficha: {
-        full_name: fullName,
-        phone,
-        email: email || undefined,
-        birth_date: birthDate || undefined,
-        observation: observation || undefined,
-      },
-    });
-    if (!result.ok) {
-      setError(result.error);
-      setStep("selecao");
-      setSlotAt(null);
+    if (!session) return;
+    if (!proofFile) {
+      setError("Selecione o comprovante (JPG, PNG ou PDF).");
       return;
     }
-    saveGuestChatSession({
-      clientId: result.client_id,
-      fullName: fullName.trim(),
-      phone: phone.trim(),
-      fichaCode: result.ficha_code,
-    });
-    setGuestClientId(result.client_id);
-    setFichaCode(result.ficha_code);
-    setConfirmedAt(slotAt);
-    setStep("ok");
+    const valid = validateJogoProofFile(proofFile);
+    if (!valid.ok) {
+      setError(valid.error);
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await readFileAsDataUrl(proofFile);
+      const result = attachGuestJogoProof({
+        appointment_id: session.appointmentId,
+        proof: {
+          file_name: proofFile.name,
+          mime_type: proofFile.type,
+          size_bytes: proofFile.size,
+          data_url: dataUrl,
+        },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const next: GuestJogoSession = {
+        ...session,
+        jogoStatus: "aguardando_aprovacao",
+      };
+      saveGuestJogoSession(next);
+      setSession(next);
+      void notifyEmail({
+        to: session.email,
+        event: "comprovante_recebido",
+        scheduled_at: session.scheduledAt,
+        modalidade: session.modalidade,
+        ficha_code: session.fichaCode,
+      });
+      setStep("status");
+    } catch {
+      setError("Falha ao ler o arquivo. Tente novamente.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  function resetToLista() {
-    setStep("selecao");
+  function resetFlow() {
+    clearGuestJogoSession();
+    setSession(null);
+    setStep("aviso");
+    setModalidade(null);
     setSlotAt(null);
-    setFichaCode("");
-    setGuestClientId(null);
     setFullName("");
     setPhone("");
     setEmail("");
     setBirthDate("");
     setObservation("");
+    setPrivacyAccepted(false);
+    setProofFile(null);
     setError("");
   }
 
   const summaryCard = (
     <div className="rounded-[20px] bg-card p-5 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
-      <h2 className="font-display text-xl text-navy">Seu agendamento</h2>
+      <h2 className="font-display text-xl text-navy">Seu Jogo</h2>
       <ul className="mt-4 space-y-3">
         <SummaryRow
-          icon={MessageCircle}
+          icon={Monitor}
           label="Modalidade"
-          value="Jogo pelo chat do app"
+          value={modalidade ? modalidadeLabel(modalidade) : "Escolha"}
+          muted={!modalidade}
         />
         <SummaryRow
           icon={CalendarDays}
@@ -301,24 +424,10 @@ export default function MarcarPublicoPage() {
         <SummaryRow icon={Hourglass} label="Duração" value={`${duration} minutos`} />
         <SummaryRow icon={Wallet} label="Valor" value={formatCurrency(amount)} accent />
       </ul>
-
-      {step === "selecao" ? (
-        <>
-          <Button
-            type="button"
-            variant="gold"
-            className="mt-5 w-full text-base"
-            disabled={!selectedDay || !slotAt}
-            onClick={onContinue}
-          >
-            Continuar →
-          </Button>
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-navy/45">
-            <Lock className="h-3.5 w-3.5" />
-            Seus dados estão seguros.
-          </p>
-        </>
-      ) : null}
+      <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-navy/45">
+        <Lock className="h-3.5 w-3.5" />
+        Horário reservado só após escolha · confirmação em até 24h
+      </p>
     </div>
   );
 
@@ -328,8 +437,8 @@ export default function MarcarPublicoPage() {
       <div className="relative z-10 mx-auto w-full max-w-[960px] px-4 py-6 pb-28 sm:px-6">
         <div className="mb-6">
           <BrandPageHeader
-            title="Marcar horário"
-            subtitle="Escolha o melhor dia e horário para seu atendimento."
+            title="Marcar um Jogo"
+            subtitle="Escolha modalidade, dia e horário — sem criar conta."
             backHref="/"
             backLabel="Voltar ao início"
           />
@@ -338,88 +447,129 @@ export default function MarcarPublicoPage() {
           </span>
         </div>
 
-        {/* Stepper — só na seleção / confirmação visual */}
-        {step === "selecao" || step === "ficha" || step === "pix" ? (
-          <ol className="mb-6 flex items-start justify-center gap-2 sm:gap-4">
-            <StepDot
-              n={1}
-              label="Escolha o dia"
-              active={visualStep === 1}
-              done={visualStep > 1 || step !== "selecao"}
-            />
-            <StepLine done={visualStep > 1 || step !== "selecao"} />
-            <StepDot
-              n={2}
-              label="Escolha o horário"
-              active={visualStep === 2 && step === "selecao"}
-              done={visualStep > 2 || step !== "selecao"}
-            />
-            <StepLine done={visualStep > 2 || step !== "selecao"} />
-            <StepDot
-              n={3}
-              label="Confira e finalize"
-              active={visualStep === 3 || step === "ficha" || step === "pix"}
-              done={false}
-            />
-          </ol>
-        ) : null}
-
         {error ? (
           <div className="mb-4">
             <ErrorMessage message={error} />
           </div>
         ) : null}
 
-        {step === "ok" ? (
-          <Card className="mx-auto max-w-md border-l-4 border-l-leaf text-center">
-            <MessageCircle className="mx-auto h-10 w-10 text-leaf" />
-            <CardTitle className="mt-3 text-2xl">Horário reservado</CardTitle>
-            <p className="mt-2 text-sm text-navy/70">
-              {confirmedAt
-                ? `${longDateLabel(dayKey(confirmedAt))} · ${formatTime(confirmedAt)}`
-                : null}
-            </p>
-            <p className="mt-3 rounded-2xl bg-mist/70 px-3 py-2 text-sm text-navy/70">
-              O jogo será feito pelo <strong className="text-navy">chat dentro do app</strong>{" "}
-              com Vitor Cardozo - Ògún Yande, no horário marcado.
-            </p>
-            <p className="mt-4 font-display text-xl text-navy">{fichaCode}</p>
-            <p className="mt-1 text-xs text-navy/50">
-              Guarde este código. Os dados da ficha só o Pai de Santo vê.
-            </p>
-            <div className="mt-5 flex flex-col gap-2">
-              <Link href="/marcar/chat">
-                <Button variant="gold" className="w-full">
-                  <MessageCircle className="h-4 w-4" />
-                  Abrir o chat do jogo
-                </Button>
-              </Link>
-              <Button variant="secondary" onClick={resetToLista}>
-                Ver outros horários
+        {step === "aviso" ? (
+          <Card className="mx-auto max-w-xl border-l-4 border-l-gold">
+            <CardTitle>Antes de continuar</CardTitle>
+            <div className="mt-3 space-y-3 text-sm leading-relaxed text-navy/75">
+              <p>
+                Após realizar o pagamento e enviar o comprovante, sua solicitação será
+                encaminhada ao Pai de Santo para análise.
+              </p>
+              <p>
+                A confirmação do Jogo pode levar até <strong>24 horas</strong>.
+              </p>
+              <p>
+                Você receberá a resposta no <strong>e-mail informado</strong> durante a
+                marcação.
+              </p>
+              <p className="rounded-2xl bg-mist/80 px-3 py-2 text-xs text-navy/60">
+                O horário escolhido ainda não está confirmado até a aprovação do Pai de Santo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="gold"
+              className="mt-5 w-full min-h-11"
+              onClick={() => setStep("modalidade")}
+            >
+              Entendi, continuar →
+            </Button>
+          </Card>
+        ) : null}
+
+        {step === "modalidade" ? (
+          <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setModalidade("online");
+                setError("");
+              }}
+              className={cn(
+                "min-h-[9rem] rounded-[20px] bg-card p-5 text-left shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 transition",
+                modalidade === "online"
+                  ? "ring-2 ring-gold/70"
+                  : "ring-navy/[0.04] hover:ring-gold/40",
+              )}
+            >
+              <Monitor className="h-6 w-6 text-gold-deep" />
+              <p className="mt-3 font-display text-xl text-navy">Jogo Online</p>
+              <p className="mt-2 text-sm text-navy/60">
+                O atendimento será realizado pelo próprio ILÉ.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setModalidade("presencial");
+                setError("");
+              }}
+              className={cn(
+                "min-h-[9rem] rounded-[20px] bg-card p-5 text-left shadow-[0_6px_18px_rgba(11,31,58,0.06)] ring-1 transition",
+                modalidade === "presencial"
+                  ? "ring-2 ring-gold/70"
+                  : "ring-navy/[0.04] hover:ring-gold/40",
+              )}
+            >
+              <Users className="h-6 w-6 text-gold-deep" />
+              <p className="mt-3 font-display text-xl text-navy">Jogo Presencial</p>
+              <p className="mt-2 text-sm text-navy/60">
+                Atendimento na casa, no horário combinado.
+              </p>
+            </button>
+            {modalidade === "online" ? (
+              <p className="sm:col-span-2 rounded-2xl bg-mist/80 px-4 py-3 text-sm text-navy/65">
+                Voz e vídeo serão liberados em etapa posterior. Por enquanto, o modelo já
+                registra a modalidade Online. Não abrimos Skype, Teams ou WhatsApp externos.
+              </p>
+            ) : null}
+            <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="secondary" onClick={() => setStep("aviso")}>
+                ← Voltar
+              </Button>
+              <Button
+                type="button"
+                variant="gold"
+                className="min-h-11 flex-1"
+                disabled={!modalidade}
+                onClick={() => setStep("selecao")}
+              >
+                Continuar →
               </Button>
             </div>
-          </Card>
+          </div>
         ) : null}
 
         {step === "selecao" ? (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
             <div className="space-y-6">
               {!hydrated ? (
-                <p className="rounded-[20px] bg-card px-4 py-8 text-center text-sm text-navy/50 shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                <p className="rounded-[20px] bg-card px-4 py-8 text-center text-sm text-navy/50">
                   Carregando horários…
                 </p>
               ) : daysWithSlots.length === 0 ? (
-                <div className="rounded-[20px] bg-card px-4 py-8 text-center shadow-[0_6px_20px_rgba(11,31,58,0.05)] ring-1 ring-navy/[0.04]">
+                <div className="rounded-[20px] bg-card px-4 py-8 text-center">
                   <EmptyState title="Nenhum horário disponível no momento" />
-                  <p className="mt-2 text-sm text-navy/50">
-                    Volte mais tarde ou fale conosco pelo chat.
-                  </p>
                 </div>
               ) : (
                 <>
-                  {/* 1. Dia ? pager (5 no mobile / 7 no desktop), sem corte lateral */}
                   <section className="w-full min-w-0">
-                    <h2 className="font-display text-xl text-navy">Escolha o dia</h2>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="font-display text-xl text-navy">Escolha o dia</h2>
+                      <button
+                        type="button"
+                        className="text-sm text-navy/55"
+                        onClick={() => setStep("modalidade")}
+                      >
+                        ← Modalidade
+                      </button>
+                    </div>
                     <div className="mt-3 flex w-full min-w-0 items-stretch gap-1.5 sm:gap-2">
                       {dayPageCount > 1 ? (
                         <button
@@ -428,16 +578,15 @@ export default function MarcarPublicoPage() {
                           disabled={dayPage <= 0}
                           onClick={() => setDayPage((p) => Math.max(0, p - 1))}
                           className={cn(
-                            "flex h-auto w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
+                            "flex min-h-11 w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
                             dayPage <= 0
                               ? "pointer-events-none opacity-0"
-                              : "bg-card text-navy shadow-[0_4px_14px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.06] hover:ring-gold/40",
+                              : "bg-card text-navy ring-1 ring-navy/[0.06]",
                           )}
                         >
-                          <ChevronLeft className="h-5 w-5" strokeWidth={2.25} />
+                          <ChevronLeft className="h-5 w-5" />
                         </button>
                       ) : null}
-
                       <div
                         className="grid min-w-0 flex-1 gap-2"
                         style={{
@@ -456,36 +605,23 @@ export default function MarcarPublicoPage() {
                                 setError("");
                               }}
                               className={cn(
-                                "flex min-w-0 w-full flex-col items-center rounded-2xl px-1 py-3 transition sm:px-2",
+                                "min-h-[4.5rem] rounded-2xl px-1 py-2 text-center transition",
                                 active
-                                  ? "bg-navy text-white shadow-[0_6px_16px_rgba(11,31,58,0.2)] ring-2 ring-gold/70"
-                                  : "bg-card text-navy shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] hover:ring-gold/35",
+                                  ? "bg-navy text-white ring-2 ring-gold/70"
+                                  : "bg-card text-navy ring-1 ring-[#d9d0c0]",
                               )}
                             >
-                              <span
-                                className={cn(
-                                  "text-[10px] font-semibold uppercase tracking-wide",
-                                  active ? "text-gold" : "text-navy/45",
-                                )}
-                              >
+                              <p className="text-[10px] font-semibold opacity-70">
                                 {weekdayShort(key)}
-                              </span>
-                              <span className="mt-0.5 font-display text-2xl leading-none">
-                                {dayNum(key)}
-                              </span>
-                              <span
-                                className={cn(
-                                  "mt-1 text-[10px] font-semibold uppercase",
-                                  active ? "text-white/70" : "text-navy/40",
-                                )}
-                              >
+                              </p>
+                              <p className="font-display text-xl leading-none">{dayNum(key)}</p>
+                              <p className="text-[10px] font-semibold opacity-70">
                                 {monthShort(key)}
-                              </span>
+                              </p>
                             </button>
                           );
                         })}
                       </div>
-
                       {dayPageCount > 1 ? (
                         <button
                           type="button"
@@ -495,162 +631,99 @@ export default function MarcarPublicoPage() {
                             setDayPage((p) => Math.min(dayPageCount - 1, p + 1))
                           }
                           className={cn(
-                            "flex h-auto w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
+                            "flex min-h-11 w-9 shrink-0 items-center justify-center rounded-2xl transition sm:w-10",
                             dayPage >= dayPageCount - 1
                               ? "pointer-events-none opacity-0"
-                              : "bg-card text-navy shadow-[0_4px_14px_rgba(11,50,107,0.06)] ring-1 ring-navy/[0.06] hover:ring-gold/40",
+                              : "bg-card text-navy ring-1 ring-navy/[0.06]",
                           )}
                         >
-                          <ChevronRight className="h-5 w-5" strokeWidth={2.25} />
+                          <ChevronRight className="h-5 w-5" />
                         </button>
                       ) : null}
                     </div>
-
-                    {dayPageCount > 1 ? (
-                      <div
-                        className="mt-3 flex items-center justify-center gap-1.5"
-                        aria-label={`Página ${dayPage + 1} de ${dayPageCount}`}
-                      >
-                        {Array.from({ length: dayPageCount }).map((_, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            aria-label={`Ir para o grupo de datas ${i + 1}`}
-                            aria-current={i === dayPage ? "true" : undefined}
-                            onClick={() => setDayPage(i)}
-                            className={cn(
-                              "h-1.5 rounded-full transition",
-                              i === dayPage
-                                ? "w-4 bg-navy"
-                                : "w-1.5 bg-navy/25 hover:bg-navy/40",
-                            )}
-                          />
-                        ))}
-                      </div>
-                    ) : null}
                   </section>
 
-                  {/* 2. Horário ? grade 2 cols no mobile, 3?4 no desktop */}
-                  <section className="w-full min-w-0">
+                  <section>
                     <h2 className="font-display text-xl text-navy">Escolha o horário</h2>
-                    {selectedDay ? (
-                      <p className="mt-1 text-sm text-muted">
-                        Horários disponíveis para {longDateLabel(selectedDay)}.
-                      </p>
-                    ) : null}
-                    {daySlots.length === 0 ? (
-                      <p className="mt-4 rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted ring-1 ring-navy/[0.04]">
-                        Nenhum horário disponível para esta data. Escolha outro dia.
-                      </p>
-                    ) : (
-                      <div className="mt-3 grid w-full grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-                        {daySlots.map((slot) => {
-                          const active = slotAt === slot.scheduled_at;
-                          return (
-                            <button
-                              key={slot.id}
-                              type="button"
-                              onClick={() => {
-                                setSlotAt(slot.scheduled_at);
-                                setError("");
-                              }}
-                              className={cn(
-                                "min-h-12 w-full rounded-2xl px-2 text-sm font-semibold transition",
-                                active
-                                  ? "bg-navy text-white shadow-[0_4px_12px_rgba(11,31,58,0.18)] ring-2 ring-gold/70"
-                                  : "bg-card text-navy ring-1 ring-[#d9d0c0] hover:ring-gold/40",
-                              )}
-                            >
-                              {formatTime(slot.scheduled_at)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {slotAt ? (
-                      <div className="mt-4 space-y-2 rounded-2xl bg-card/90 px-4 py-3 text-sm text-navy/70 ring-1 ring-navy/[0.04]">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-navy">
-                            <MessageCircle className="h-3.5 w-3.5 text-gold-deep" />
-                            Jogo pelo chat do app
-                          </span>
-                          <span className="text-navy/25">·</span>
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5 text-gold-deep" />
-                            {duration} minutos
-                          </span>
-                          <span className="text-navy/25">·</span>
-                          <span className="font-display text-base text-gold-deep">
-                            {formatCurrency(amount)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-navy/50">
-                          No horário marcado, o jogo acontece na conversa dentro do aplicativo.
-                        </p>
-                      </div>
-                    ) : null}
+                    <p className="mt-1 text-xs text-navy/50">
+                      Mostramos apenas horários livres — sem nomes de outras pessoas.
+                    </p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {daySlots.map((slot) => {
+                        const active = slotAt === slot.scheduled_at;
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            onClick={() => {
+                              setSlotAt(slot.scheduled_at);
+                              setError("");
+                            }}
+                            className={cn(
+                              "min-h-12 w-full rounded-2xl px-2 text-sm font-semibold transition",
+                              active
+                                ? "bg-navy text-white ring-2 ring-gold/70"
+                                : "bg-card text-navy ring-1 ring-[#d9d0c0]",
+                            )}
+                          >
+                            {formatTime(slot.scheduled_at)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="gold"
+                      className="mt-5 w-full min-h-11 lg:hidden"
+                      disabled={!selectedDay || !slotAt}
+                      onClick={onHoldSlot}
+                    >
+                      Reservar horário e continuar →
+                    </Button>
                   </section>
                 </>
               )}
-
-              {/* Chat discreto — mobile */}
-              <div className="rounded-[18px] bg-card px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04] lg:hidden">
-                <p className="text-sm text-navy/60">
-                  Tem alguma dúvida antes de marcar?
-                </p>
-                <Link
-                  href="/marcar/chat"
-                  className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-gold-deep hover:text-navy"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Conversar pelo chat →
-                </Link>
-              </div>
-
-              {/* Resumo — mobile */}
               <div className="lg:hidden">{summaryCard}</div>
             </div>
-
-            {/* Coluna direita — desktop */}
             <aside className="hidden space-y-4 lg:sticky lg:top-6 lg:block">
               {summaryCard}
-              <div className="rounded-[18px] bg-card px-4 py-3 shadow-[0_4px_14px_rgba(11,31,58,0.04)] ring-1 ring-navy/[0.04]">
-                <p className="text-sm text-navy/60">
-                  Tem alguma dúvida antes de marcar?
-                </p>
-                <Link
-                  href="/marcar/chat"
-                  className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-gold-deep hover:text-navy"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Conversar pelo chat →
-                </Link>
-              </div>
+              <Button
+                type="button"
+                variant="gold"
+                className="w-full min-h-11"
+                disabled={!selectedDay || !slotAt}
+                onClick={onHoldSlot}
+              >
+                Reservar horário e continuar →
+              </Button>
               <HelpFooter />
             </aside>
           </div>
         ) : null}
 
-        {step === "ficha" && slotAt ? (
+        {step === "ficha" && session ? (
           <div className="mx-auto grid max-w-3xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
             <Card>
               <button
                 type="button"
-                className="text-sm text-navy/55"
+                className="min-h-11 text-sm text-navy/55"
                 onClick={() => setStep("selecao")}
               >
                 ← Voltar
               </button>
-              <CardTitle className="mt-2">Sua ficha</CardTitle>
+              <CardTitle className="mt-2">Seus dados</CardTitle>
               <p className="mt-1 text-sm text-navy/60">
-                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} · jogo pelo chat · só
-                o Pai de Santo verá estes dados
+                {longDateLabel(dayKey(session.scheduledAt))} ·{" "}
+                {formatTime(session.scheduledAt)} · {modalidadeLabel(session.modalidade)}
+              </p>
+              <p className="mt-2 text-xs text-navy/45">
+                Reserva temporária · ainda não confirmada · só o Pai de Santo vê estes dados
               </p>
               <form onSubmit={onFicha} className="mt-4 space-y-3">
                 <div>
-                  <Label>Nome completo</Label>
+                  <Label htmlFor="jogo-nome">Nome completo</Label>
                   <Input
+                    id="jogo-nome"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -658,8 +731,30 @@ export default function MarcarPublicoPage() {
                   />
                 </div>
                 <div>
-                  <Label>Telefone</Label>
+                  <Label htmlFor="jogo-nasc">Data de nascimento</Label>
                   <Input
+                    id="jogo-nasc"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="jogo-email">E-mail</Label>
+                  <Input
+                    id="jogo-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="jogo-whats">WhatsApp</Label>
+                  <Input
+                    id="jogo-whats"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     required
@@ -668,33 +763,29 @@ export default function MarcarPublicoPage() {
                   />
                 </div>
                 <div>
-                  <Label>E-mail (opcional)</Label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                </div>
-                <div>
-                  <Label>Data de nascimento (opcional)</Label>
-                  <Input
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Observação (opcional)</Label>
+                  <Label htmlFor="jogo-obs">Observação curta (opcional)</Label>
                   <Textarea
-                    rows={3}
+                    id="jogo-obs"
+                    rows={2}
                     value={observation}
                     onChange={(e) => setObservation(e.target.value)}
-                    placeholder="O que deseja tratar, preferências…"
+                    placeholder="Preferências de horário ou acesso — sem conteúdo sensível"
                   />
                 </div>
-                <Button type="submit" variant="gold" className="w-full">
-                  Continuar para o Pix →
+                <label className="flex items-start gap-3 rounded-2xl bg-mist/70 px-3 py-3 text-sm text-navy/75">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4"
+                    checked={privacyAccepted}
+                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                    required
+                  />
+                  <span>
+                    Li e aceito a Política de Privacidade do ILÉ para esta marcação.
+                  </span>
+                </label>
+                <Button type="submit" variant="gold" className="w-full min-h-11">
+                  Continuar para o pagamento →
                 </Button>
               </form>
             </Card>
@@ -702,130 +793,158 @@ export default function MarcarPublicoPage() {
           </div>
         ) : null}
 
-        {step === "pix" && slotAt ? (
+        {step === "pix" && session ? (
           <div className="mx-auto grid max-w-3xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
             <Card className="border-l-4 border-l-gold">
               <button
                 type="button"
-                className="text-sm text-navy/55"
+                className="min-h-11 text-sm text-navy/55"
                 onClick={() => setStep("ficha")}
               >
                 ← Voltar
               </button>
-              <CardTitle className="mt-2">Pagamento via PIX</CardTitle>
+              <CardTitle className="mt-2">Pagamento</CardTitle>
               <p className="mt-2 text-sm text-navy/70">
-                {longDateLabel(dayKey(slotAt))} · {formatTime(slotAt)} ·{" "}
-                {formatCurrency(amount)}
+                {longDateLabel(dayKey(session.scheduledAt))} ·{" "}
+                {formatTime(session.scheduledAt)} · {formatCurrency(amount)}
+              </p>
+              <p className="mt-2 text-xs text-navy/50">
+                Pague fora do app e volte para enviar o comprovante. O Jogo não é confirmado
+                automaticamente.
               </p>
 
               {house.pix_key ? (
                 <div className="mt-4 space-y-3">
                   <p className="text-xs text-navy/50">
-                    {house.pix_holder_name || "Beneficiário da casa"}
+                    {house.pix_holder_name || "Beneficiário configurado na casa"}
                   </p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={pixQrDataUrl(pixPayload(slotAt), "Consulta")}
-                    alt="QR Pix"
+                    src={pixQrDataUrl(pixPayload(session.scheduledAt), "Jogo")}
+                    alt="QR Pix do Jogo"
                     className="mx-auto h-44 w-44 rounded-xl border border-navy/10 bg-card p-2"
                   />
                   <p className="text-center font-display text-2xl text-gold-deep">
                     {formatCurrency(amount)}
                   </p>
-                  <Button variant="secondary" className="w-full" onClick={() => void copyPix()}>
+                  <Button
+                    variant="secondary"
+                    className="w-full min-h-11"
+                    onClick={() => void copyPix()}
+                  >
                     <Copy className="h-4 w-4" />
                     {copied ? "Copiado" : "Copiar chave PIX"}
                   </Button>
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-amber-900">
-                  Chave Pix ainda não cadastrada. Use o chat com Vitor Cardozo - Ògún Yande.
+                <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                  Chave Pix ainda não cadastrada nas configurações da casa. O pagamento pode
+                  ser combinado pelo canal indicado pela casa — sem inventar chave neste app.
                 </p>
               )}
 
-              <Button variant="gold" className="mt-4 w-full" onClick={confirmBook}>
-                Já paguei — confirmar marcação
-              </Button>
-              <Link
-                href="/marcar/chat"
-                className="mt-3 block text-center text-sm font-medium text-gold-deep"
+              <Button
+                variant="gold"
+                className="mt-4 w-full min-h-11"
+                onClick={() => setStep("comprovante")}
               >
-                Preferir falar no chat antes →
-              </Link>
+                Já paguei — enviar comprovante →
+              </Button>
             </Card>
             <div className="hidden lg:block">{summaryCard}</div>
           </div>
         ) : null}
 
-        {/* Rodapé — mobile / etapas */}
-        {step !== "ok" ? (
+        {step === "comprovante" && session ? (
+          <Card className="mx-auto max-w-xl">
+            <button
+              type="button"
+              className="min-h-11 text-sm text-navy/55"
+              onClick={() => setStep("pix")}
+            >
+              ← Voltar
+            </button>
+            <CardTitle className="mt-2">Enviar comprovante</CardTitle>
+            <p className="mt-2 text-sm text-navy/65">
+              JPG, PNG ou PDF · até 5 MB. O arquivo não fica público.
+            </p>
+            <form onSubmit={(e) => void onUploadProof(e)} className="mt-4 space-y-4">
+              <div>
+                <Label htmlFor="jogo-proof">Arquivo do comprovante</Label>
+                <Input
+                  id="jogo-proof"
+                  type="file"
+                  accept="image/jpeg,image/png,application/pdf"
+                  onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="gold"
+                className="w-full min-h-11"
+                disabled={uploading}
+              >
+                {uploading ? "Enviando…" : "Enviar comprovante"}
+              </Button>
+            </form>
+          </Card>
+        ) : null}
+
+        {step === "status" && session ? (
+          <Card className="mx-auto max-w-md border-l-4 border-l-leaf text-center">
+            <MessageCircle className="mx-auto h-10 w-10 text-leaf" />
+            <CardTitle className="mt-3 text-2xl">
+              {session.jogoStatus === "confirmado"
+                ? "Jogo confirmado"
+                : "Aguardando aprovação do Pai de Santo"}
+            </CardTitle>
+            <p className="mt-2 text-sm text-navy/70">
+              {longDateLabel(dayKey(session.scheduledAt))} ·{" "}
+              {formatTime(session.scheduledAt)} · {modalidadeLabel(session.modalidade)}
+            </p>
+            {session.jogoStatus !== "confirmado" ? (
+              <div className="mt-4 space-y-2 rounded-2xl bg-mist/70 px-3 py-3 text-sm text-navy/70">
+                <p>Seu comprovante foi recebido.</p>
+                <p>A confirmação do Jogo pode levar até 24 horas.</p>
+                <p>Você receberá a resposta pelo e-mail informado.</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p className="text-sm text-navy/70">
+                  Use o link seguro enviado por e-mail para acessar o atendimento.
+                </p>
+                {session.accessToken ? (
+                  <Link href={visitorAccessPath(session.accessToken)}>
+                    <Button variant="gold" className="w-full min-h-11">
+                      Abrir meu atendimento
+                    </Button>
+                  </Link>
+                ) : null}
+              </div>
+            )}
+            <p className="mt-4 font-display text-xl text-navy">{session.fichaCode}</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <Button variant="secondary" onClick={resetFlow}>
+                Nova marcação
+              </Button>
+              <Link href="/">
+                <Button variant="secondary" className="w-full">
+                  Voltar ao início
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        ) : null}
+
+        {step !== "status" && step !== "aviso" ? (
           <div className="mt-8 lg:hidden">
             <HelpFooter />
           </div>
-        ) : (
-          <div className="mt-8">
-            <HelpFooter />
-          </div>
-        )}
-
-        {guestClientId && step === "ok" ? null : guestClientId ? (
-          <p className="mt-4 text-center text-xs text-navy/45">
-            <Link href="/marcar/chat" className="underline">
-              Abrir chat
-            </Link>
-          </p>
         ) : null}
       </div>
       <PublicBottomNav />
     </div>
-  );
-}
-
-function StepDot({
-  n,
-  label,
-  active,
-  done,
-}: {
-  n: number;
-  label: string;
-  active: boolean;
-  done: boolean;
-}) {
-  return (
-    <li className="flex w-[5.5rem] flex-col items-center gap-1.5 sm:w-28">
-      <span
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition",
-          active || done
-            ? "bg-navy text-white"
-            : "bg-card text-navy/40 ring-1 ring-navy/10",
-          active && "ring-2 ring-gold/60",
-        )}
-      >
-        {n}
-      </span>
-      <span
-        className={cn(
-          "text-center text-[10px] leading-tight sm:text-[11px]",
-          active ? "font-semibold text-navy" : "text-navy/40",
-        )}
-      >
-        {label}
-      </span>
-    </li>
-  );
-}
-
-function StepLine({ done }: { done: boolean }) {
-  return (
-    <li
-      aria-hidden
-      className={cn(
-        "mt-4 h-px w-4 shrink-0 sm:w-8",
-        done ? "bg-navy/40" : "bg-navy/15",
-      )}
-    />
   );
 }
 
@@ -875,25 +994,16 @@ function HelpFooter() {
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
+          className="inline-flex min-h-11 items-center gap-1.5 font-medium text-navy/70"
           onClick={() => openWhatsApp(CLIENT_WHATSAPP.duvidas.href)}
         >
           <Phone className="h-3.5 w-3.5 text-gold-deep" />
           WhatsApp
         </button>
         <span className="text-navy/20">|</span>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
-          onClick={() => openWhatsApp(CLIENT_WHATSAPP.grupo.href)}
-        >
-          <Users className="h-3.5 w-3.5 text-gold-deep" />
-          Grupo
-        </button>
-        <span className="text-navy/20">|</span>
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 font-medium text-navy/70 transition hover:text-navy"
+          className="inline-flex min-h-11 items-center gap-1.5 font-medium text-navy/70"
         >
           <Home className="h-3.5 w-3.5 text-gold-deep" />
           Voltar ao início

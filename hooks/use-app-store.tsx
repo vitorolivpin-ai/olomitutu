@@ -56,6 +56,10 @@ import type {
   InscricaoOficina,
   InscricaoOficinaStatus,
   InternalNote,
+  JogoAccessIndexEntry,
+  JogoFlowStatus,
+  JogoModalidade,
+  JogoPaymentProof,
   LibraryItem,
   LibraryKind,
   Member,
@@ -93,6 +97,19 @@ import {
   canManageLibrary,
   canManageOficinas as roleCanManageOficinas,
 } from "@/lib/permissions";
+import {
+  accessTokenExpiresAt,
+  analysisDeadlineAt,
+  analysisReminderAt,
+  createJogoAccessToken,
+  DEFAULT_JOGO_AMOUNT,
+  findJogoAccessByToken,
+  holdExpiresAt,
+  isJogoOccupyingStatus,
+  pruneJogoSlotHolds,
+  upsertJogoAccessIndex,
+  upsertJogoSlotHold,
+} from "@/lib/jogo";
 import { formatAudioDuration } from "@/lib/chat";
 import {
   deleteLibraryItemRemote,
@@ -202,6 +219,7 @@ type AppStore = {
     scheduled_at: string;
     ficha: AppointmentGuestFicha;
     amount?: number;
+    modalidade?: JogoModalidade;
   }) =>
     | {
         ok: true;
@@ -210,6 +228,47 @@ type AppStore = {
         client_id: string;
       }
     | { ok: false; error: string };
+  /** Reserva temporária do horário (pending) no fluxo público de Jogo. */
+  holdGuestJogo: (input: {
+    scheduled_at: string;
+    modalidade: JogoModalidade;
+    amount?: number;
+  }) =>
+    | {
+        ok: true;
+        appointment: Appointment;
+        ficha_code: string;
+        client_id: string;
+        hold_expires_at: string;
+      }
+    | { ok: false; error: string };
+  /** Completa dados do visitante na reserva (e-mail obrigatório). */
+  completeGuestJogoFicha: (input: {
+    appointment_id: string;
+    ficha: AppointmentGuestFicha;
+  }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
+  /** Anexa comprovante privado e move para aguardando aprovação. */
+  attachGuestJogoProof: (input: {
+    appointment_id: string;
+    proof: Omit<JogoPaymentProof, "uploaded_at">;
+  }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
+  /** Decisão exclusiva do Pai de Santo. */
+  paiDecideJogo: (input: {
+    appointment_id: string;
+    decision: "aprovar" | "recusar" | "novo_comprovante";
+    note?: string;
+  }) =>
+    | {
+        ok: true;
+        appointment: Appointment;
+        access_token?: string;
+        email_event?: Appointment["last_email_event"];
+      }
+    | { ok: false; error: string };
+  /** Resolve token público (sem expor PII). */
+  resolveJogoAccess: (token: string) => JogoAccessIndexEntry | null;
+  /** Marca prazo de análise atingido sem auto-decidir. */
+  refreshJogoDeadlines: () => void;
   /** Chat do visitante (sem login) na marcação do jogo. */
   ensureGuestChatClient: (input: {
     full_name: string;
@@ -1907,7 +1966,13 @@ export function AppStoreProvider({
           result = { ok: false, error: "Este horário não está disponível na agenda da casa." };
           return prev;
         }
-        if (isSlotOccupied(input.scheduled_at, prev.appointments)) {
+        if (
+          isSlotOccupied(
+            input.scheduled_at,
+            prev.appointments,
+            prev.jogoSlotHolds,
+          )
+        ) {
           result = { ok: false, error: "Este horário já está ocupado." };
           return prev;
         }
@@ -1947,6 +2012,36 @@ export function AppStoreProvider({
     [commit, currentUser],
   );
 
+  const seedPai = () =>
+    createSeedState().profiles.find((profile) => profile.role === "pai_de_santo");
+
+  /** Mescla blob privado do Pai quando o visitante (sem login) grava um Jogo. */
+  function withPaiPrivateBase(prev: AppState): AppState {
+    const pai =
+      prev.profiles.find((profile) => profile.role === "pai_de_santo") ?? seedPai();
+    if (!pai) return prev;
+    const saved = loadPrivateData(pai.id);
+    if (!saved.appointments && !saved.clients && !saved.messages) return prev;
+    const clients = new Map(prev.clients.map((c) => [c.id, c]));
+    for (const c of saved.clients ?? []) clients.set(c.id, c);
+    const appointments = new Map(prev.appointments.map((a) => [a.id, a]));
+    for (const a of saved.appointments ?? []) appointments.set(a.id, a);
+    const messages = new Map(prev.messages.map((m) => [m.id, m]));
+    for (const m of saved.messages ?? []) messages.set(m.id, m);
+    return {
+      ...prev,
+      clients: [...clients.values()],
+      appointments: [...appointments.values()],
+      messages: [...messages.values()],
+      notifications: [
+        ...(saved.notifications ?? []).filter(
+          (n) => !prev.notifications.some((p) => p.id === n.id),
+        ),
+        ...prev.notifications,
+      ],
+    };
+  }
+
   const bookGuestAppointment: AppStore["bookGuestAppointment"] = useCallback(
     (input) => {
       const name = input.ficha.full_name.trim();
@@ -1963,7 +2058,8 @@ export function AppStoreProvider({
         error: "Falha ao marcar.",
       };
 
-      commit((prev) => {
+      commit((rawPrev) => {
+        const prev = withPaiPrivateBase(rawPrev);
         const published = (prev.publishedSlots ?? []).some(
           (s) => s.scheduled_at === input.scheduled_at,
         );
@@ -1974,7 +2070,13 @@ export function AppStoreProvider({
           };
           return prev;
         }
-        if (isSlotOccupied(input.scheduled_at, prev.appointments)) {
+        if (
+          isSlotOccupied(
+            input.scheduled_at,
+            prev.appointments,
+            prev.jogoSlotHolds,
+          )
+        ) {
           result = { ok: false, error: "Este horário acabou de ser preenchido." };
           return prev;
         }
@@ -1984,6 +2086,8 @@ export function AppStoreProvider({
         const clientId = uid("cli");
         const aptId = uid("apt");
         const fichaCode = `FC-${aptId.slice(-8).toUpperCase()}`;
+        const amount = input.amount ?? prev.houseSettings?.jogo_amount ?? DEFAULT_JOGO_AMOUNT;
+        const modalidade = input.modalidade ?? "online";
         const guestClient: Client = {
           id: clientId,
           responsible_profile_id:
@@ -2004,7 +2108,10 @@ export function AppStoreProvider({
           scheduled_at: input.scheduled_at,
           duration_minutes: slot?.duration_minutes ?? 60,
           status: "SOLICITADO",
-          amount: input.amount ?? 150,
+          amount,
+          modalidade,
+          jogo_status: "aguardando_pagamento",
+          hold_expires_at: holdExpiresAt(new Date(stamp)),
           ficha_code: fichaCode,
           guest_ficha: {
             full_name: name,
@@ -2012,15 +2119,20 @@ export function AppStoreProvider({
             email: input.ficha.email?.trim() || undefined,
             birth_date: input.ficha.birth_date || undefined,
             observation: input.ficha.observation?.trim() || undefined,
+            privacy_accepted: input.ficha.privacy_accepted,
+            privacy_accepted_at: input.ficha.privacy_accepted
+              ? stamp
+              : undefined,
           },
           pai_only_ficha: true,
+          chat_unlocked: false,
           created_at: stamp,
           updated_at: stamp,
         };
         const notification: AppNotification = {
           id: uid("ntf"),
-          title: "Nova ficha na agenda",
-          body: `Horário ${new Date(input.scheduled_at).toLocaleString("pt-BR")} · código ${fichaCode}. Abra a ficha (só você vê os dados).`,
+          title: "Nova solicitação de Jogo",
+          body: `Horário pendente · código ${fichaCode}. Sem dados sensíveis neste aviso.`,
           type: "agenda",
           audience: ["pai_de_santo"],
           related_id: aptId,
@@ -2039,13 +2151,472 @@ export function AppStoreProvider({
           clients: [guestClient, ...prev.clients],
           appointments: [appointment, ...prev.appointments],
           notifications: [notification, ...prev.notifications],
+          jogoSlotHolds: upsertJogoSlotHold(prev.jogoSlotHolds, {
+            appointment_id: aptId,
+            scheduled_at: input.scheduled_at,
+            expires_at: appointment.hold_expires_at!,
+            jogo_status: "aguardando_pagamento",
+            modalidade,
+          }),
         };
-      }, createSeedState().profiles.find((profile) => profile.role === "pai_de_santo"));
+      }, seedPai());
 
       return result;
     },
     [commit],
   );
+
+  const holdGuestJogo: AppStore["holdGuestJogo"] = useCallback(
+    (input) => {
+      let result: ReturnType<AppStore["holdGuestJogo"]> = {
+        ok: false,
+        error: "Não foi possível reservar o horário.",
+      };
+      commit((rawPrev) => {
+        const prev = withPaiPrivateBase(rawPrev);
+        const published = (prev.publishedSlots ?? []).some(
+          (s) => s.scheduled_at === input.scheduled_at,
+        );
+        if (!published) {
+          result = { ok: false, error: "Este horário não está mais disponível." };
+          return prev;
+        }
+        if (
+          isSlotOccupied(
+            input.scheduled_at,
+            prev.appointments,
+            prev.jogoSlotHolds,
+          )
+        ) {
+          result = { ok: false, error: "Este horário acabou de ser preenchido." };
+          return prev;
+        }
+        const stamp = nowIso();
+        const expires = holdExpiresAt(new Date(stamp));
+        const slot = prev.publishedSlots.find((s) => s.scheduled_at === input.scheduled_at);
+        const clientId = uid("cli");
+        const aptId = uid("apt");
+        const fichaCode = `FC-${aptId.slice(-8).toUpperCase()}`;
+        const amount =
+          input.amount ?? prev.houseSettings?.jogo_amount ?? DEFAULT_JOGO_AMOUNT;
+        const paiId =
+          prev.profiles.find((profile) => profile.role === "pai_de_santo")?.id;
+        const guestClient: Client = {
+          id: clientId,
+          responsible_profile_id: paiId,
+          full_name: "Visitante (reserva)",
+          phone: "pendente",
+          is_guest: true,
+          registration_complete: false,
+          notes: "Reserva temporária de Jogo",
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        const appointment: Appointment = {
+          id: aptId,
+          client_id: clientId,
+          scheduled_at: input.scheduled_at,
+          duration_minutes: slot?.duration_minutes ?? 60,
+          status: "SOLICITADO",
+          amount,
+          modalidade: input.modalidade,
+          jogo_status: "aguardando_pagamento",
+          hold_expires_at: expires,
+          ficha_code: fichaCode,
+          pai_only_ficha: true,
+          chat_unlocked: false,
+          created_at: stamp,
+          updated_at: stamp,
+        };
+        result = {
+          ok: true,
+          appointment,
+          ficha_code: fichaCode,
+          client_id: clientId,
+          hold_expires_at: expires,
+        };
+        return {
+          ...prev,
+          clients: [guestClient, ...prev.clients],
+          appointments: [appointment, ...prev.appointments],
+          jogoSlotHolds: upsertJogoSlotHold(prev.jogoSlotHolds, {
+            appointment_id: aptId,
+            scheduled_at: input.scheduled_at,
+            expires_at: expires,
+            jogo_status: "aguardando_pagamento",
+            modalidade: input.modalidade,
+          }),
+        };
+      }, seedPai());
+      return result;
+    },
+    [commit],
+  );
+
+  const completeGuestJogoFicha: AppStore["completeGuestJogoFicha"] = useCallback(
+    (input) => {
+      const name = input.ficha.full_name.trim();
+      const phone = input.ficha.phone.trim();
+      const email = input.ficha.email?.trim() ?? "";
+      const birth = input.ficha.birth_date?.trim() ?? "";
+      if (name.length < 3) return { ok: false, error: "Informe seu nome completo." };
+      if (phone.length < 8) return { ok: false, error: "Informe um WhatsApp válido." };
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { ok: false, error: "Informe um e-mail válido." };
+      }
+      if (!birth) return { ok: false, error: "Informe a data de nascimento." };
+      if (!input.ficha.privacy_accepted) {
+        return { ok: false, error: "Aceite a Política de Privacidade para continuar." };
+      }
+
+      let result: ReturnType<AppStore["completeGuestJogoFicha"]> = {
+        ok: false,
+        error: "Reserva não encontrada ou expirada.",
+      };
+      commit((rawPrev) => {
+        const prev = withPaiPrivateBase(rawPrev);
+        const apt = prev.appointments.find((a) => a.id === input.appointment_id);
+        if (!apt || apt.pai_only_ficha !== true) return prev;
+        if (
+          apt.jogo_status &&
+          !["aguardando_pagamento", "recusado"].includes(apt.jogo_status) &&
+          !apt.requested_new_proof
+        ) {
+          result = { ok: false, error: "Esta solicitação não aceita mais edição." };
+          return prev;
+        }
+        if (
+          apt.hold_expires_at &&
+          apt.jogo_status === "aguardando_pagamento" &&
+          new Date(apt.hold_expires_at).getTime() < Date.now()
+        ) {
+          result = { ok: false, error: "A reserva temporária expirou. Escolha outro horário." };
+          return prev;
+        }
+        const stamp = nowIso();
+        const guest_ficha: AppointmentGuestFicha = {
+          full_name: name,
+          phone,
+          email,
+          birth_date: birth,
+          observation: input.ficha.observation?.trim() || undefined,
+          privacy_accepted: true,
+          privacy_accepted_at: stamp,
+        };
+        const appointments = prev.appointments.map((a) =>
+          a.id === apt.id
+            ? { ...a, guest_ficha, updated_at: stamp }
+            : a,
+        );
+        const clients = prev.clients.map((c) =>
+          c.id === apt.client_id
+            ? {
+                ...c,
+                full_name: name,
+                phone,
+                email,
+                birth_date: birth,
+                registration_complete: true,
+                updated_at: stamp,
+              }
+            : c,
+        );
+        const updated = appointments.find((a) => a.id === apt.id)!;
+        result = { ok: true, appointment: updated };
+        return { ...prev, appointments, clients };
+      }, seedPai());
+      return result;
+    },
+    [commit],
+  );
+
+  const attachGuestJogoProof: AppStore["attachGuestJogoProof"] = useCallback(
+    (input) => {
+      let result: ReturnType<AppStore["attachGuestJogoProof"]> = {
+        ok: false,
+        error: "Não foi possível enviar o comprovante.",
+      };
+      commit((rawPrev) => {
+        const prev = withPaiPrivateBase(rawPrev);
+        const apt = prev.appointments.find((a) => a.id === input.appointment_id);
+        if (!apt?.guest_ficha?.email) {
+          result = { ok: false, error: "Complete seus dados antes do comprovante." };
+          return prev;
+        }
+        if (
+          apt.jogo_status &&
+          !["aguardando_pagamento", "recusado", "comprovante_enviado"].includes(
+            apt.jogo_status,
+          ) &&
+          !apt.requested_new_proof
+        ) {
+          result = { ok: false, error: "Esta solicitação não aceita novo comprovante." };
+          return prev;
+        }
+        const stamp = nowIso();
+        const deadline = analysisDeadlineAt(stamp);
+        const proof: JogoPaymentProof = {
+          ...input.proof,
+          uploaded_at: stamp,
+        };
+        const appointments = prev.appointments.map((a) =>
+          a.id === apt.id
+            ? {
+                ...a,
+                payment_proof: proof,
+                proof_uploaded_at: stamp,
+                analysis_deadline_at: deadline,
+                analysis_reminder_at: analysisReminderAt(deadline),
+                analysis_deadline_reached: false,
+                requested_new_proof: false,
+                jogo_status: "aguardando_aprovacao" as JogoFlowStatus,
+                last_email_event: "comprovante_recebido" as const,
+                updated_at: stamp,
+              }
+            : a,
+        );
+        const updated = appointments.find((a) => a.id === apt.id)!;
+        const notification: AppNotification = {
+          id: uid("ntf"),
+          title: "Comprovante de Jogo recebido",
+          body: `Código ${apt.ficha_code ?? "—"} · análise em até 24h. Sem dados sensíveis neste aviso.`,
+          type: "agenda",
+          audience: ["pai_de_santo"],
+          related_id: apt.id,
+          read: false,
+          href: `/atendimentos/${apt.id}`,
+          created_at: stamp,
+        };
+        result = { ok: true, appointment: updated };
+        return {
+          ...prev,
+          appointments,
+          notifications: [notification, ...prev.notifications],
+          jogoSlotHolds: upsertJogoSlotHold(prev.jogoSlotHolds, {
+            appointment_id: apt.id,
+            scheduled_at: apt.scheduled_at,
+            expires_at: deadline,
+            jogo_status: "aguardando_aprovacao",
+            modalidade: apt.modalidade,
+          }),
+        };
+      }, seedPai());
+      return result;
+    },
+    [commit],
+  );
+
+  const paiDecideJogo: AppStore["paiDecideJogo"] = useCallback(
+    (input) => {
+      if (currentUser?.role !== "pai_de_santo") {
+        return { ok: false, error: "Somente o Pai de Santo pode decidir sobre o Jogo." };
+      }
+      let result: ReturnType<AppStore["paiDecideJogo"]> = {
+        ok: false,
+        error: "Atendimento não encontrado.",
+      };
+      commit((prev) => {
+        const apt = prev.appointments.find((a) => a.id === input.appointment_id);
+        const client = prev.clients.find((c) => c.id === apt?.client_id);
+        if (!apt || !client) return prev;
+        if (client.responsible_profile_id !== currentUser.id) {
+          result = { ok: false, error: "Este Jogo não está sob sua responsabilidade." };
+          return prev;
+        }
+        const stamp = nowIso();
+        if (input.decision === "aprovar") {
+          const token = createJogoAccessToken();
+          const tokenExp = accessTokenExpiresAt(new Date(stamp));
+          const appointments = prev.appointments.map((a) =>
+            a.id === apt.id
+              ? {
+                  ...a,
+                  status: "CONFIRMADO" as AppointmentStatus,
+                  jogo_status: "confirmado" as JogoFlowStatus,
+                  access_token: token,
+                  access_token_expires_at: tokenExp,
+                  access_token_revoked: false,
+                  chat_unlocked: true,
+                  enter_jogo_enabled: false,
+                  last_email_event: "confirmado" as const,
+                  updated_at: stamp,
+                }
+              : a,
+          );
+          const updated = appointments.find((a) => a.id === apt.id)!;
+          const accessEntry: JogoAccessIndexEntry = {
+            appointment_id: apt.id,
+            access_token: token,
+            expires_at: tokenExp,
+            revoked: false,
+            jogo_status: "confirmado",
+            scheduled_at: apt.scheduled_at,
+            modalidade: apt.modalidade ?? "online",
+            chat_unlocked: true,
+            ficha_code: apt.ficha_code ?? "",
+            amount: apt.amount,
+          };
+          const notification: AppNotification = {
+            id: uid("ntf"),
+            title: "Jogo confirmado",
+            body: `Código ${apt.ficha_code ?? "—"} confirmado. Sem dados sensíveis neste aviso.`,
+            type: "agenda",
+            audience: ["pai_de_santo"],
+            related_id: apt.id,
+            read: false,
+            href: `/atendimentos/${apt.id}`,
+            created_at: stamp,
+          };
+          result = {
+            ok: true,
+            appointment: updated,
+            access_token: token,
+            email_event: "confirmado",
+          };
+          return {
+            ...prev,
+            appointments,
+            notifications: [notification, ...prev.notifications],
+            jogoSlotHolds: upsertJogoSlotHold(prev.jogoSlotHolds, {
+              appointment_id: apt.id,
+              scheduled_at: apt.scheduled_at,
+              expires_at: tokenExp,
+              jogo_status: "confirmado",
+              modalidade: apt.modalidade,
+            }),
+            jogoAccessIndex: upsertJogoAccessIndex(prev.jogoAccessIndex, accessEntry),
+          };
+        }
+
+        if (input.decision === "novo_comprovante") {
+          const appointments = prev.appointments.map((a) =>
+            a.id === apt.id
+              ? {
+                  ...a,
+                  jogo_status: "aguardando_pagamento" as JogoFlowStatus,
+                  requested_new_proof: true,
+                  refusal_note: input.note?.trim() || undefined,
+                  last_email_event: "novo_comprovante" as const,
+                  hold_expires_at: holdExpiresAt(new Date(stamp)),
+                  updated_at: stamp,
+                }
+              : a,
+          );
+          const updated = appointments.find((a) => a.id === apt.id)!;
+          result = {
+            ok: true,
+            appointment: updated,
+            email_event: "novo_comprovante",
+          };
+          return {
+            ...prev,
+            appointments,
+            jogoSlotHolds: upsertJogoSlotHold(prev.jogoSlotHolds, {
+              appointment_id: apt.id,
+              scheduled_at: apt.scheduled_at,
+              expires_at: updated.hold_expires_at!,
+              jogo_status: "aguardando_pagamento",
+              modalidade: apt.modalidade,
+            }),
+          };
+        }
+
+        // recusar
+        const appointments = prev.appointments.map((a) =>
+          a.id === apt.id
+            ? {
+                ...a,
+                status: "CANCELADO" as AppointmentStatus,
+                jogo_status: "recusado" as JogoFlowStatus,
+                refusal_note: input.note?.trim() || undefined,
+                chat_unlocked: false,
+                access_token_revoked: true,
+                last_email_event: "recusado" as const,
+                updated_at: stamp,
+              }
+            : a,
+        );
+        const updated = appointments.find((a) => a.id === apt.id)!;
+        result = { ok: true, appointment: updated, email_event: "recusado" };
+        return {
+          ...prev,
+          appointments,
+          jogoSlotHolds: pruneJogoSlotHolds(prev.jogoSlotHolds).filter(
+            (h) => h.appointment_id !== apt.id,
+          ),
+          jogoAccessIndex: (prev.jogoAccessIndex ?? []).map((e) =>
+            e.appointment_id === apt.id ? { ...e, revoked: true, jogo_status: "recusado" } : e,
+          ),
+        };
+      });
+      return result;
+    },
+    [commit, currentUser],
+  );
+
+  const resolveJogoAccess: AppStore["resolveJogoAccess"] = useCallback(
+    (token) => findJogoAccessByToken(state.jogoAccessIndex, token),
+    [state.jogoAccessIndex],
+  );
+
+  const refreshJogoDeadlines: AppStore["refreshJogoDeadlines"] = useCallback(() => {
+    commit((rawPrev) => {
+      const prev = withPaiPrivateBase(rawPrev);
+      const now = Date.now();
+      let changed = false;
+      const appointments = prev.appointments.map((a) => {
+        if (
+          a.jogo_status === "aguardando_aprovacao" &&
+          a.analysis_deadline_at &&
+          new Date(a.analysis_deadline_at).getTime() <= now &&
+          !a.analysis_deadline_reached
+        ) {
+          changed = true;
+          return {
+            ...a,
+            jogo_status: "prazo_analise_atingido" as JogoFlowStatus,
+            analysis_deadline_reached: true,
+            updated_at: nowIso(),
+          };
+        }
+        if (
+          a.jogo_status === "aguardando_pagamento" &&
+          a.hold_expires_at &&
+          new Date(a.hold_expires_at).getTime() <= now
+        ) {
+          changed = true;
+          return {
+            ...a,
+            status: "CANCELADO" as AppointmentStatus,
+            jogo_status: "cancelado" as JogoFlowStatus,
+            updated_at: nowIso(),
+          };
+        }
+        return a;
+      });
+      const rebuiltHolds = appointments
+        .filter((a) => isJogoOccupyingStatus(a.jogo_status))
+        .map((a) => ({
+          appointment_id: a.id,
+          scheduled_at: a.scheduled_at,
+          expires_at:
+            a.jogo_status === "aguardando_pagamento"
+              ? a.hold_expires_at ?? holdExpiresAt()
+              : a.analysis_deadline_at ?? a.access_token_expires_at ?? holdExpiresAt(),
+          jogo_status: a.jogo_status!,
+          modalidade: a.modalidade,
+        }));
+      const prunedOnly = pruneJogoSlotHolds(prev.jogoSlotHolds);
+      if (!changed && prunedOnly.length === (prev.jogoSlotHolds ?? []).length) {
+        return prev;
+      }
+      return {
+        ...prev,
+        appointments: changed ? appointments : prev.appointments,
+        jogoSlotHolds: changed ? rebuiltHolds : prunedOnly,
+      };
+    }, seedPai());
+  }, [commit]);
 
   const ensureGuestChatClient: AppStore["ensureGuestChatClient"] = useCallback(
     (input) => {
@@ -2353,7 +2924,9 @@ export function AppStoreProvider({
       commit((prev) => {
         const slot = (prev.publishedSlots ?? []).find((s) => s.id === id);
         if (!slot) return prev;
-        if (isSlotOccupied(slot.scheduled_at, prev.appointments)) {
+        if (
+          isSlotOccupied(slot.scheduled_at, prev.appointments, prev.jogoSlotHolds)
+        ) {
           return prev;
         }
         return {
@@ -4232,6 +4805,12 @@ export function AppStoreProvider({
     saveClientRegistration,
     createAppointment,
     bookGuestAppointment,
+    holdGuestJogo,
+    completeGuestJogoFicha,
+    attachGuestJogoProof,
+    paiDecideJogo,
+    resolveJogoAccess,
+    refreshJogoDeadlines,
     ensureGuestChatClient,
     sendGuestMessage,
     updateAppointmentStatus,

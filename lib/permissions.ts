@@ -113,6 +113,16 @@ export function canManageOficinas(role: UserRole | null | undefined) {
   return role === "pai_de_santo" || role === "administrador";
 }
 
+/** Jogo / comprovante / aprovação — exclusivo do Pai de Santo (Etapa 1 + 2). */
+export function canManageJogo(role: UserRole | null | undefined) {
+  return role === "pai_de_santo";
+}
+
+/** Admin e Financeiro não acessam clientes/Jogos privados. */
+export function canAccessPrivateClients(role: UserRole | null | undefined) {
+  return role === "pai_de_santo";
+}
+
 export function canAccess(role: UserRole | null | undefined, module: AppModule) {
   if (!role) return false;
   return ROLE_ACCESS[role].includes(module);

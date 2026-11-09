@@ -122,7 +122,11 @@ export function PaiHome() {
 
   const freeSlots = useMemo(
     () =>
-      buildSlotViews(state.publishedSlots ?? [], state.appointments ?? []).filter(
+      buildSlotViews(
+        state.publishedSlots ?? [],
+        state.appointments ?? [],
+        state.jogoSlotHolds,
+      ).filter(
         (s) => s.status === "livre",
       ),
     [state.publishedSlots, state.appointments],
