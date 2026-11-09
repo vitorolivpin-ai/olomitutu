@@ -59,9 +59,10 @@ export function analysisDeadlineAt(fromIso: string) {
   return new Date(from.getTime() + JOGO_ANALYSIS_HOURS * 3600_000).toISOString();
 }
 
+/** Lembrete ao Pai ~4h antes do prazo de análise (Etapa 4). */
 export function analysisReminderAt(deadlineIso: string) {
   const deadline = new Date(deadlineIso);
-  return new Date(deadline.getTime() - 2 * 3600_000).toISOString();
+  return new Date(deadline.getTime() - 4 * 3600_000).toISOString();
 }
 
 export function accessTokenExpiresAt(from = new Date()) {

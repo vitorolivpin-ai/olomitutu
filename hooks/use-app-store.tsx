@@ -125,6 +125,7 @@ import {
   remoteSyncOwnedJogos,
   remoteUploadJogoComprovante,
 } from "@/lib/jogo/remote-client";
+import { clearLocalPushFlags, notifyJogoPush } from "@/lib/push-client";
 import { formatAudioDuration } from "@/lib/chat";
 import {
   deleteLibraryItemRemote,
@@ -1164,6 +1165,7 @@ export function AppStoreProvider({
     writeViewAsArea(null);
     writeDemoOverrideId(null);
     clearGuestChatSession();
+    clearLocalPushFlags();
     if (isSupabaseConfigured()) {
       const supabase = createBrowserClient();
       void supabase?.auth.signOut();
@@ -2536,6 +2538,11 @@ export function AppStoreProvider({
             notifications: [notification, ...prev.notifications],
           };
         }, seedPai());
+        void notifyJogoPush({
+          event: "JOGO_COMPROVANTE_RECEBIDO",
+          jogo_id: remote.appointment.id,
+          guest_secret: input.guest_secret,
+        });
         return remote;
       }
 
@@ -2547,6 +2554,7 @@ export function AppStoreProvider({
         ok: false,
         error: "Não foi possível enviar o comprovante.",
       };
+      let pushJogoId: string | null = null;
       commit((rawPrev) => {
         const prev = withPaiPrivateBase(rawPrev);
         const apt = prev.appointments.find((a) => a.id === input.appointment_id);
@@ -2579,6 +2587,8 @@ export function AppStoreProvider({
                 analysis_deadline_at: deadline,
                 analysis_reminder_at: analysisReminderAt(deadline),
                 analysis_deadline_reached: false,
+                push_prazo_proximo_sent: false,
+                push_prazo_atingido_sent: false,
                 requested_new_proof: false,
                 jogo_status: "aguardando_aprovacao" as JogoFlowStatus,
                 last_email_event: "comprovante_recebido" as const,
@@ -2599,6 +2609,7 @@ export function AppStoreProvider({
           created_at: stamp,
         };
         result = { ok: true, appointment: updated };
+        pushJogoId = updated.id;
         return {
           ...prev,
           appointments,
@@ -2612,6 +2623,13 @@ export function AppStoreProvider({
           }),
         };
       }, seedPai());
+      if (pushJogoId) {
+        void notifyJogoPush({
+          event: "JOGO_COMPROVANTE_RECEBIDO",
+          jogo_id: pushJogoId,
+          guest_secret: input.guest_secret,
+        });
+      }
       return result;
     },
     [commit, mergeRemoteAppointmentCache],
@@ -2645,6 +2663,24 @@ export function AppStoreProvider({
             }),
           }));
         }
+        // Push remoto já dispara em /api/jogo/decidir; reforço client-side com token só no request
+        if (input.decision === "aprovar" && remote.access_token) {
+          void notifyJogoPush({
+            event: "JOGO_CONFIRMADO",
+            jogo_id: remote.appointment.id,
+            access_token: remote.access_token,
+          });
+        } else if (input.decision === "recusar") {
+          void notifyJogoPush({
+            event: "JOGO_RECUSADO",
+            jogo_id: remote.appointment.id,
+          });
+        } else if (input.decision === "novo_comprovante") {
+          void notifyJogoPush({
+            event: "JOGO_NOVO_COMPROVANTE",
+            jogo_id: remote.appointment.id,
+          });
+        }
         return remote;
       }
 
@@ -2652,6 +2688,13 @@ export function AppStoreProvider({
         ok: false,
         error: "Atendimento não encontrado.",
       };
+      let localPush:
+        | {
+            event: "JOGO_CONFIRMADO" | "JOGO_RECUSADO" | "JOGO_NOVO_COMPROVANTE";
+            jogo_id: string;
+            access_token?: string;
+          }
+        | null = null;
       commit((prev) => {
         const apt = prev.appointments.find((a) => a.id === input.appointment_id);
         const client = prev.clients.find((c) => c.id === apt?.client_id);
@@ -2710,6 +2753,11 @@ export function AppStoreProvider({
             access_token: token,
             email_event: "confirmado",
           };
+          localPush = {
+            event: "JOGO_CONFIRMADO",
+            jogo_id: updated.id,
+            access_token: token,
+          };
           return {
             ...prev,
             appointments,
@@ -2745,6 +2793,7 @@ export function AppStoreProvider({
             appointment: updated,
             email_event: "novo_comprovante",
           };
+          localPush = { event: "JOGO_NOVO_COMPROVANTE", jogo_id: updated.id };
           return {
             ...prev,
             appointments,
@@ -2775,6 +2824,7 @@ export function AppStoreProvider({
         );
         const updated = appointments.find((a) => a.id === apt.id)!;
         result = { ok: true, appointment: updated, email_event: "recusado" };
+        localPush = { event: "JOGO_RECUSADO", jogo_id: updated.id };
         return {
           ...prev,
           appointments,
@@ -2786,6 +2836,9 @@ export function AppStoreProvider({
           ),
         };
       });
+      if (localPush) {
+        void notifyJogoPush(localPush);
+      }
       return result;
     },
     [commit, currentUser, mergeRemoteAppointmentCache],
@@ -2882,11 +2935,38 @@ export function AppStoreProvider({
         }));
       });
     }
+    const pendingPush: Array<{
+      event:
+        | "JOGO_PRAZO_PROXIMO"
+        | "JOGO_PRAZO_ATINGIDO"
+        | "JOGO_LEMBRETE_1H"
+        | "JOGO_LEMBRETE_15MIN";
+      jogo_id: string;
+      access_token?: string;
+    }> = [];
     commit((rawPrev) => {
       const prev = withPaiPrivateBase(rawPrev);
       const now = Date.now();
       let changed = false;
       const appointments = prev.appointments.map((a) => {
+        let next = a;
+
+        if (
+          (a.jogo_status === "aguardando_aprovacao" ||
+            a.jogo_status === "prazo_analise_atingido") &&
+          a.analysis_reminder_at &&
+          new Date(a.analysis_reminder_at).getTime() <= now &&
+          !a.push_prazo_proximo_sent &&
+          !(
+            a.analysis_deadline_at &&
+            new Date(a.analysis_deadline_at).getTime() <= now
+          )
+        ) {
+          changed = true;
+          pendingPush.push({ event: "JOGO_PRAZO_PROXIMO", jogo_id: a.id });
+          next = { ...next, push_prazo_proximo_sent: true, updated_at: nowIso() };
+        }
+
         if (
           a.jogo_status === "aguardando_aprovacao" &&
           a.analysis_deadline_at &&
@@ -2894,27 +2974,60 @@ export function AppStoreProvider({
           !a.analysis_deadline_reached
         ) {
           changed = true;
-          return {
-            ...a,
+          if (!a.push_prazo_atingido_sent) {
+            pendingPush.push({ event: "JOGO_PRAZO_ATINGIDO", jogo_id: a.id });
+          }
+          next = {
+            ...next,
             jogo_status: "prazo_analise_atingido" as JogoFlowStatus,
             analysis_deadline_reached: true,
+            push_prazo_atingido_sent: true,
             updated_at: nowIso(),
           };
+        } else if (
+          a.jogo_status === "prazo_analise_atingido" &&
+          !a.push_prazo_atingido_sent
+        ) {
+          changed = true;
+          pendingPush.push({ event: "JOGO_PRAZO_ATINGIDO", jogo_id: a.id });
+          next = { ...next, push_prazo_atingido_sent: true, updated_at: nowIso() };
         }
+
+        if (a.jogo_status === "confirmado" && a.scheduled_at) {
+          const ms = new Date(a.scheduled_at).getTime() - now;
+          if (ms > 0 && ms <= 15 * 60_000 && !a.push_lembrete_15min_sent) {
+            changed = true;
+            pendingPush.push({
+              event: "JOGO_LEMBRETE_15MIN",
+              jogo_id: a.id,
+              access_token: a.access_token,
+            });
+            next = { ...next, push_lembrete_15min_sent: true, updated_at: nowIso() };
+          } else if (ms > 0 && ms <= 60 * 60_000 && !a.push_lembrete_1h_sent) {
+            changed = true;
+            pendingPush.push({
+              event: "JOGO_LEMBRETE_1H",
+              jogo_id: a.id,
+              access_token: a.access_token,
+            });
+            next = { ...next, push_lembrete_1h_sent: true, updated_at: nowIso() };
+          }
+        }
+
         if (
           a.jogo_status === "aguardando_pagamento" &&
           a.hold_expires_at &&
           new Date(a.hold_expires_at).getTime() <= now
         ) {
           changed = true;
-          return {
-            ...a,
+          next = {
+            ...next,
             status: "CANCELADO" as AppointmentStatus,
             jogo_status: "cancelado" as JogoFlowStatus,
             updated_at: nowIso(),
           };
         }
-        return a;
+        return next;
       });
       const rebuiltHolds = appointments
         .filter((a) => isJogoOccupyingStatus(a.jogo_status))
@@ -2938,6 +3051,9 @@ export function AppStoreProvider({
         jogoSlotHolds: changed ? rebuiltHolds : prunedOnly,
       };
     }, seedPai());
+    for (const p of pendingPush) {
+      void notifyJogoPush(p);
+    }
   }, [commit]);
 
   const ensureGuestChatClient: AppStore["ensureGuestChatClient"] = useCallback(

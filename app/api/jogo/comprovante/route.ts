@@ -174,8 +174,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const remoteRow = data as RemoteJogoAppointmentRow;
+  const appointment = mapRemoteJogoAppointment(remoteRow);
+
+  try {
+    const { sendJogoPush } = await import("@/lib/server/jogo-push");
+    await sendJogoPush({
+      admin: gate.admin,
+      event: "JOGO_COMPROVANTE_RECEBIDO",
+      jogoId: appointment.id,
+      paiUserId: remoteRow.responsible_profile_id ?? null,
+    });
+  } catch {
+    /* push opcional */
+  }
+
   return NextResponse.json({
     ok: true,
-    appointment: mapRemoteJogoAppointment(data as RemoteJogoAppointmentRow),
+    appointment,
   });
 }

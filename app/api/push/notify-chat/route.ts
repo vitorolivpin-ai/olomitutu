@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     });
     if (result.ok) {
       sent += 1;
-    } else if (result.error.toLowerCase().includes("gone") || result.error.includes("410")) {
+    } else if (result.gone) {
       await admin.from("push_subscriptions").delete().eq("id", row.id);
     }
   }

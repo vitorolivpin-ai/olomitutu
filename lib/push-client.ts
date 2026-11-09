@@ -96,10 +96,19 @@ function urlBase64ToUint8Array(base64String: string) {
   return out;
 }
 
+export type SubscribeWebPushContext = {
+  /** Visitante: atendimento do Jogo. */
+  jogoId?: string;
+  /** Token bruto de acesso (hash no servidor). */
+  accessToken?: string;
+  /** Segredo da sessão de hold (antes da confirmação). */
+  guestSecret?: string;
+};
+
 /** Inscreve no Web Push (precisa de NEXT_PUBLIC_VAPID_PUBLIC_KEY). */
-export async function subscribeWebPush(): Promise<
-  { ok: true } | { ok: false; error: string }
-> {
+export async function subscribeWebPush(
+  ctx?: SubscribeWebPushContext,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   if (!vapid) {
     return {
@@ -126,14 +135,54 @@ export async function subscribeWebPush(): Promise<
     });
   }
 
+  const body = {
+    ...sub.toJSON(),
+    jogo_id: ctx?.jogoId,
+    access_token: ctx?.accessToken,
+    guest_secret: ctx?.guestSecret,
+  };
+
   const res = await fetch("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(sub.toJSON()),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     return { ok: false, error: data.error || "Falha ao salvar inscrição." };
   }
   return { ok: true };
+}
+
+/** Disparo fire-and-forget dos eventos de Jogo (sem VAPID o servidor responde skipped). */
+export async function notifyJogoPush(input: {
+  event: string;
+  jogo_id: string;
+  access_token?: string;
+  guest_secret?: string;
+}) {
+  try {
+    await fetch("/api/push/notify-jogo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    /* push opcional */
+  }
+}
+
+export function clearLocalPushFlags() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("ile-push-chat-enabled");
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("ile-jogo-push-")) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
 }

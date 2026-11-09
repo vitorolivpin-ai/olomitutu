@@ -20,6 +20,7 @@ import {
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { PublicBottomNav } from "@/components/hub/public-bottom-nav";
+import { EnableJogoPush } from "@/components/jogo/enable-jogo-push";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorMessage } from "@/components/ui/empty-state";
@@ -941,6 +942,11 @@ export default function MarcarPublicoPage() {
                 ) : null}
               </div>
             )}
+            <EnableJogoPush
+              appointmentId={session.appointmentId}
+              accessToken={session.accessToken}
+              guestSecret={session.guestSecret}
+            />
             <p className="mt-4 font-display text-xl text-navy">{session.fichaCode}</p>
             <div className="mt-5 flex flex-col gap-2">
               <Button variant="secondary" onClick={resetFlow}>

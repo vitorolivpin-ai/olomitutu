@@ -319,6 +319,11 @@ export interface Appointment {
   enter_jogo_enabled?: boolean;
   requested_new_proof?: boolean;
   refusal_note?: string;
+  /** Anti-reenvio de Web Push (Etapa 4). */
+  push_prazo_proximo_sent?: boolean;
+  push_prazo_atingido_sent?: boolean;
+  push_lembrete_1h_sent?: boolean;
+  push_lembrete_15min_sent?: boolean;
   last_email_event?:
     | "confirmado"
     | "recusado"

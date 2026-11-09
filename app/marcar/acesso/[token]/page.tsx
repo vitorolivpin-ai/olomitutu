@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
 import { BrandWatermarks } from "@/components/brand/brand-watermarks";
 import { PublicBottomNav } from "@/components/hub/public-bottom-nav";
+import { EnableJogoPush } from "@/components/jogo/enable-jogo-push";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -163,6 +164,11 @@ export default function MarcarAcessoTokenPage() {
                 Disponível no horário do atendimento (voz/vídeo em etapa futura).
               </p>
             ) : null}
+
+            <EnableJogoPush
+              appointmentId={entry.appointment_id}
+              accessToken={entry.access_token || token}
+            />
           </div>
         </Card>
       </div>
