@@ -35,6 +35,7 @@ import {
 } from "@/lib/guest-jogo-session";
 import {
   DEFAULT_JOGO_AMOUNT,
+  isJogoRemoteEnabled,
   modalidadeLabel,
   readFileAsDataUrl,
   validateJogoProofFile,
@@ -246,7 +247,7 @@ export default function MarcarPublicoPage() {
     }
   }
 
-  function onHoldSlot() {
+  async function onHoldSlot() {
     setError("");
     if (!modalidade) {
       setError("Escolha a modalidade do Jogo.");
@@ -261,35 +262,41 @@ export default function MarcarPublicoPage() {
       setSlotAt(null);
       return;
     }
-    const held = holdGuestJogo({
-      scheduled_at: slotAt,
-      modalidade,
-      amount,
-    });
-    if (!held.ok) {
-      setError(held.error);
-      setSlotAt(null);
-      return;
+    setUploading(true);
+    try {
+      const held = await holdGuestJogo({
+        scheduled_at: slotAt,
+        modalidade,
+        amount,
+      });
+      if (!held.ok) {
+        setError(held.error);
+        setSlotAt(null);
+        return;
+      }
+      const next: GuestJogoSession = {
+        appointmentId: held.appointment.id,
+        clientId: held.client_id,
+        fullName: "",
+        phone: "",
+        email: "",
+        fichaCode: held.ficha_code,
+        scheduledAt: slotAt,
+        modalidade,
+        amount,
+        jogoStatus: "aguardando_pagamento",
+        holdExpiresAt: held.hold_expires_at,
+        guestSecret: held.guest_secret,
+      };
+      saveGuestJogoSession(next);
+      setSession(next);
+      setStep("ficha");
+    } finally {
+      setUploading(false);
     }
-    const next: GuestJogoSession = {
-      appointmentId: held.appointment.id,
-      clientId: held.client_id,
-      fullName: "",
-      phone: "",
-      email: "",
-      fichaCode: held.ficha_code,
-      scheduledAt: slotAt,
-      modalidade,
-      amount,
-      jogoStatus: "aguardando_pagamento",
-      holdExpiresAt: held.hold_expires_at,
-    };
-    saveGuestJogoSession(next);
-    setSession(next);
-    setStep("ficha");
   }
 
-  function onFicha(e: FormEvent) {
+  async function onFicha(e: FormEvent) {
     e.preventDefault();
     setError("");
     if (!session) {
@@ -297,30 +304,36 @@ export default function MarcarPublicoPage() {
       setStep("selecao");
       return;
     }
-    const result = completeGuestJogoFicha({
-      appointment_id: session.appointmentId,
-      ficha: {
-        full_name: fullName,
-        phone,
-        email,
-        birth_date: birthDate,
-        observation: observation || undefined,
-        privacy_accepted: privacyAccepted,
-      },
-    });
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setUploading(true);
+    try {
+      const result = await completeGuestJogoFicha({
+        appointment_id: session.appointmentId,
+        guest_secret: session.guestSecret,
+        ficha: {
+          full_name: fullName,
+          phone,
+          email,
+          birth_date: birthDate,
+          observation: observation || undefined,
+          privacy_accepted: privacyAccepted,
+        },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const next = {
+        ...session,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+      };
+      saveGuestJogoSession(next);
+      setSession(next);
+      setStep("pix");
+    } finally {
+      setUploading(false);
     }
-    const next = {
-      ...session,
-      fullName: fullName.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
-    };
-    saveGuestJogoSession(next);
-    setSession(next);
-    setStep("pix");
   }
 
   async function copyPix() {
@@ -348,13 +361,18 @@ export default function MarcarPublicoPage() {
     }
     setUploading(true);
     try {
-      const dataUrl = await readFileAsDataUrl(proofFile);
-      const result = attachGuestJogoProof({
+      const dataUrl = isJogoRemoteEnabled()
+        ? undefined
+        : await readFileAsDataUrl(proofFile);
+      const result = await attachGuestJogoProof({
         appointment_id: session.appointmentId,
+        guest_secret: session.guestSecret,
+        file: proofFile,
         proof: {
           file_name: proofFile.name,
           mime_type: proofFile.type,
           size_bytes: proofFile.size,
+          // Demo local: data_url privado. Remoto: API grava no bucket (sem data_url).
           data_url: dataUrl,
         },
       });

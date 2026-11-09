@@ -23,6 +23,8 @@ import {
   modalidadeLabel,
   visitorAccessPath,
 } from "@/lib/jogo";
+import { isJogoRemoteEnabled } from "@/lib/jogo/persistence";
+import { remoteSignedComprovanteUrl } from "@/lib/jogo/remote-client";
 
 export default function AppointmentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -39,6 +41,8 @@ export default function AppointmentDetailPage() {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [emailNote, setEmailNote] = useState("");
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
 
   const apt = state.appointments.find((a) => a.id === params.id);
   const client = state.clients.find((c) => c.id === apt?.client_id);
@@ -101,18 +105,37 @@ export default function AppointmentDetailPage() {
     setActionError("");
     setBusy(true);
     refreshJogoDeadlines();
-    const result = paiDecideJogo({ appointment_id: apt!.id, decision });
-    setBusy(false);
-    if (!result.ok) {
-      setActionError(result.error);
-      return;
+    try {
+      const result = await paiDecideJogo({ appointment_id: apt!.id, decision });
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      if (result.email_event === "confirmado") {
+        await sendStatusEmail("confirmado", result.access_token);
+      } else if (result.email_event === "recusado") {
+        await sendStatusEmail("recusado");
+      } else if (result.email_event === "novo_comprovante") {
+        await sendStatusEmail("novo_comprovante");
+      }
+    } finally {
+      setBusy(false);
     }
-    if (result.email_event === "confirmado") {
-      await sendStatusEmail("confirmado", result.access_token);
-    } else if (result.email_event === "recusado") {
-      await sendStatusEmail("recusado");
-    } else if (result.email_event === "novo_comprovante") {
-      await sendStatusEmail("novo_comprovante");
+  }
+
+  async function openRemoteProof() {
+    setActionError("");
+    setProofLoading(true);
+    try {
+      const res = await remoteSignedComprovanteUrl({ appointment_id: apt!.id });
+      if (!res.ok) {
+        setActionError(res.error);
+        return;
+      }
+      setProofUrl(res.url);
+      window.open(res.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setProofLoading(false);
     }
   }
 
@@ -246,6 +269,20 @@ export default function AppointmentDetailPage() {
                 {apt.payment_proof.file_name} ·{" "}
                 {Math.round(apt.payment_proof.size_bytes / 1024)} KB · privado
               </p>
+              {isJogoRemoteEnabled() && apt.payment_proof.storage_path ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11"
+                  disabled={proofLoading}
+                  onClick={() => void openRemoteProof()}
+                >
+                  {proofLoading ? "Abrindo…" : "Ver comprovante (URL assinada)"}
+                </Button>
+              ) : null}
+              {proofUrl ? (
+                <p className="break-all text-[11px] text-navy/45">URL temporária gerada.</p>
+              ) : null}
               {apt.payment_proof.data_url?.startsWith("data:image") ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -302,12 +339,19 @@ export default function AppointmentDetailPage() {
         </div>
       ) : null}
 
-      {apt.jogo_status === "confirmado" && apt.access_token ? (
+      {apt.jogo_status === "confirmado" ? (
         <Card>
           <CardTitle>Acesso do visitante</CardTitle>
-          <p className="mt-2 break-all text-xs text-navy/55">
-            {visitorAccessPath(apt.access_token)}
-          </p>
+          {apt.access_token ? (
+            <p className="mt-2 break-all text-xs text-navy/55">
+              {visitorAccessPath(apt.access_token)}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-navy/65">
+              Link seguro enviado por e-mail. No remoto o token bruto não fica armazenado no banco
+              (somente hash).
+            </p>
+          )}
           <p className="mt-2 text-sm text-navy/65">
             Token longo, expirável e revogável — só deste atendimento.
           </p>

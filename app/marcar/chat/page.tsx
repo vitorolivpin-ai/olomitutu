@@ -35,35 +35,41 @@ export default function MarcarChatPage() {
   const [accessHref, setAccessHref] = useState<string | null>(null);
 
   useEffect(() => {
-    const chat = loadGuestChatSession();
-    const jogo = loadGuestJogoSession();
-    if (chat) {
-      setSession(chat);
-      setFullName(chat.fullName);
-      setPhone(chat.phone);
-    }
-    if (jogo?.accessToken) {
-      const entry = resolveJogoAccess(jogo.accessToken);
-      if (entry?.chat_unlocked) {
-        setUnlocked(true);
-        setAccessHref(visitorAccessPath(jogo.accessToken));
-        if (chat) {
-          /* ok */
-        } else if (jogo.clientId) {
-          const next: GuestChatSession = {
-            clientId: jogo.clientId,
-            fullName: jogo.fullName || "Visitante",
-            phone: jogo.phone || "",
-            fichaCode: jogo.fichaCode,
-          };
-          saveGuestChatSession(next);
-          setSession(next);
-        }
+    let cancelled = false;
+    async function boot() {
+      const chat = loadGuestChatSession();
+      const jogo = loadGuestJogoSession();
+      if (chat) {
+        setSession(chat);
+        setFullName(chat.fullName);
+        setPhone(chat.phone);
       }
-    } else if (jogo?.jogoStatus === "confirmado" && jogo.accessToken) {
-      setAccessHref(visitorAccessPath(jogo.accessToken));
+      if (jogo?.accessToken) {
+        const entry = await resolveJogoAccess(jogo.accessToken);
+        if (cancelled) return;
+        if (entry?.chat_unlocked) {
+          setUnlocked(true);
+          setAccessHref(visitorAccessPath(jogo.accessToken));
+          if (!chat && jogo.clientId) {
+            const next: GuestChatSession = {
+              clientId: jogo.clientId,
+              fullName: jogo.fullName || "Visitante",
+              phone: jogo.phone || "",
+              fichaCode: jogo.fichaCode,
+            };
+            saveGuestChatSession(next);
+            setSession(next);
+          }
+        }
+      } else if (jogo?.jogoStatus === "confirmado" && jogo.accessToken) {
+        setAccessHref(visitorAccessPath(jogo.accessToken));
+      }
+      if (!cancelled) setReady(true);
     }
-    setReady(true);
+    void boot();
+    return () => {
+      cancelled = true;
+    };
   }, [resolveJogoAccess]);
 
   const pai = state.profiles.find((p) => p.role === "pai_de_santo");
@@ -74,7 +80,7 @@ export default function MarcarChatPage() {
     return (state.messages ?? []).filter((m) => m.client_id === session.clientId);
   }, [state.messages, session]);
 
-  function onStart(e: FormEvent) {
+  async function onStart(e: FormEvent) {
     e.preventDefault();
     setError("");
     const jogo = loadGuestJogoSession();
@@ -84,7 +90,7 @@ export default function MarcarChatPage() {
       );
       return;
     }
-    const entry = resolveJogoAccess(jogo.accessToken);
+    const entry = await resolveJogoAccess(jogo.accessToken);
     if (!entry?.chat_unlocked) {
       setError("Este atendimento ainda não liberou o chat.");
       return;

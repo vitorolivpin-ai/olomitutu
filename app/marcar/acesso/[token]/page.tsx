@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BrandPageHeader } from "@/components/brand/brand-page-header";
@@ -18,6 +18,7 @@ import {
   saveGuestJogoSession,
 } from "@/lib/guest-jogo-session";
 import { modalidadeLabel } from "@/lib/jogo";
+import type { JogoAccessIndexEntry } from "@/types";
 
 /**
  * Acesso temporário do visitante após aprovação — só o token deste atendimento.
@@ -28,16 +29,30 @@ export default function MarcarAcessoTokenPage() {
   const token = decodeURIComponent(params.token ?? "");
   const { resolveJogoAccess, refreshJogoDeadlines } = useAppStore();
   const [ready, setReady] = useState(false);
+  const [entry, setEntry] = useState<JogoAccessIndexEntry | null>(null);
 
   useEffect(() => {
-    refreshJogoDeadlines();
-    setReady(true);
-  }, [refreshJogoDeadlines]);
-
-  const entry = useMemo(
-    () => (ready && token ? resolveJogoAccess(token) : null),
-    [ready, token, resolveJogoAccess],
-  );
+    let cancelled = false;
+    async function run() {
+      refreshJogoDeadlines();
+      if (!token) {
+        if (!cancelled) {
+          setEntry(null);
+          setReady(true);
+        }
+        return;
+      }
+      const resolved = await resolveJogoAccess(token);
+      if (!cancelled) {
+        setEntry(resolved);
+        setReady(true);
+      }
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, resolveJogoAccess, refreshJogoDeadlines]);
 
   useEffect(() => {
     if (!entry) return;

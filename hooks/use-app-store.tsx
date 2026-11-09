@@ -110,6 +110,16 @@ import {
   upsertJogoAccessIndex,
   upsertJogoSlotHold,
 } from "@/lib/jogo";
+import { isJogoRemoteEnabled } from "@/lib/jogo/persistence";
+import {
+  remoteCompleteJogoFicha,
+  remoteDecidirJogo,
+  remoteHoldJogo,
+  remoteListJogoOcupacao,
+  remoteResolveJogoAccess,
+  remoteSyncOwnedJogos,
+  remoteUploadJogoComprovante,
+} from "@/lib/jogo/remote-client";
 import { formatAudioDuration } from "@/lib/chat";
 import {
   deleteLibraryItemRemote,
@@ -233,42 +243,50 @@ type AppStore = {
     scheduled_at: string;
     modalidade: JogoModalidade;
     amount?: number;
-  }) =>
+  }) => Promise<
     | {
         ok: true;
         appointment: Appointment;
         ficha_code: string;
         client_id: string;
         hold_expires_at: string;
+        guest_secret?: string;
       }
-    | { ok: false; error: string };
+    | { ok: false; error: string }
+  >;
   /** Completa dados do visitante na reserva (e-mail obrigatório). */
   completeGuestJogoFicha: (input: {
     appointment_id: string;
     ficha: AppointmentGuestFicha;
-  }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
+    guest_secret?: string;
+  }) => Promise<{ ok: true; appointment: Appointment } | { ok: false; error: string }>;
   /** Anexa comprovante privado e move para aguardando aprovação. */
   attachGuestJogoProof: (input: {
     appointment_id: string;
-    proof: Omit<JogoPaymentProof, "uploaded_at">;
-  }) => { ok: true; appointment: Appointment } | { ok: false; error: string };
+    proof?: Omit<JogoPaymentProof, "uploaded_at">;
+    file?: File;
+    guest_secret?: string;
+  }) => Promise<{ ok: true; appointment: Appointment } | { ok: false; error: string }>;
   /** Decisão exclusiva do Pai de Santo. */
   paiDecideJogo: (input: {
     appointment_id: string;
     decision: "aprovar" | "recusar" | "novo_comprovante";
     note?: string;
-  }) =>
+  }) => Promise<
     | {
         ok: true;
         appointment: Appointment;
         access_token?: string;
         email_event?: Appointment["last_email_event"];
       }
-    | { ok: false; error: string };
+    | { ok: false; error: string }
+  >;
   /** Resolve token público (sem expor PII). */
-  resolveJogoAccess: (token: string) => JogoAccessIndexEntry | null;
+  resolveJogoAccess: (token: string) => Promise<JogoAccessIndexEntry | null>;
   /** Marca prazo de análise atingido sem auto-decidir. */
   refreshJogoDeadlines: () => void;
+  /** Sincroniza Jogos remotos do Pai (cache local sem data_url). */
+  syncRemoteJogos: () => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Chat do visitante (sem login) na marcação do jogo. */
   ensureGuestChatClient: (input: {
     full_name: string;
@@ -2166,9 +2184,90 @@ export function AppStoreProvider({
     [commit],
   );
 
+  const mergeRemoteAppointmentCache = useCallback(
+    (appointment: Appointment, clientPatch?: Partial<Client>) => {
+      commit((rawPrev) => {
+        const prev = withPaiPrivateBase(rawPrev);
+        const stamp = nowIso();
+        const existingClient = prev.clients.find((c) => c.id === appointment.client_id);
+        const nextClient: Client = existingClient
+          ? {
+              ...existingClient,
+              ...clientPatch,
+              updated_at: stamp,
+            }
+          : {
+              id: appointment.client_id,
+              responsible_profile_id:
+                clientPatch?.responsible_profile_id ??
+                prev.profiles.find((p) => p.role === "pai_de_santo")?.id,
+              full_name: clientPatch?.full_name ?? "Visitante (reserva)",
+              phone: clientPatch?.phone ?? "pendente",
+              email: clientPatch?.email,
+              birth_date: clientPatch?.birth_date,
+              is_guest: true,
+              registration_complete: clientPatch?.registration_complete ?? false,
+              notes: "Jogo remoto",
+              created_at: stamp,
+              updated_at: stamp,
+            };
+        const appointments = [
+          appointment,
+          ...prev.appointments.filter((a) => a.id !== appointment.id),
+        ];
+        const clients = [
+          nextClient,
+          ...prev.clients.filter((c) => c.id !== nextClient.id),
+        ];
+        const holds = isJogoOccupyingStatus(appointment.jogo_status)
+          ? upsertJogoSlotHold(prev.jogoSlotHolds, {
+              appointment_id: appointment.id,
+              scheduled_at: appointment.scheduled_at,
+              expires_at:
+                appointment.jogo_status === "aguardando_pagamento"
+                  ? appointment.hold_expires_at ?? holdExpiresAt()
+                  : appointment.analysis_deadline_at ??
+                    appointment.access_token_expires_at ??
+                    holdExpiresAt(),
+              jogo_status: appointment.jogo_status!,
+              modalidade: appointment.modalidade,
+            })
+          : pruneJogoSlotHolds(prev.jogoSlotHolds).filter(
+              (h) => h.appointment_id !== appointment.id,
+            );
+        return {
+          ...prev,
+          appointments,
+          clients,
+          jogoSlotHolds: holds,
+        };
+      }, seedPai());
+    },
+    [commit],
+  );
+
   const holdGuestJogo: AppStore["holdGuestJogo"] = useCallback(
-    (input) => {
-      let result: ReturnType<AppStore["holdGuestJogo"]> = {
+    async (input) => {
+      if (isJogoRemoteEnabled()) {
+        const remote = await remoteHoldJogo(input);
+        if (!remote.ok) return remote;
+        mergeRemoteAppointmentCache(remote.appointment, {
+          full_name: "Visitante (reserva)",
+          phone: "pendente",
+          is_guest: true,
+          registration_complete: false,
+        });
+        return {
+          ok: true,
+          appointment: remote.appointment,
+          ficha_code: remote.ficha_code,
+          client_id: remote.client_id,
+          hold_expires_at: remote.hold_expires_at,
+          guest_secret: remote.guest_secret,
+        };
+      }
+
+      let result: Awaited<ReturnType<AppStore["holdGuestJogo"]>> = {
         ok: false,
         error: "Não foi possível reservar o horário.",
       };
@@ -2250,11 +2349,11 @@ export function AppStoreProvider({
       }, seedPai());
       return result;
     },
-    [commit],
+    [commit, mergeRemoteAppointmentCache],
   );
 
   const completeGuestJogoFicha: AppStore["completeGuestJogoFicha"] = useCallback(
-    (input) => {
+    async (input) => {
       const name = input.ficha.full_name.trim();
       const phone = input.ficha.phone.trim();
       const email = input.ficha.email?.trim() ?? "";
@@ -2269,7 +2368,35 @@ export function AppStoreProvider({
         return { ok: false, error: "Aceite a Política de Privacidade para continuar." };
       }
 
-      let result: ReturnType<AppStore["completeGuestJogoFicha"]> = {
+      if (isJogoRemoteEnabled()) {
+        if (!input.guest_secret) {
+          return { ok: false, error: "Sessão do visitante inválida. Escolha o horário novamente." };
+        }
+        const remote = await remoteCompleteJogoFicha({
+          appointment_id: input.appointment_id,
+          guest_secret: input.guest_secret,
+          ficha: {
+            ...input.ficha,
+            full_name: name,
+            phone,
+            email,
+            birth_date: birth,
+            privacy_accepted: true,
+          },
+        });
+        if (!remote.ok) return remote;
+        mergeRemoteAppointmentCache(remote.appointment, {
+          full_name: name,
+          phone,
+          email,
+          birth_date: birth,
+          registration_complete: true,
+          is_guest: true,
+        });
+        return remote;
+      }
+
+      let result: Awaited<ReturnType<AppStore["completeGuestJogoFicha"]>> = {
         ok: false,
         error: "Reserva não encontrada ou expirada.",
       };
@@ -2327,12 +2454,52 @@ export function AppStoreProvider({
       }, seedPai());
       return result;
     },
-    [commit],
+    [commit, mergeRemoteAppointmentCache],
   );
 
   const attachGuestJogoProof: AppStore["attachGuestJogoProof"] = useCallback(
-    (input) => {
-      let result: ReturnType<AppStore["attachGuestJogoProof"]> = {
+    async (input) => {
+      if (isJogoRemoteEnabled()) {
+        if (!input.file || !input.guest_secret) {
+          return {
+            ok: false,
+            error: "Envie o comprovante com a sessão ativa do visitante.",
+          };
+        }
+        const remote = await remoteUploadJogoComprovante({
+          appointment_id: input.appointment_id,
+          guest_secret: input.guest_secret,
+          file: input.file,
+        });
+        if (!remote.ok) return remote;
+        mergeRemoteAppointmentCache(remote.appointment);
+        commit((rawPrev) => {
+          const prev = withPaiPrivateBase(rawPrev);
+          const stamp = nowIso();
+          const notification: AppNotification = {
+            id: uid("ntf"),
+            title: "Comprovante de Jogo recebido",
+            body: `Código ${remote.appointment.ficha_code ?? "—"} · análise em até 24h. Sem dados sensíveis neste aviso.`,
+            type: "agenda",
+            audience: ["pai_de_santo"],
+            related_id: remote.appointment.id,
+            read: false,
+            href: `/atendimentos/${remote.appointment.id}`,
+            created_at: stamp,
+          };
+          return {
+            ...prev,
+            notifications: [notification, ...prev.notifications],
+          };
+        }, seedPai());
+        return remote;
+      }
+
+      if (!input.proof) {
+        return { ok: false, error: "Comprovante obrigatório." };
+      }
+
+      let result: Awaited<ReturnType<AppStore["attachGuestJogoProof"]>> = {
         ok: false,
         error: "Não foi possível enviar o comprovante.",
       };
@@ -2356,7 +2523,7 @@ export function AppStoreProvider({
         const stamp = nowIso();
         const deadline = analysisDeadlineAt(stamp);
         const proof: JogoPaymentProof = {
-          ...input.proof,
+          ...input.proof!,
           uploaded_at: stamp,
         };
         const appointments = prev.appointments.map((a) =>
@@ -2403,15 +2570,41 @@ export function AppStoreProvider({
       }, seedPai());
       return result;
     },
-    [commit],
+    [commit, mergeRemoteAppointmentCache],
   );
 
   const paiDecideJogo: AppStore["paiDecideJogo"] = useCallback(
-    (input) => {
+    async (input) => {
       if (currentUser?.role !== "pai_de_santo") {
         return { ok: false, error: "Somente o Pai de Santo pode decidir sobre o Jogo." };
       }
-      let result: ReturnType<AppStore["paiDecideJogo"]> = {
+
+      if (isJogoRemoteEnabled()) {
+        const remote = await remoteDecidirJogo(input);
+        if (!remote.ok) return remote;
+        mergeRemoteAppointmentCache(remote.appointment);
+        if (remote.access_token && remote.appointment.jogo_status === "confirmado") {
+          commit((prev) => ({
+            ...prev,
+            jogoAccessIndex: upsertJogoAccessIndex(prev.jogoAccessIndex, {
+              appointment_id: remote.appointment.id,
+              access_token: remote.access_token!,
+              expires_at:
+                remote.appointment.access_token_expires_at ?? accessTokenExpiresAt(),
+              revoked: false,
+              jogo_status: "confirmado",
+              scheduled_at: remote.appointment.scheduled_at,
+              modalidade: remote.appointment.modalidade ?? "online",
+              chat_unlocked: true,
+              ficha_code: remote.appointment.ficha_code ?? "",
+              amount: remote.appointment.amount,
+            }),
+          }));
+        }
+        return remote;
+      }
+
+      let result: Awaited<ReturnType<AppStore["paiDecideJogo"]>> = {
         ok: false,
         error: "Atendimento não encontrado.",
       };
@@ -2551,15 +2744,100 @@ export function AppStoreProvider({
       });
       return result;
     },
-    [commit, currentUser],
+    [commit, currentUser, mergeRemoteAppointmentCache],
   );
 
   const resolveJogoAccess: AppStore["resolveJogoAccess"] = useCallback(
-    (token) => findJogoAccessByToken(state.jogoAccessIndex, token),
-    [state.jogoAccessIndex],
+    async (token) => {
+      if (isJogoRemoteEnabled()) {
+        const remote = await remoteResolveJogoAccess(token);
+        if (!remote.ok) return null;
+        commit((prev) => ({
+          ...prev,
+          jogoAccessIndex: upsertJogoAccessIndex(prev.jogoAccessIndex, remote.entry),
+        }));
+        return remote.entry;
+      }
+      return findJogoAccessByToken(state.jogoAccessIndex, token);
+    },
+    [commit, state.jogoAccessIndex],
   );
 
+  const syncRemoteJogos: AppStore["syncRemoteJogos"] = useCallback(async () => {
+    if (!isJogoRemoteEnabled()) {
+      return { ok: false, error: "Persistência remota de Jogo desativada." };
+    }
+    const remote = await remoteSyncOwnedJogos();
+    if (!remote.ok) return remote;
+    commit((rawPrev) => {
+      const prev = withPaiPrivateBase(rawPrev);
+      const byIdApt = new Map(prev.appointments.map((a) => [a.id, a]));
+      for (const apt of remote.appointments) {
+        const existing = byIdApt.get(apt.id);
+        byIdApt.set(apt.id, {
+          ...existing,
+          ...apt,
+          // nunca reintroduzir data_url de demo no cache remoto
+          payment_proof: apt.payment_proof
+            ? { ...apt.payment_proof, data_url: undefined }
+            : existing?.payment_proof
+              ? { ...existing.payment_proof, data_url: undefined }
+              : undefined,
+        });
+      }
+      const byIdClient = new Map(prev.clients.map((c) => [c.id, c]));
+      for (const client of remote.clients) {
+        byIdClient.set(client.id, { ...byIdClient.get(client.id), ...client });
+      }
+      const appointments = Array.from(byIdApt.values());
+      const holds = appointments
+        .filter((a) => isJogoOccupyingStatus(a.jogo_status))
+        .map((a) => ({
+          appointment_id: a.id,
+          scheduled_at: a.scheduled_at,
+          expires_at:
+            a.jogo_status === "aguardando_pagamento"
+              ? a.hold_expires_at ?? holdExpiresAt()
+              : a.analysis_deadline_at ?? a.access_token_expires_at ?? holdExpiresAt(),
+          jogo_status: a.jogo_status!,
+          modalidade: a.modalidade,
+        }));
+      return {
+        ...prev,
+        appointments,
+        clients: Array.from(byIdClient.values()),
+        jogoSlotHolds: holds,
+      };
+    }, seedPai());
+    return { ok: true };
+  }, [commit]);
+
+  // Jogos remotos (Etapa 3) — cache sem data_url; só com NEXT_PUBLIC_JOGO_REMOTE=1
+  useEffect(() => {
+    if (!ready || !isJogoRemoteEnabled()) return;
+    const activeProfile = state.profiles.find((profile) => profile.id === state.currentUserId);
+    if (activeProfile?.role !== "pai_de_santo") return;
+    let cancelled = false;
+    void (async () => {
+      const res = await syncRemoteJogos();
+      if (cancelled || res.ok) return;
+      console.warn("[jogo] sync remoto:", res.error);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, state.currentUserId, state.profiles, syncRemoteJogos]);
+
   const refreshJogoDeadlines: AppStore["refreshJogoDeadlines"] = useCallback(() => {
+    if (isJogoRemoteEnabled()) {
+      void remoteListJogoOcupacao().then((remote) => {
+        if (!remote.ok) return;
+        commit((prev) => ({
+          ...prev,
+          jogoSlotHolds: remote.holds,
+        }));
+      });
+    }
     commit((rawPrev) => {
       const prev = withPaiPrivateBase(rawPrev);
       const now = Date.now();
@@ -4811,6 +5089,7 @@ export function AppStoreProvider({
     paiDecideJogo,
     resolveJogoAccess,
     refreshJogoDeadlines,
+    syncRemoteJogos,
     ensureGuestChatClient,
     sendGuestMessage,
     updateAppointmentStatus,

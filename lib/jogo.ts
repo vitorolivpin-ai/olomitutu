@@ -204,3 +204,5 @@ export function readFileAsDataUrl(file: File): Promise<string> {
 export function visitorAccessPath(token: string) {
   return `/marcar/acesso/${encodeURIComponent(token)}`;
 }
+
+export { getJogoPersistenceMode, isJogoRemoteEnabled, jogoPersistenceLabel } from "@/lib/jogo/persistence";

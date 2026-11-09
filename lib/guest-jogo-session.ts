@@ -16,6 +16,8 @@ export type GuestJogoSession = {
   jogoStatus: JogoFlowStatus;
   accessToken?: string;
   holdExpiresAt?: string;
+  /** Segredo da sessão de hold (remoto). Nunca persistir em localStorage. */
+  guestSecret?: string;
 };
 
 export function loadGuestJogoSession(): GuestJogoSession | null {
