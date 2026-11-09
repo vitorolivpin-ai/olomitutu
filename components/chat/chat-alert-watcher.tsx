@@ -78,7 +78,7 @@ export function ChatAlertWatcher() {
 
     const fresh = relevant.filter((m) => !seen.has(m.id));
     if (fresh.length === 0) {
-      if (isStaffChat) syncStaffChatVisibility();
+      // Não re-sincronizar a cada render sem mensagem nova (evita loop com commit/flushSync).
       return;
     }
 

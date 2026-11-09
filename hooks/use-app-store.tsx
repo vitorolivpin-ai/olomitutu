@@ -6,12 +6,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { flushSync } from "react-dom";
 import { createSeedState, DEMO_PASSWORD } from "@/lib/seed";
 import { clearGuestChatSession } from "@/lib/guest-chat-session";
+import {
+  isDemoOverrideActive,
+  readDemoOverrideId,
+  writeDemoOverrideId,
+} from "@/lib/demo-accounts";
 import {
   DATA_KEY,
   loadPrivateData,
@@ -548,11 +553,14 @@ function persistAppState(
     staffHiddenAt: {},
   };
   persistSharedData(stripSession(persisted));
+  // Demo override: Preview com Supabase ainda persiste Jogo/chat local do seed.
+  const localPrivateOk =
+    !isSupabaseConfigured() || isDemoOverrideActive();
   persistPrivateData(
-    !isSupabaseConfigured() && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
+    localPrivateOk && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
       ? cacheUser.id
       : null,
-    !isSupabaseConfigured() && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
+    localPrivateOk && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
       ? {
           clients: cachedPrivate.clients,
           appointments: cachedPrivate.appointments,
@@ -633,6 +641,9 @@ export function AppStoreProvider({
   const authMode = isSupabaseConfigured();
   // Providers só monta no cliente → podemos ler storage já no 1º render
   const [state, setState] = useState<AppState>(() => initialAppState(initialUserId, authMode));
+  // Espelho síncrono — commit() precisa ler o estado atual sem flushSync (React 19).
+  const stateRef = useRef(state);
+  stateRef.current = state;
   // Com Supabase: não liberar o shell até a 1ª leitura da sessão
   // (senão o AppShell manda pra / porque o perfil Auth ainda não chegou).
   const [ready, setReady] = useState(!authMode);
@@ -682,6 +693,38 @@ export function AppStoreProvider({
       if (!userId) {
         // Não limpar em eventos espúrios do Auth (ex.: INITIAL_SESSION null)
         if (!opts.allowClear) {
+          markReady();
+          return;
+        }
+        // Mantém sessão seed (pai@ileoloroke.demo) se o Auth remoto estiver vazio.
+        const demoId = readDemoOverrideId();
+        if (demoId) {
+          setState((prev) => {
+            const seed = createSeedState();
+            const profile =
+              prev.profiles.find((p) => p.id === demoId) ??
+              seed.profiles.find((p) => p.id === demoId) ??
+              null;
+            if (!profile) {
+              writeDemoOverrideId(null);
+              return persistAppState({ ...prev, currentUserId: null }, null);
+            }
+            const profiles = mergeAuthProfile(prev.profiles, profile);
+            const saved = loadPrivateData(demoId);
+            return persistAppState(
+              {
+                ...prev,
+                profiles,
+                clients: saved.clients ?? prev.clients,
+                appointments: saved.appointments ?? prev.appointments,
+                messages: saved.messages ?? prev.messages,
+                internalNotes: saved.internalNotes ?? prev.internalNotes,
+                notifications: saved.notifications ?? prev.notifications,
+                currentUserId: demoId,
+              },
+              profile,
+            );
+          });
           markReady();
           return;
         }
@@ -995,23 +1038,23 @@ export function AppStoreProvider({
   }, [ready, authMode, state.currentUserId, state.profiles, refreshCloudChat]);
 
   /**
-   * Persistência síncrona — funções que devolvem { ok, error } leem o
-   * resultado do updater. No React 19 o setState pode adiar o updater;
-   * sem flushSync o retorno fica preso em "Falha.".
+   * Persistência síncrona sem flushSync (proibido no lifecycle do React 19).
+   * Roda o updater imediatamente em stateRef para que holdGuestJogo / etc.
+   * possam ler { ok, error } no mesmo tick.
    */
   const commit = useCallback((updater: (prev: AppState) => AppState, cacheUser?: Profile) => {
-    flushSync(() => {
-      setState((prev) => {
-        const next = updater(prev);
-        const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
-        const privateCacheUser = user
-          ? user.role === "pai_de_santo"
-            ? user
-            : null
-          : cacheUser ?? null;
-        return persistAppState(next, user, privateCacheUser);
-      });
-    });
+    const prev = stateRef.current;
+    const next = updater(prev);
+    if (next === prev) return;
+    const user = next.profiles.find((profile) => profile.id === next.currentUserId) ?? null;
+    const privateCacheUser = user
+      ? user.role === "pai_de_santo"
+        ? user
+        : null
+      : cacheUser ?? null;
+    const persisted = persistAppState(next, user, privateCacheUser);
+    stateRef.current = persisted;
+    setState(persisted);
   }, []);
 
   const currentUser = useMemo(() => {
@@ -1119,6 +1162,7 @@ export function AppStoreProvider({
 
   const logout = useCallback(() => {
     writeViewAsArea(null);
+    writeDemoOverrideId(null);
     clearGuestChatSession();
     if (isSupabaseConfigured()) {
       const supabase = createBrowserClient();
