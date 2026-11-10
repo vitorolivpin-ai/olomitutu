@@ -554,9 +554,15 @@ function persistAppState(
     staffHiddenAt: {},
   };
   persistSharedData(stripSession(persisted));
-  // Demo override: Preview com Supabase ainda persiste Jogo/chat local do seed.
+  // Persistência privada local:
+  // - sem Supabase (demo puro);
+  // - override de demo no Preview;
+  // - Jogo ainda em modo local (JOGO_REMOTE off): visitante precisa gravar o hold
+  //   no blob do Pai, senão a ficha falha com "Reserva não encontrada ou expirada".
   const localPrivateOk =
-    !isSupabaseConfigured() || isDemoOverrideActive();
+    !isSupabaseConfigured() ||
+    isDemoOverrideActive() ||
+    !isJogoRemoteEnabled();
   persistPrivateData(
     localPrivateOk && (cacheUser?.role === "pai_de_santo" || cacheUser?.role === "cliente" || cacheUser?.role === "tesouraria")
       ? cacheUser.id
