@@ -32,6 +32,21 @@ export function pushBrandIcons() {
   };
 }
 
+/** Só paths same-origin (relativos) — evita open-redirect no clique da notificação. */
+export function sanitizePushUrl(url?: string) {
+  if (!url || typeof url !== "string") return "/";
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return "/";
+  try {
+    const base = siteOrigin() || "https://invalid.local";
+    const parsed = new URL(trimmed, base);
+    if (siteOrigin() && parsed.origin !== new URL(base).origin) return "/";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+  } catch {
+    return "/";
+  }
+}
+
 export async function sendWebPush(
   subscription: PushSubscription | object,
   payload: {
@@ -45,12 +60,13 @@ export async function sendWebPush(
   },
 ) {
   if (!isWebPushConfigured()) {
-    return { ok: false as const, error: "VAPID não configurado" };
+    return { ok: false as const, error: "VAPID não configurado", gone: false };
   }
 
   const brand = pushBrandIcons();
   const full = {
     ...payload,
+    url: sanitizePushUrl(payload.url),
     icon: payload.icon || brand.icon,
     badge: payload.badge || brand.badge,
     image: payload.image || brand.image,
@@ -66,7 +82,15 @@ export async function sendWebPush(
     await webpush.sendNotification(subscription as PushSubscription, JSON.stringify(full));
     return { ok: true as const };
   } catch (e) {
+    const statusCode =
+      typeof e === "object" && e && "statusCode" in e
+        ? Number((e as { statusCode?: number }).statusCode)
+        : undefined;
     const message = e instanceof Error ? e.message : "Falha no push";
-    return { ok: false as const, error: message };
+    const gone =
+      statusCode === 410 ||
+      message.toLowerCase().includes("gone") ||
+      message.includes("410");
+    return { ok: false as const, error: message, gone, statusCode };
   }
 }

@@ -1,5 +1,5 @@
 /* Service worker — PWA + notificações com logo do app */
-const SW_VERSION = "oloroke-notif-v14-icon-branco";
+const SW_VERSION = "oloroke-notif-v15-jogo-push";
 
 function appOrigin() {
   return self.location.origin;
@@ -13,6 +13,17 @@ function brandIcons() {
     badge: `${base}/icon-192.png`,
     image: `${base}/icon-512.png`,
   };
+}
+
+/** Clique só abre URL same-origin (evita open-redirect). */
+function safeSameOriginUrl(raw) {
+  try {
+    const resolved = new URL(raw || "/", self.location.origin);
+    if (resolved.origin !== self.location.origin) return "/";
+    return `${resolved.pathname}${resolved.search}${resolved.hash}` || "/";
+  } catch {
+    return "/";
+  }
 }
 
 self.addEventListener("install", (event) => {
@@ -54,6 +65,7 @@ self.addEventListener("fetch", (event) => {
 function showAppNotification(data) {
   const brand = brandIcons();
   const title = data.title || "OLÓMÌ TÚTÙ";
+  const url = safeSameOriginUrl(data.url || "/");
   return self.registration.showNotification(title, {
     body: data.body || "Abra o app para ver.",
     icon: data.icon || brand.icon,
@@ -63,7 +75,7 @@ function showAppNotification(data) {
     tag: data.tag || "chat",
     renotify: true,
     silent: false,
-    data: { url: data.url || "/" },
+    data: { url },
     vibrate: [120, 60, 120],
   });
 }
@@ -91,13 +103,14 @@ self.addEventListener("push", (event) => {
   const brand = brandIcons();
   if (!data.icon) data.icon = brand.icon;
   if (!data.badge) data.badge = brand.badge;
+  data.url = safeSameOriginUrl(data.url);
 
   event.waitUntil(showAppNotification(data));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification?.data?.url || "/";
+  const url = safeSameOriginUrl(event.notification?.data?.url || "/");
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {

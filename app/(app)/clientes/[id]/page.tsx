@@ -23,15 +23,15 @@ export default function ClientDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  if (!client) {
-    return <EmptyState title="Cliente não encontrado" />;
+  if (
+    currentUser?.role !== "pai_de_santo" ||
+    !client ||
+    client.responsible_profile_id !== currentUser.id
+  ) {
+    return <EmptyState title="Acesso não autorizado" />;
   }
 
   const currentClient = client;
-
-  if (currentUser?.role === "cliente" && currentUser.client_id !== currentClient.id) {
-    return <EmptyState title="Acesso negado" description="Você só pode ver seus próprios dados." />;
-  }
 
   const appointments = state.appointments
     .filter((a) => a.client_id === currentClient.id)
@@ -45,8 +45,7 @@ export default function ClientDetailPage() {
   const messages = state.messages.filter((m) => m.client_id === currentClient.id);
   const notes = state.internalNotes.filter((n) => n.client_id === currentClient.id);
   const canSeeNotes = canAccess(currentUser?.role, "internal_notes");
-  const canManage =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const canManage = currentUser.role === "pai_de_santo";
 
   function onNote(e: FormEvent) {
     e.preventDefault();

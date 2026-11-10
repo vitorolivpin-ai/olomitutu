@@ -56,11 +56,24 @@ export default function ChatPage() {
     );
   }
 
+  if (
+    currentUser?.role !== "pai_de_santo" &&
+    currentUser?.role !== "cliente"
+  ) {
+    return <EmptyState title="Acesso não autorizado" />;
+  }
+
   // Constante local: o TS não estreita `client` dentro de closures
   const currentClient: Client = client;
 
   if (currentUser?.role === "cliente" && currentUser.client_id !== currentClient.id) {
-    return <EmptyState title="Acesso negado" />;
+    return <EmptyState title="Acesso não autorizado" />;
+  }
+  if (
+    currentUser?.role === "pai_de_santo" &&
+    currentClient.responsible_profile_id !== currentUser.id
+  ) {
+    return <EmptyState title="Acesso não autorizado" />;
   }
 
   const messages = messagesForChannel(state.messages ?? [], channel).filter(

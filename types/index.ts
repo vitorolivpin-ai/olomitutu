@@ -29,6 +29,62 @@ export type AppointmentStatus =
   | "CANCELADO"
   | "NAO_COMPARECEU";
 
+/** Modalidade do Jogo (voz/vídeo virão depois). */
+export type JogoModalidade = "online" | "presencial";
+
+/**
+ * Fluxo público do Jogo — independente do status operacional da agenda.
+ * Não confirmar automaticamente após upload do comprovante.
+ */
+export type JogoFlowStatus =
+  | "aguardando_pagamento"
+  | "comprovante_enviado"
+  | "aguardando_aprovacao"
+  | "confirmado"
+  | "recusado"
+  | "cancelado"
+  | "prazo_analise_atingido";
+
+/** Comprovante privado — nunca URL pública permanente. */
+export interface JogoPaymentProof {
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+  /** Path no bucket privado (Supabase). */
+  storage_path?: string;
+  /** Demo local — permanece só no armazenamento privado do Pai. */
+  data_url?: string;
+}
+
+/**
+ * Índice público sem PII — ocupa horário entre visitantes.
+ * Não contém nome, e-mail, nascimento nem comprovante.
+ */
+export interface JogoSlotHold {
+  appointment_id: string;
+  scheduled_at: string;
+  expires_at: string;
+  jogo_status: JogoFlowStatus;
+  modalidade?: JogoModalidade;
+}
+
+/**
+ * Índice público de acesso pós-aprovação (token secreto, sem PII).
+ */
+export interface JogoAccessIndexEntry {
+  appointment_id: string;
+  access_token: string;
+  expires_at: string;
+  revoked: boolean;
+  jogo_status: JogoFlowStatus;
+  scheduled_at: string;
+  modalidade: JogoModalidade;
+  chat_unlocked: boolean;
+  ficha_code: string;
+  amount?: number;
+}
+
 export type PaymentMethod = "PIX" | "BOLETO" | "DINHEIRO" | "TRANSFERENCIA" | "OUTRO";
 
 export type LibraryKind = "video" | "cantiga" | "pdf" | "outro";
@@ -174,6 +230,8 @@ export interface Expense {
 
 export interface Client {
   id: string;
+  /** Pai de Santo responsável; null/ausente significa pendente de associação. */
+  responsible_profile_id?: string;
   full_name: string;
   phone: string;
   email?: string;
@@ -190,9 +248,13 @@ export interface Client {
 export interface AppointmentGuestFicha {
   full_name: string;
   phone: string;
+  /** Obrigatório no fluxo Etapa 2. */
   email?: string;
+  /** Obrigatório no fluxo Etapa 2. */
   birth_date?: string;
   observation?: string;
+  privacy_accepted?: boolean;
+  privacy_accepted_at?: string;
 }
 
 export interface Availability {
@@ -235,6 +297,38 @@ export interface Appointment {
   guest_ficha?: AppointmentGuestFicha;
   /** true = agendamento aberto; ficha restrita ao Pai. */
   pai_only_ficha?: boolean;
+  /** online | presencial — voz/vídeo em etapa futura. */
+  modalidade?: JogoModalidade;
+  /** Status do fluxo público de Jogo. */
+  jogo_status?: JogoFlowStatus;
+  /** Reserva temporária até concluir pagamento/comprovante. */
+  hold_expires_at?: string;
+  payment_proof?: JogoPaymentProof;
+  proof_uploaded_at?: string;
+  /** proof_uploaded_at + 24h — não auto-aprova/recusa. */
+  analysis_deadline_at?: string;
+  analysis_deadline_reached?: boolean;
+  /** Lembrete futuro ao Pai antes das 24h. */
+  analysis_reminder_at?: string;
+  access_token?: string;
+  access_token_expires_at?: string;
+  access_token_revoked?: boolean;
+  /** Chat visitante ↔ Pai liberado só após confirmação. */
+  chat_unlocked?: boolean;
+  /** Futuro: botão Entrar no Jogo (WebRTC). */
+  enter_jogo_enabled?: boolean;
+  requested_new_proof?: boolean;
+  refusal_note?: string;
+  /** Anti-reenvio de Web Push (Etapa 4). */
+  push_prazo_proximo_sent?: boolean;
+  push_prazo_atingido_sent?: boolean;
+  push_lembrete_1h_sent?: boolean;
+  push_lembrete_15min_sent?: boolean;
+  last_email_event?:
+    | "confirmado"
+    | "recusado"
+    | "novo_comprovante"
+    | "comprovante_recebido";
   created_at: string;
   updated_at: string;
 }
@@ -250,11 +344,13 @@ export interface Message {
   kind?: MessageKind;
   audio_data_url?: string;
   audio_url?: string;
+  audio_path?: string;
   audio_duration_sec?: number;
   /** Vídeo enviado no chat (data URL no demo / local). */
   video_data_url?: string;
   /** URL pública do vídeo (Storage). */
   video_url?: string;
+  video_path?: string;
   /** Link da sala de chamada de vídeo (Jitsi). */
   call_url?: string;
   appointment_id?: string;
@@ -281,6 +377,61 @@ export interface AppNotification {
   related_id?: string;
   read: boolean;
   href?: string;
+  created_at: string;
+}
+
+export type InternalSector =
+  | "administracao"
+  | "pai_de_santo"
+  | "financeiro"
+  | "estoque"
+  | "biblioteca";
+
+export type InternalNoticeType = "sector_request" | "filhos_announcement";
+export type InternalNoticePriority = "normal" | "importante" | "urgente";
+export type InternalNoticeStatus =
+  | "novo"
+  | "visualizado"
+  | "em_andamento"
+  | "concluido"
+  | "cancelado"
+  | "arquivado"
+  | "rascunho"
+  | "publicado"
+  | "expirado";
+
+export interface InternalNotice {
+  id: string;
+  notice_type: InternalNoticeType;
+  title: string;
+  body: string;
+  source_sector: InternalSector;
+  target_sector?: InternalSector | null;
+  target_audience?: "filhos_de_santo" | null;
+  priority: InternalNoticePriority;
+  status: InternalNoticeStatus;
+  created_by: string;
+  assigned_to?: string | null;
+  due_at?: string | null;
+  viewed_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  archived_at?: string | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InternalNoticeHistoryEntry {
+  id: string;
+  notice_id: string;
+  action: string;
+  from_status?: InternalNoticeStatus | null;
+  to_status?: InternalNoticeStatus | null;
+  changed_by: string;
+  note?: string | null;
   created_at: string;
 }
 
@@ -430,6 +581,68 @@ export interface PhotoAlbum {
   updated_at: string;
 }
 
+export type OficinaModalidade = "Presencial" | "Online";
+
+export type OficinaStatus =
+  | "Rascunho"
+  | "Publicada"
+  | "Em breve"
+  | "Encerrada"
+  | "Cancelada";
+
+export type InscricaoOficinaStatus =
+  | "Confirmada"
+  | "Lista de espera"
+  | "Cancelada"
+  | "Presente";
+
+export type FilhoDaCasaResposta = "Sim" | "Não" | "Frequentador";
+
+export interface Oficina {
+  id: string;
+  titulo: string;
+  descricao_curta: string;
+  sobre: string;
+  conteudo: string[];
+  imagem?: string;
+  modalidade: OficinaModalidade;
+  status: OficinaStatus;
+  /** YYYY-MM-DD; vazio quando "Em breve" / a definir */
+  data?: string;
+  hora_inicio?: string;
+  hora_fim?: string;
+  local?: string;
+  link?: string;
+  /** 0 = sem limite */
+  total_vagas: number;
+  permitir_lista_espera: boolean;
+  data_limite_inscricao?: string;
+  /** 0 / undefined = gratuita */
+  valor?: number;
+  criado_por: string;
+  atualizado_por?: string;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface InscricaoOficina {
+  id: string;
+  oficina_id: string;
+  usuario_id?: string;
+  nome_completo: string;
+  telefone: string;
+  email: string;
+  data_nascimento?: string;
+  e_filho_da_casa: FilhoDaCasaResposta;
+  ja_participou_antes: boolean;
+  necessidade_especial_ou_acessibilidade?: string;
+  observacoes?: string;
+  aceite_termos: boolean;
+  status: InscricaoOficinaStatus;
+  criado_em: string;
+  atualizado_em?: string;
+}
+
 export interface AppState {
   profiles: Profile[];
   currentUserId: string | null;
@@ -459,7 +672,17 @@ export interface AppState {
   photoAlbums: PhotoAlbum[];
   shopProducts: ShopProduct[];
   shopPurchases: ShopPurchase[];
+  oficinas: Oficina[];
+  inscricoesOficina: InscricaoOficina[];
   houseSettings: HouseSettings;
+  /**
+   * Holds públicos de horário (sem PII) — evita conflito entre visitantes.
+   */
+  jogoSlotHolds: JogoSlotHold[];
+  /**
+   * Índice de tokens de acesso pós-aprovação (sem PII).
+   */
+  jogoAccessIndex: JogoAccessIndexEntry[];
   /**
    * @deprecated Preferir staffHiddenAt — mantido para migração local.
    */
@@ -479,6 +702,8 @@ export type ShopPurchaseStatus = "solicitado" | "pago_liberado" | "recusado";
 export interface HouseSettings {
   pix_key?: string;
   pix_holder_name?: string;
+  /** Valor padrão do Jogo (configurável; sem inventar chave Pix). */
+  jogo_amount?: number;
   updated_at?: string;
 }
 

@@ -22,6 +22,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/entrar/pai_de_santo", origin));
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "pai_de_santo") {
+    return NextResponse.redirect(new URL("/agenda?gcal=forbidden", origin));
+  }
+
   try {
     const tokens = await exchangeGoogleCode(code);
     let refreshToken = tokens.refresh_token ?? null;

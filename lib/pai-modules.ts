@@ -7,7 +7,6 @@ import {
   CalendarClock,
   CalendarDays,
   ChartColumn,
-  CreditCard,
   MessageCircle,
   Package,
   Receipt,
@@ -65,7 +64,6 @@ export const PAI_MODULE_GROUPS: PaiModuleGroup[] = [
     items: [
       { href: "/dashboard", label: "Resumo", icon: ChartColumn, module: "dashboard" },
       { href: "/mensalidades", label: "Mensalidades", icon: Receipt, module: "fees" },
-      { href: "/cobrancas", label: "Cobranças", icon: CreditCard, module: "charges" },
       { href: "/despesas", label: "Despesas", icon: Wallet, module: "expenses" },
       { href: "/financeiro", label: "Financeiro", icon: ChartColumn, module: "finance" },
       { href: "/relatorios", label: "Relatórios", icon: ChartColumn, module: "reports" },

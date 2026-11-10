@@ -103,7 +103,7 @@ export default function DashboardPage() {
               <ul className="mt-3 space-y-3">
                 {overdueFees.slice(0, 5).map((f) => (
                   <li key={f.id}>
-                    <Link href={`/cobrancas/${f.id}`} className="block rounded-2xl hover:bg-mist/70 p-2 -mx-2">
+                    <Link href={`/mensalidades/${f.id}`} className="block rounded-2xl hover:bg-mist/70 p-2 -mx-2">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-navy">{f.member?.full_name}</p>

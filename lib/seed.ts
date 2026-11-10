@@ -265,6 +265,7 @@ export function createSeedState(): AppState {
     clients: [
       {
         id: "cli_juliana",
+        responsible_profile_id: "usr_pai",
         full_name: "Juliana Ferreira",
         phone: "(11) 95555-4004",
         email: "cliente@ileoloroke.demo",
@@ -276,6 +277,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_ana",
+        responsible_profile_id: "usr_pai",
         full_name: "Ana Souza",
         phone: "(11) 98888-1001",
         email: "filho@ileoloroke.demo",
@@ -287,6 +289,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_roberto",
+        responsible_profile_id: "usr_pai",
         full_name: "Roberto Alves",
         phone: "(11) 94444-5005",
         email: "roberto@email.com",
@@ -298,6 +301,7 @@ export function createSeedState(): AppState {
       },
       {
         id: "cli_patricia",
+        responsible_profile_id: "usr_pai",
         full_name: "Patrícia Mendes",
         phone: "(11) 93333-6006",
         birth_date: "1995-07-22",
@@ -405,7 +409,7 @@ export function createSeedState(): AppState {
         type: "financeiro",
         audience: ["tesouraria", "administrador"],
         read: false,
-        href: "/cobrancas",
+        href: "/mensalidades",
         created_at: new Date(now.getTime() - 1000 * 60 * 60 * 10).toISOString(),
       },
       {
@@ -585,9 +589,119 @@ export function createSeedState(): AppState {
     houseSettings: {
       pix_key: "",
       pix_holder_name: "ILÉ OLÓRÒKÈ ÀṢẸ",
+      jogo_amount: 150,
       updated_at: now.toISOString(),
     },
+    jogoSlotHolds: [],
+    jogoAccessIndex: [],
     shopPurchases: [],
+    inscricoesOficina: [],
+    oficinas: [
+      {
+        id: "ofc_1",
+        titulo: "Fundamentos do Jogo de Búzios",
+        descricao_curta:
+          "Introdução aos fundamentos do jogo de búzios para iniciantes da casa.",
+        sobre:
+          "Uma oficina prática e acolhedora para conhecer a base do jogo de búzios, a postura do consultante e o cuidado ritual no terreiro.",
+        conteudo: [
+          "História e fundamento do jogo",
+          "Postura e ética do consultante",
+          "Leitura prática guiada",
+          "Perguntas e troca de saberes",
+        ],
+        modalidade: "Presencial",
+        status: "Publicada",
+        data: "2026-11-12",
+        hora_inicio: "14:00",
+        hora_fim: "17:00",
+        local: "Barracão — ILÉ OLÓRÒKÈ ÀṢẸ",
+        total_vagas: 20,
+        permitir_lista_espera: true,
+        valor: 0,
+        criado_por: "usr_pai",
+        criado_em: now.toISOString(),
+        atualizado_em: now.toISOString(),
+      },
+      {
+        id: "ofc_2",
+        titulo: "Banhos e Ervas: Saberes Ancestrais",
+        descricao_curta:
+          "Uso consciente de ervas e banhos de limpeza no cotidiano espiritual.",
+        sobre:
+          "Vamos conversar sobre o preparo seguro de banhos, escolha de ervas e a intenção por trás de cada receita da casa.",
+        conteudo: [
+          "Ervas de limpeza e proteção",
+          "Como preparar banhos com segurança",
+          "Cuidados e contraindicações",
+          "Receitas de referência da casa",
+        ],
+        modalidade: "Online",
+        status: "Publicada",
+        data: "2026-11-19",
+        hora_inicio: "19:00",
+        hora_fim: "21:00",
+        link: "https://meet.google.com/olomi-banhos",
+        total_vagas: 40,
+        permitir_lista_espera: true,
+        valor: 45,
+        criado_por: "usr_pai",
+        criado_em: now.toISOString(),
+        atualizado_em: now.toISOString(),
+      },
+      {
+        id: "ofc_3",
+        titulo: "Oferendas na Prática",
+        descricao_curta:
+          "Montagem, intenção e cuidado ritual nas oferendas do cotidiano.",
+        sobre:
+          "Oficina presencial para ensinar o passo a passo das oferendas com respeito, organização e fundamento.",
+        conteudo: [
+          "O que levar e o que evitar",
+          "Montagem guiada",
+          "Intenção e palavras",
+          "Limpeza e descarte correto",
+        ],
+        modalidade: "Presencial",
+        status: "Publicada",
+        data: "2026-11-26",
+        hora_inicio: "14:00",
+        hora_fim: "17:00",
+        local: "Barracão — ILÉ OLÓRÒKÈ ÀṢẸ",
+        total_vagas: 15,
+        permitir_lista_espera: true,
+        valor: 30,
+        criado_por: "usr_admin",
+        criado_em: now.toISOString(),
+        atualizado_em: now.toISOString(),
+      },
+      {
+        id: "ofc_4",
+        titulo: "Ritmos e Toques do Terreiro",
+        descricao_curta:
+          "Introdução aos toques e ritmos que acompanham as obrigações da casa.",
+        sobre:
+          "Em breve abriremos as inscrições para esta vivência de ritmos e toques. Fique de olho nos avisos.",
+        conteudo: [
+          "Apresentação dos atabaques",
+          "Toques básicos",
+          "Escuta e respeito ao axé",
+          "Prática coletiva",
+        ],
+        modalidade: "Presencial",
+        status: "Em breve",
+        data: undefined,
+        hora_inicio: undefined,
+        hora_fim: undefined,
+        local: "Barracão — ILÉ OLÓRÒKÈ ÀṢẸ",
+        total_vagas: 25,
+        permitir_lista_espera: true,
+        valor: 0,
+        criado_por: "usr_pai",
+        criado_em: now.toISOString(),
+        atualizado_em: now.toISOString(),
+      },
+    ],
     shopProducts: [
       {
         id: "shop_1",

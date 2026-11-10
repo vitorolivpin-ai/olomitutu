@@ -4,7 +4,6 @@ export type AppModule =
   | "dashboard"
   | "members"
   | "fees"
-  | "charges"
   | "expenses"
   | "finance"
   | "clients"
@@ -17,6 +16,7 @@ export type AppModule =
   | "library"
   | "house_content"
   | "shop"
+  | "oficinas"
   | "workshops"
   | "certificates";
 
@@ -25,7 +25,6 @@ export const HOUSE_FULL_MODULES: AppModule[] = [
   "dashboard",
   "members",
   "fees",
-  "charges",
   "expenses",
   "finance",
   "clients",
@@ -38,8 +37,7 @@ export const HOUSE_FULL_MODULES: AppModule[] = [
   "library",
   "house_content",
   "shop",
-  "workshops",
-  "certificates",
+  "oficinas",
 ];
 
 /** Papéis da casa (não Cliente / Filho). */
@@ -69,8 +67,7 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "notifications",
     "house_content",
     "shop",
-    "chat",
-    "internal_notes",
+    "oficinas",
     "workshops",
     "certificates",
   ],
@@ -78,12 +75,10 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "dashboard",
     "members",
     "fees",
-    "charges",
     "expenses",
     "finance",
     "notifications",
     "shop",
-    "chat",
     "reports",
   ],
   estoque: ["stock", "notifications"],
@@ -108,6 +103,21 @@ export function canManageHouseContent(role: UserRole | null | undefined) {
     role === "administrador" ||
     role === "biblioteca"
   );
+}
+
+/** Quem gerencia Oficinas (criar, editar, inscritos) */
+export function canManageOficinas(role: UserRole | null | undefined) {
+  return role === "pai_de_santo" || role === "administrador";
+}
+
+/** Jogo / comprovante / aprovação — exclusivo do Pai de Santo (Etapa 1 + 2). */
+export function canManageJogo(role: UserRole | null | undefined) {
+  return role === "pai_de_santo";
+}
+
+/** Admin e Financeiro não acessam clientes/Jogos privados. */
+export function canAccessPrivateClients(role: UserRole | null | undefined) {
+  return role === "pai_de_santo";
 }
 
 export function canAccess(role: UserRole | null | undefined, module: AppModule) {

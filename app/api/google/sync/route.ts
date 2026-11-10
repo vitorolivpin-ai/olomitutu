@@ -5,7 +5,6 @@ import {
   type GoogleTokens,
 } from "@/lib/google/calendar";
 import { isGoogleCalendarConfigured } from "@/lib/google/config";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type SyncBody = {
@@ -23,17 +22,23 @@ async function loadHouseTokens(): Promise<
   | { error: string; status: number }
 > {
   const supabase = await createClient();
-  const admin = createAdminClient();
-  const db = admin ?? supabase;
-  if (!db) return { error: "Supabase não configurado.", status: 500 };
+  if (!supabase) return { error: "Supabase não configurado.", status: 500 };
 
   const {
     data: { user },
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
   if (!user) return { error: "Faça login.", status: 401 };
 
-  // Prefere a conexão do usuário atual; senão a primeira da casa
-  const { data: own } = await db
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "pai_de_santo") {
+    return { error: "Acesso não autorizado.", status: 403 };
+  }
+
+  const { data: own } = await supabase
     .from("google_calendar_connections")
     .select(
       "user_id, refresh_token, access_token, access_token_expires_at, calendar_id",
@@ -41,19 +46,7 @@ async function loadHouseTokens(): Promise<
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let row = own;
-  if (!row) {
-    const { data: anyConn } = await db
-      .from("google_calendar_connections")
-      .select(
-        "user_id, refresh_token, access_token, access_token_expires_at, calendar_id",
-      )
-      .limit(1)
-      .maybeSingle();
-    row = anyConn;
-  }
-
-  if (!row?.refresh_token) {
+  if (!own?.refresh_token) {
     return {
       error: "Google Calendar não conectado. O Pai deve conectar em Agenda.",
       status: 400,
@@ -61,12 +54,12 @@ async function loadHouseTokens(): Promise<
   }
 
   return {
-    userId: row.user_id,
+    userId: own.user_id,
     tokens: {
-      refresh_token: row.refresh_token,
-      access_token: row.access_token,
-      access_token_expires_at: row.access_token_expires_at,
-      calendar_id: row.calendar_id,
+      refresh_token: own.refresh_token,
+      access_token: own.access_token,
+      access_token_expires_at: own.access_token_expires_at,
+      calendar_id: own.calendar_id,
     },
   };
 }
@@ -76,8 +69,7 @@ async function persistRefreshedToken(
   accessToken: string,
   expiresAt: string,
 ) {
-  const admin = createAdminClient();
-  const supabase = admin ?? (await createClient());
+  const supabase = await createClient();
   if (!supabase) return;
   await supabase
     .from("google_calendar_connections")

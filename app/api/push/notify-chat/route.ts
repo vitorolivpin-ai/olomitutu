@@ -32,12 +32,28 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
-  const audience =
-    body.audience === "cliente"
-      ? "cliente"
-      : body.audience === "tesouraria"
-        ? "tesouraria"
-        : "staff";
+  const { data: profile } = await client.supabase
+    .from("profiles")
+    .select("role, client_id, approval_status")
+    .eq("id", user.id)
+    .maybeSingle();
+  const role = profile?.role as string | undefined;
+  if (
+    profile?.approval_status !== "approved" ||
+    (role !== "pai_de_santo" && role !== "cliente")
+  ) {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 403 });
+  }
+  if (body.audience === "tesouraria") {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 403 });
+  }
+  const audience = body.audience === "cliente" ? "cliente" : "staff";
+  if (
+    (role === "cliente" && (audience !== "staff" || profile.client_id !== body.client_id)) ||
+    (role === "pai_de_santo" && !body.client_id)
+  ) {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 403 });
+  }
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json(
@@ -47,23 +63,23 @@ export async function POST(req: NextRequest) {
   }
 
   let userIds: string[] = [];
+  const { data: ownedClient } = await admin
+    .from("clients")
+    .select("id, responsible_profile_id")
+    .eq("id", body.client_id)
+    .maybeSingle();
+  if (
+    !ownedClient ||
+    (role === "pai_de_santo" && ownedClient.responsible_profile_id !== user.id) ||
+    (role === "cliente" && ownedClient.id !== profile.client_id)
+  ) {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 403 });
+  }
 
   if (audience === "staff") {
-    const { data: staff } = await admin
-      .from("profiles")
-      .select("id")
-      .in("role", ["pai_de_santo", "administrador"]);
-    userIds = (staff ?? []).map((p) => p.id as string);
-  } else if (audience === "tesouraria") {
-    const { data: staff } = await admin
-      .from("profiles")
-      .select("id")
-      .in("role", ["tesouraria", "administrador"]);
-    userIds = (staff ?? []).map((p) => p.id as string);
+    const recipientId = role === "pai_de_santo" ? user.id : ownedClient.responsible_profile_id;
+    userIds = recipientId ? [recipientId] : [];
   } else {
-    if (!body.client_id) {
-      return NextResponse.json({ ok: true, sent: 0, reason: "sem client_id" });
-    }
     const { data: clients } = await admin
       .from("profiles")
       .select("id")
@@ -86,9 +102,7 @@ export async function POST(req: NextRequest) {
       ? body.channel === "financeiro"
         ? "Mensagem do Financeiro"
         : "Mensagem da casa"
-      : audience === "tesouraria"
-        ? "Mensagem — compras"
-        : "Nova mensagem";
+      : "Nova mensagem da casa";
   const preview = (body.preview || "Abra o chat").slice(0, 120);
   const sender = body.sender_name?.trim();
   const notifBody = sender ? `${sender}: ${preview}` : preview;
@@ -97,9 +111,7 @@ export async function POST(req: NextRequest) {
       ? body.channel === "financeiro"
         ? "/cliente/financeiro-chat"
         : "/cliente/mensagens"
-      : body.client_id
-        ? `/conversas/${body.client_id}`
-        : "/conversas";
+      : `/conversas/${body.client_id}`;
 
   let sent = 0;
   for (const row of subs ?? []) {
@@ -111,7 +123,7 @@ export async function POST(req: NextRequest) {
     });
     if (result.ok) {
       sent += 1;
-    } else if (result.error.toLowerCase().includes("gone") || result.error.includes("410")) {
+    } else if (result.gone) {
       await admin.from("push_subscriptions").delete().eq("id", row.id);
     }
   }

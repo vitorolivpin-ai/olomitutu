@@ -5,6 +5,7 @@ import type { AppState } from "@/types";
 export const DATA_KEY = "ile-oloroke-data-v1";
 /** Sessão por aba — permite Casa e Cliente abertos ao mesmo tempo */
 export const SESSION_KEY = "ile-oloroke-session-v1";
+export const PRIVATE_DATA_KEY = "ile-oloroke-private-data-v1";
 /** Chave legada (migração) */
 const LEGACY_KEY = "ile-oloroke-demo-v1";
 
@@ -16,11 +17,28 @@ export function stripSession(state: AppState): SharedData {
   return data;
 }
 
+function withoutPrivateData(data: SharedData): SharedData {
+  return {
+    ...data,
+    profiles: data.profiles.filter((profile) => profile.role !== "cliente"),
+    clients: [],
+    appointments: [],
+    messages: [],
+    internalNotes: [],
+    shopPurchases: [],
+    notifications: data.notifications.filter(
+      (notification) => !["chat", "agenda", "atendimento", "financeiro"].includes(notification.type),
+    ),
+    staffHiddenClientIds: [],
+    staffHiddenAt: {},
+  };
+}
+
 export function loadSharedData(): SharedData {
-  if (typeof window === "undefined") return stripSession(createSeedState());
+  if (typeof window === "undefined") return withoutPrivateData(stripSession(createSeedState()));
   try {
     const raw = localStorage.getItem(DATA_KEY) ?? localStorage.getItem(LEGACY_KEY);
-    if (!raw) return stripSession(createSeedState());
+    if (!raw) return withoutPrivateData(stripSession(createSeedState()));
     const parsed = JSON.parse(raw) as Partial<AppState>;
     const seed = createSeedState();
     const parsedProfiles = parsed.profiles ?? [];
@@ -28,10 +46,15 @@ export function loadSharedData(): SharedData {
       ...seed.profiles.filter((s) => !parsedProfiles.some((p) => p.id === s.id || p.role === s.role)),
       ...parsedProfiles,
     ];
-    return stripSession({
+    const shared = stripSession({
       ...seed,
       ...parsed,
       currentUserId: null,
+      clients: [],
+      appointments: [],
+      messages: [],
+      internalNotes: [],
+      notifications: parsed.notifications ?? seed.notifications,
       profiles,
       publishedSlots: parsed.publishedSlots ?? seed.publishedSlots,
       availability: parsed.availability ?? seed.availability,
@@ -58,10 +81,21 @@ export function loadSharedData(): SharedData {
         ...p,
         delivery: p.delivery ?? (p.client_id ? "conta" : "email"),
       })),
+      oficinas: (() => {
+        const local = parsed.oficinas ?? [];
+        const byId = new Map(local.map((o) => [o.id, o]));
+        for (const s of seed.oficinas ?? []) {
+          if (!byId.has(s.id)) byId.set(s.id, s);
+        }
+        return [...byId.values()];
+      })(),
+      inscricoesOficina: parsed.inscricoesOficina ?? seed.inscricoesOficina ?? [],
       houseSettings: {
         ...(seed.houseSettings ?? {}),
         ...(parsed.houseSettings ?? {}),
       },
+      jogoSlotHolds: parsed.jogoSlotHolds ?? seed.jogoSlotHolds ?? [],
+      jogoAccessIndex: parsed.jogoAccessIndex ?? seed.jogoAccessIndex ?? [],
       staffHiddenClientIds: parsed.staffHiddenClientIds ?? [],
       staffHiddenAt: {
         ...Object.fromEntries(
@@ -73,20 +107,71 @@ export function loadSharedData(): SharedData {
         ...(parsed.staffHiddenAt ?? {}),
       },
     });
+    const safeShared = withoutPrivateData(shared);
+    localStorage.setItem(DATA_KEY, JSON.stringify(safeShared));
+    localStorage.removeItem(LEGACY_KEY);
+    return safeShared;
   } catch {
-    return stripSession(createSeedState());
+    try {
+      localStorage.removeItem(DATA_KEY);
+      localStorage.removeItem(LEGACY_KEY);
+    } catch {
+      // Storage is unavailable; return the private-data-free seed.
+    }
+    return withoutPrivateData(stripSession(createSeedState()));
+  }
+}
+
+type PrivateData = Pick<
+  AppState,
+  | "clients"
+  | "appointments"
+  | "messages"
+  | "internalNotes"
+  | "notifications"
+  | "profiles"
+  | "shopPurchases"
+>;
+
+export function loadPrivateData(userId: string | null): Partial<PrivateData> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(PRIVATE_DATA_KEY);
+    if (!userId) return {};
+    if (!raw) return {};
+    const saved = JSON.parse(raw) as { userId?: string; data?: Partial<PrivateData> };
+    if (saved.userId !== userId) {
+      sessionStorage.removeItem(PRIVATE_DATA_KEY);
+      return {};
+    }
+    return saved.data ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export function persistPrivateData(userId: string | null, data?: PrivateData) {
+  try {
+    if (!userId || !data) {
+      sessionStorage.removeItem(PRIVATE_DATA_KEY);
+      return;
+    }
+    sessionStorage.setItem(PRIVATE_DATA_KEY, JSON.stringify({ userId, data }));
+  } catch {
+    sessionStorage.removeItem(PRIVATE_DATA_KEY);
   }
 }
 
 export function persistSharedData(data: SharedData) {
+  const safeData = withoutPrivateData(data);
   try {
-    localStorage.setItem(DATA_KEY, JSON.stringify(data));
+    localStorage.setItem(DATA_KEY, JSON.stringify(safeData));
     localStorage.removeItem(LEGACY_KEY);
   } catch {
     // QuotaExceeded: remove áudios antigos e tenta de novo
     const pruned: SharedData = {
-      ...data,
-      messages: data.messages.map((m, idx, arr) => {
+      ...safeData,
+      messages: safeData.messages.map((m, idx, arr) => {
         if (m.kind === "audio" && m.audio_data_url) {
           const newerAudioCount = arr
             .slice(idx + 1)
@@ -112,13 +197,13 @@ export function persistSharedData(data: SharedData) {
     } catch {
       // último recurso: remove payloads pesados (áudio chat + arquivos da biblioteca)
       const textOnly: SharedData = {
-        ...data,
-        messages: data.messages.map((m) =>
+        ...safeData,
+        messages: safeData.messages.map((m) =>
           m.kind === "audio"
             ? { ...m, audio_data_url: undefined, body: m.body || "Áudio" }
             : m,
         ),
-        libraryItems: (data.libraryItems ?? []).map((item) =>
+        libraryItems: (safeData.libraryItems ?? []).map((item) =>
           item.file_data_url
             ? {
                 ...item,

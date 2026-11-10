@@ -39,7 +39,6 @@ export default function MenuPage() {
     { href: "/dashboard", label: "Resumo", module: "dashboard" as const },
     { href: "/membros", label: "Membros", module: "members" as const },
     { href: "/mensalidades", label: "Mensalidades", module: "fees" as const },
-    { href: "/cobrancas", label: "Cobranças", module: "charges" as const },
     { href: "/despesas", label: "Despesas", module: "expenses" as const },
     { href: "/financeiro", label: "Análise financeira", module: "finance" as const },
     ...(!isPai

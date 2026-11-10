@@ -1,11 +1,15 @@
 import type { UserRole } from "@/types";
 import { roleLabel } from "@/lib/permissions";
+import { DEMO_PASSWORD, createSeedState } from "@/lib/seed";
 
 /**
  * Slug da aba no hub (/entrar/[area], /cadastrar/[area]).
  * `filho` não é UserRole: autentica como `cliente` + person_kind filho_de_santo.
  */
 export type AreaSlug = UserRole | "filho";
+
+/** Sessão local seed quando o Preview tem Supabase mas a conta demo não existe no Auth. */
+export const DEMO_OVERRIDE_KEY = "ile-oloroke-demo-override";
 
 /** Contas demo — uma por área (senha única do MVP) */
 export const DEMO_ACCOUNTS: Record<
@@ -78,4 +82,37 @@ export function isFilhoArea(area: string) {
 
 export function areaTitle(area: AreaSlug | UserRole) {
   return DEMO_ACCOUNTS[area as AreaSlug]?.label ?? roleLabel(area as UserRole);
+}
+
+export function isDemoPassword(password: string) {
+  return password === DEMO_PASSWORD;
+}
+
+/** Resolve perfil seed pelo e-mail demo (Preview local). */
+export function findSeedProfileByEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  return createSeedState().profiles.find((p) => p.email.toLowerCase() === normalized) ?? null;
+}
+
+export function readDemoOverrideId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(DEMO_OVERRIDE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeDemoOverrideId(userId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!userId) sessionStorage.removeItem(DEMO_OVERRIDE_KEY);
+    else sessionStorage.setItem(DEMO_OVERRIDE_KEY, userId);
+  } catch {
+    // ignore
+  }
+}
+
+export function isDemoOverrideActive() {
+  return Boolean(readDemoOverrideId());
 }

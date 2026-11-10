@@ -44,7 +44,11 @@ export default function DisponibilidadePage() {
     return <EmptyState title="Acesso restrito ao Pai de Santo / Administração" />;
   }
 
-  const views = buildSlotViews(state.publishedSlots ?? [], state.appointments);
+  const views = buildSlotViews(
+    state.publishedSlots ?? [],
+    state.appointments,
+    state.jogoSlotHolds,
+  );
   const livres = views.filter((v) => v.status === "livre").length;
   const ocupados = views.filter((v) => v.status === "ocupado").length;
 

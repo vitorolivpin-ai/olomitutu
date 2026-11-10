@@ -39,7 +39,6 @@ const financeiroItems = [
   { href: "/inicio", label: "Início", icon: LayoutDashboard },
   { href: "/financeiro", label: "Finanças", icon: Wallet },
   { href: "/loja", label: "Loja", icon: Package },
-  { href: "/conversas", label: "Chat", icon: MessageCircle },
   { href: "/menu", label: "Menu", icon: Menu },
 ];
 

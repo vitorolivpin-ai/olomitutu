@@ -4,12 +4,16 @@ import { FormEvent, useState } from "react";
 import {
   areaTitle,
   authRoleForArea,
+  findSeedProfileByEmail,
+  isDemoPassword,
   isFilhoArea,
+  writeDemoOverrideId,
   type AreaSlug,
 } from "@/lib/demo-accounts";
 import { useAppStore } from "@/hooks/use-app-store";
 import { homePathForUser, isFilhoDeSanto } from "@/lib/filho";
 import { homePathForRole } from "@/lib/navigation";
+import { SESSION_KEY } from "@/lib/storage";
 import { getSupabasePublicEnv } from "@/lib/supabase/config";
 import { createBrowserClient } from "@/lib/supabase/client";
 import {
@@ -61,6 +65,32 @@ export function LoginForm({ area, initialError }: Props) {
     });
 
     if (signError || !data.user) {
+      // Preview com Supabase: contas seed (pai@ileoloroke.demo / demo123) entram em modo local.
+      const seedProfile = isDemoPassword(password)
+        ? findSeedProfileByEmail(email)
+        : null;
+      if (seedProfile) {
+        const masterPai = paiCanOpenArea(seedProfile.role);
+        const authRole = authRoleForArea(area);
+        if (!masterPai && seedProfile.role !== authRole) {
+          setError("Esta conta demo não tem acesso a esta área.");
+          setPending(false);
+          return;
+        }
+        writeDemoOverrideId(seedProfile.id);
+        writeViewAsArea(masterPai ? area : null);
+        try {
+          sessionStorage.setItem(SESSION_KEY, seedProfile.id);
+          document.cookie = `ile-oloroke-sid=${seedProfile.id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+        } catch {
+          // ignore
+        }
+        const mapped = actingProfileForArea(seedProfile, masterPai ? area : null);
+        hydrateAuthProfile(mapped);
+        window.location.assign(homePathForUser(mapped) || homePathForRole(mapped.role));
+        return;
+      }
+
       const host = getSupabasePublicEnv().url.replace(/^https?:\/\//, "") || "?";
       const raw = signError?.message || "Não foi possível entrar.";
       const msg = raw.toLowerCase();
@@ -83,6 +113,8 @@ export function LoginForm({ area, initialError }: Props) {
     if (data.session) {
       await supabase.auth.setSession(data.session);
     }
+    // Auth real substitui qualquer sessão demo seed.
+    writeDemoOverrideId(null);
 
     let { row: profile, errorMessage } = await fetchProfileRowDetailed(
       supabase,

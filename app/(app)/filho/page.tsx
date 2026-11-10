@@ -39,12 +39,6 @@ const shortcuts = [
     icon: MessageCircle,
     hint: "Conversa direta",
   },
-  {
-    href: "/filho/financeiro-chat",
-    label: "Chat Financeiro",
-    icon: Receipt,
-    hint: "Pix e liberações",
-  },
 ] as const;
 
 export default function FilhoHomePage() {

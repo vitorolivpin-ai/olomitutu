@@ -10,8 +10,8 @@ export type HubEntry = {
 export const HUB_ENTRIES: HubEntry[] = [
   {
     id: "marcar",
-    label: "Marcar horário",
-    hint: "Sem criar conta · Pix · ficha só o Pai vê",
+    label: "Marcar um Jogo",
+    hint: "Sem criar conta · Pix · aprovação do Pai",
     href: "/marcar",
     section: "geral",
   },

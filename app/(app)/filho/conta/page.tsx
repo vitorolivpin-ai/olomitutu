@@ -36,7 +36,6 @@ const appLinks = [
     label: "Chat com Vitor Cardozo - Ògún Yande",
     icon: MessageCircle,
   },
-  { href: "/filho/financeiro-chat", label: "Chat com o Financeiro", icon: Wallet },
   { href: "/filho/notificacoes", label: "Notificações", icon: Bell },
 ] as const;
 

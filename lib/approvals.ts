@@ -55,8 +55,7 @@ export function roleGrantedOnApproval(input: {
 }): UserRole {
   const fromTab = input.signup_area ?? input.requested_role;
   if (fromTab && fromTab !== "cliente") return fromTab;
-  // Cadastro pelo App do Cliente: person_kind administrador → admin; demais → cliente
-  if (input.person_kind === "administrador") return "administrador";
+  // person_kind é descritivo; apenas a área solicitada e aprovada concede papel.
   return "cliente";
 }
 

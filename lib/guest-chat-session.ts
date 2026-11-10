@@ -10,7 +10,8 @@ export type GuestChatSession = {
 export function loadGuestChatSession(): GuestChatSession | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(KEY);
+    localStorage.removeItem(KEY);
+    const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GuestChatSession;
     if (!parsed?.clientId || !parsed.fullName) return null;
@@ -22,10 +23,12 @@ export function loadGuestChatSession(): GuestChatSession | null {
 
 export function saveGuestChatSession(session: GuestChatSession) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(session));
+  localStorage.removeItem(KEY);
+  sessionStorage.setItem(KEY, JSON.stringify(session));
 }
 
 export function clearGuestChatSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEY);
+  sessionStorage.removeItem(KEY);
 }

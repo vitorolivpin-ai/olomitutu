@@ -31,10 +31,7 @@ export async function GET(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (
-    profile?.role !== "pai_de_santo" &&
-    profile?.role !== "administrador"
-  ) {
+  if (profile?.role !== "pai_de_santo") {
     return NextResponse.redirect(new URL("/agenda?gcal=forbidden", origin));
   }
 

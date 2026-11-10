@@ -9,9 +9,11 @@ export function audienceFromType(
 
   switch (type) {
     case "chat":
-      return ["pai_de_santo", "administrador"];
+      return ["pai_de_santo"];
     case "agenda":
-      return ["pai_de_santo", "administrador"];
+      return ["pai_de_santo"];
+    case "atendimento":
+      return ["pai_de_santo"];
     case "financeiro":
       return ["tesouraria", "administrador"];
     case "estoque":

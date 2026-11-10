@@ -33,8 +33,7 @@ export default function CadastrosPendentesPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canApprove =
-    currentUser?.role === "pai_de_santo" || currentUser?.role === "administrador";
+  const canApprove = currentUser?.role === "pai_de_santo";
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured() || !canApprove) {
@@ -74,28 +73,10 @@ export default function CadastrosPendentesPage() {
     setBusyId(row.id);
     setError(null);
 
-    const grantedRole = roleGrantedOnApproval({
-      requested_role: row.requested_role,
-      signup_area: row.signup_area,
-      person_kind: row.person_kind,
+    const { error: upError } = await supabase.rpc("decide_profile_approval", {
+      p_profile_id: row.id,
+      p_decision: decision,
     });
-
-    const payload =
-      decision === "approved"
-        ? {
-            approval_status: "approved" as const,
-            role: grantedRole,
-            updated_at: new Date().toISOString(),
-          }
-        : {
-            approval_status: "rejected" as const,
-            updated_at: new Date().toISOString(),
-          };
-
-    const { error: upError } = await supabase
-      .from("profiles")
-      .update(payload)
-      .eq("id", row.id);
     setBusyId(null);
 
     if (upError) {
@@ -136,7 +117,7 @@ export default function CadastrosPendentesPage() {
   }
 
   if (!canApprove) {
-    return <EmptyState title="Só o Pai de Santo (ou Admin) aprova cadastros" />;
+    return <EmptyState title="Somente o Pai de Santo aprova cadastros" />;
   }
 
   if (!isSupabaseConfigured()) {

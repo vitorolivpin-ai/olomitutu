@@ -46,15 +46,10 @@ export default function FinancePage() {
         subtitle={formatCompetence(competence)}
       />
       <div className="flex flex-wrap justify-center gap-3">
-        <div className="flex flex-wrap justify-center gap-2">
-          <Link href="/conversas">
-            <Button variant="secondary">Chat com clientes</Button>
-          </Link>
-          <Link href="/loja/liberacoes">
-            <Button variant="gold">Liberações da loja</Button>
-          </Link>
+        <Link href="/loja/liberacoes">
+          <Button variant="gold">Liberações da loja</Button>
+        </Link>
         </div>
-      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

@@ -75,7 +75,7 @@ export function HubLanding({ entries }: Props) {
           <CalendarDays className="h-6 w-6 text-navy" strokeWidth={2.1} />
         </span>
         <span className="flex-1 text-left text-[17px] font-bold tracking-tight text-navy">
-          Marcar horário
+          Marcar um Jogo
         </span>
         <ChevronRight className="h-5 w-5 shrink-0 text-navy/55" strokeWidth={2.25} />
       </Link>

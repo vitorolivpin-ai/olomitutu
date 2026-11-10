@@ -7,7 +7,6 @@ import {
   GraduationCap,
   CalendarDays,
   ChartColumn,
-  CreditCard,
   MessageCircle,
   Package,
   Receipt,
@@ -105,14 +104,6 @@ const tiles: Tile[] = [
     hint: "Competências e status",
     icon: Receipt,
     module: "fees",
-    tone: "gold",
-  },
-  {
-    href: "/cobrancas",
-    label: "Cobranças",
-    hint: "Recebimentos",
-    icon: CreditCard,
-    module: "charges",
     tone: "gold",
   },
   {

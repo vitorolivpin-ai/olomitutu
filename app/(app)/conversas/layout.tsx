@@ -30,15 +30,12 @@ export default function ConversasLayout({ children }: { children: React.ReactNod
     markChatNotificationsRead,
   } = useAppStore();
 
-  const isStaff = currentUser?.role !== "cliente";
+  const isStaff = currentUser?.role === "pai_de_santo";
   const isFinance = currentUser?.role === "tesouraria";
   const channel = isFinance ? "financeiro" : "casa";
   const activeId = typeof params.clientId === "string" ? params.clientId : null;
   const onThread = Boolean(activeId);
-  const showPush =
-    currentUser?.role === "pai_de_santo" ||
-    currentUser?.role === "administrador" ||
-    currentUser?.role === "tesouraria";
+  const showPush = currentUser?.role === "pai_de_santo";
 
   const channelMessages = useMemo(
     () => messagesForChannel(state.messages ?? [], channel),
