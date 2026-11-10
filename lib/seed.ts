@@ -409,7 +409,7 @@ export function createSeedState(): AppState {
         type: "financeiro",
         audience: ["tesouraria", "administrador"],
         read: false,
-        href: "/cobrancas",
+        href: "/mensalidades",
         created_at: new Date(now.getTime() - 1000 * 60 * 60 * 10).toISOString(),
       },
       {

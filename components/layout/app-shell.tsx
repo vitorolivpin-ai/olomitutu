@@ -21,7 +21,7 @@ import { isClientPortalPath, isMemberPortalPath } from "@/lib/navigation";
 const routeModules: Array<{ prefix: string; module: AppModule }> = [
   { prefix: "/membros", module: "members" },
   { prefix: "/mensalidades", module: "fees" },
-  { prefix: "/cobrancas", module: "charges" },
+  { prefix: "/cobrancas", module: "fees" },
   { prefix: "/despesas", module: "expenses" },
   { prefix: "/financeiro", module: "finance" },
   { prefix: "/clientes", module: "clients" },

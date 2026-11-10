@@ -7,10 +7,12 @@ import { InstallAppBanner } from "@/components/pwa/install-app-banner";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAppStore } from "@/hooks/use-app-store";
+import { useInternalNotices } from "@/hooks/use-internal-notices";
 import { isFilhoDeSanto } from "@/lib/filho";
 import { formatDateTime } from "@/lib/format";
 import { notificationsForRole } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
+import { NOTICE_PRIORITY_LABEL } from "@/lib/internal-notices";
 
 const typeLabel: Record<string, string> = {
   agenda: "Agenda",
@@ -22,6 +24,7 @@ const typeLabel: Record<string, string> = {
 
 export default function FilhoNotificacoesPage() {
   const { state, currentUser, markNotificationRead } = useAppStore();
+  const { items: announcements } = useInternalNotices();
 
   if (!currentUser || !isFilhoDeSanto(currentUser)) {
     return <EmptyState title="Área exclusiva do Filho de Santo" />;
@@ -42,6 +45,20 @@ export default function FilhoNotificacoesPage() {
 
       <InstallAppBanner force />
       <EnablePushBanner forClient />
+
+      <section className="space-y-3" aria-labelledby="children-announcements-title">
+        <h2 id="children-announcements-title" className="font-display text-xl text-navy">Avisos da casa</h2>
+        {announcements.map((notice) => (
+          <Card key={notice.id}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <p className="font-semibold text-navy">{notice.title}</p>
+              <span className="rounded-full bg-gold/20 px-2 py-1 text-xs text-navy">{NOTICE_PRIORITY_LABEL[notice.priority]}</span>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-navy/70">{notice.body}</p>
+            <p className="mt-2 text-xs text-navy/45">{formatDateTime(notice.created_at)}</p>
+          </Card>
+        ))}
+      </section>
 
       <div className="grid gap-3">
         {items.map((n) => {

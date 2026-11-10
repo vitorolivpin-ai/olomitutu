@@ -4,7 +4,6 @@ export type AppModule =
   | "dashboard"
   | "members"
   | "fees"
-  | "charges"
   | "expenses"
   | "finance"
   | "clients"
@@ -26,7 +25,6 @@ export const HOUSE_FULL_MODULES: AppModule[] = [
   "dashboard",
   "members",
   "fees",
-  "charges",
   "expenses",
   "finance",
   "clients",
@@ -77,7 +75,6 @@ const ROLE_ACCESS: Record<UserRole, AppModule[]> = {
     "dashboard",
     "members",
     "fees",
-    "charges",
     "expenses",
     "finance",
     "notifications",

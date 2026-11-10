@@ -380,6 +380,61 @@ export interface AppNotification {
   created_at: string;
 }
 
+export type InternalSector =
+  | "administracao"
+  | "pai_de_santo"
+  | "financeiro"
+  | "estoque"
+  | "biblioteca";
+
+export type InternalNoticeType = "sector_request" | "filhos_announcement";
+export type InternalNoticePriority = "normal" | "importante" | "urgente";
+export type InternalNoticeStatus =
+  | "novo"
+  | "visualizado"
+  | "em_andamento"
+  | "concluido"
+  | "cancelado"
+  | "arquivado"
+  | "rascunho"
+  | "publicado"
+  | "expirado";
+
+export interface InternalNotice {
+  id: string;
+  notice_type: InternalNoticeType;
+  title: string;
+  body: string;
+  source_sector: InternalSector;
+  target_sector?: InternalSector | null;
+  target_audience?: "filhos_de_santo" | null;
+  priority: InternalNoticePriority;
+  status: InternalNoticeStatus;
+  created_by: string;
+  assigned_to?: string | null;
+  due_at?: string | null;
+  viewed_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  archived_at?: string | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InternalNoticeHistoryEntry {
+  id: string;
+  notice_id: string;
+  action: string;
+  from_status?: InternalNoticeStatus | null;
+  to_status?: InternalNoticeStatus | null;
+  changed_by: string;
+  note?: string | null;
+  created_at: string;
+}
+
 export interface StockProduct {
   id: string;
   barcode: string;
