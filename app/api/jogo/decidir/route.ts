@@ -88,6 +88,34 @@ export async function POST(req: NextRequest) {
           : undefined;
 
   try {
+    const { data: clientRow } = await client.supabase
+      .from("clients")
+      .select("full_name")
+      .eq("id", appointment.client_id)
+      .maybeSingle();
+    const { syncJogoDecisionToGoogle } = await import("@/lib/google/server-sync");
+    const googleEventId = await syncJogoDecisionToGoogle({
+      supabase: client.supabase,
+      userId: user.id,
+      decision,
+      appointment: {
+        appointment_id: appointment.id,
+        client_name: clientRow?.full_name ?? null,
+        guest_name: appointment.guest_ficha?.full_name ?? null,
+        scheduled_at: appointment.scheduled_at,
+        duration_minutes: appointment.duration_minutes,
+        google_event_id: appointment.google_event_id ?? remoteRow.google_event_id,
+        notes: appointment.notes,
+      },
+    });
+    if (googleEventId !== undefined) {
+      appointment.google_event_id = googleEventId ?? undefined;
+    }
+  } catch {
+    /* Google opcional */
+  }
+
+  try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const { sendJogoPush, revokeVisitorJogoPush } = await import("@/lib/server/jogo-push");
     const admin = createAdminClient();

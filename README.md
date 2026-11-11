@@ -94,9 +94,9 @@ Enquanto o SMTP não estiver ok: Authentication → Users → usuário → **Con
    - `GOOGLE_CLIENT_SECRET`
    - `GOOGLE_REDIRECT_URI=https://olomitutu.vercel.app/api/google/callback`
    - `SUPABASE_SERVICE_ROLE_KEY` (legacy service_role do Supabase)
-5. No Supabase SQL Editor, rode `016_google_calendar.sql`.
+5. No Supabase SQL Editor, rode `016_google_calendar.sql` e `034_google_event_id.sql`.
 6. No app: entre como Pai → **Agenda** → **Conectar Google Calendar**.
-7. Novos agendamentos (e cancelamentos) sincronizam para a agenda Google do Pai.
+7. Jogos **confirmados** (aprovação do Pai) e cancelamentos sincronizam para a agenda Google do Pai.
 
 ### 6. Conferir
 

@@ -12,6 +12,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { GoogleCalendarConnectBanner } from "@/components/agenda/google-calendar-connect-banner";
 import { EnablePushBanner } from "@/components/chat/enable-push-banner";
 import { PaiModulesSheet } from "@/components/house/pai-modules-sheet";
 import { Badge, feeStatusTone } from "@/components/ui/badge";
@@ -203,6 +204,7 @@ export function PaiHome() {
       </header>
 
       <EnablePushBanner compact />
+      <GoogleCalendarConnectBanner />
 
       {/* Agenda | Próximos jogos */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">

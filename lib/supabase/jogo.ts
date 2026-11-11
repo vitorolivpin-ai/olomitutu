@@ -52,6 +52,7 @@ export type RemoteJogoAppointmentRow = {
   rejected_at?: string | null;
   cancelled_at?: string | null;
   last_email_event?: Appointment["last_email_event"] | null;
+  google_event_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -125,6 +126,7 @@ export function mapRemoteJogoAppointment(row: RemoteJogoAppointmentRow): Appoint
     requested_new_proof: Boolean(row.requested_new_proof),
     refusal_note: row.refusal_note ?? undefined,
     last_email_event: row.last_email_event ?? undefined,
+    google_event_id: row.google_event_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
