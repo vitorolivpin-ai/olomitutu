@@ -59,10 +59,32 @@ export function LoginForm({ area, initialError }: Props) {
       return;
     }
 
-    const { data, error: signError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    // Supabase lento/pausado travava em "Entrando…" no celular — timeout libera o fallback demo.
+    let data: Awaited<
+      ReturnType<NonNullable<ReturnType<typeof createBrowserClient>>["auth"]["signInWithPassword"]>
+    >["data"] = { user: null, session: null };
+    let signError: { message: string } | null = null;
+    let authTimer: number | undefined;
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+        new Promise<never>((_, reject) => {
+          authTimer = window.setTimeout(
+            () => reject(new Error("auth_timeout")),
+            8_000,
+          );
+        }),
+      ]);
+      data = result.data;
+      signError = result.error;
+    } catch {
+      signError = { message: "auth_timeout" };
+    } finally {
+      if (authTimer !== undefined) window.clearTimeout(authTimer);
+    }
 
     if (signError || !data.user) {
       // Preview com Supabase: contas seed (pai@ileoloroke.demo / demo123) entram em modo local.
@@ -94,7 +116,11 @@ export function LoginForm({ area, initialError }: Props) {
       const host = getSupabasePublicEnv().url.replace(/^https?:\/\//, "") || "?";
       const raw = signError?.message || "Não foi possível entrar.";
       const msg = raw.toLowerCase();
-      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+      if (msg.includes("auth_timeout")) {
+        setError(
+          `O login demorou demais (${host}). Confira se o projeto Supabase não está pausado e tente de novo.`,
+        );
+      } else if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
         setNeedsConfirm(true);
         setError(
           `E-mail ainda não confirmado. Reenvie o link abaixo ou, no Supabase → Authentication → Users, confirme manualmente. Sem SMTP próprio o e-mail só chega para membros da equipe do projeto (${host}).`,
