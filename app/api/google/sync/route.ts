@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  deleteGoogleEvent,
-  upsertGoogleEvent,
-  type GoogleTokens,
-} from "@/lib/google/calendar";
 import { isGoogleCalendarConfigured } from "@/lib/google/config";
+import {
+  deleteAppointmentGoogleEvent,
+  upsertAppointmentGoogleEvent,
+} from "@/lib/google/server-sync";
 import { createClient } from "@/lib/supabase/server";
 
 type SyncBody = {
@@ -16,70 +15,6 @@ type SyncBody = {
   google_event_id?: string | null;
   notes?: string;
 };
-
-async function loadHouseTokens(): Promise<
-  | { tokens: GoogleTokens; userId: string }
-  | { error: string; status: number }
-> {
-  const supabase = await createClient();
-  if (!supabase) return { error: "Supabase não configurado.", status: 500 };
-
-  const {
-    data: { user },
-  } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
-  if (!user) return { error: "Faça login.", status: 401 };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "pai_de_santo") {
-    return { error: "Acesso não autorizado.", status: 403 };
-  }
-
-  const { data: own } = await supabase
-    .from("google_calendar_connections")
-    .select(
-      "user_id, refresh_token, access_token, access_token_expires_at, calendar_id",
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!own?.refresh_token) {
-    return {
-      error: "Google Calendar não conectado. O Pai deve conectar em Agenda.",
-      status: 400,
-    };
-  }
-
-  return {
-    userId: own.user_id,
-    tokens: {
-      refresh_token: own.refresh_token,
-      access_token: own.access_token,
-      access_token_expires_at: own.access_token_expires_at,
-      calendar_id: own.calendar_id,
-    },
-  };
-}
-
-async function persistRefreshedToken(
-  userId: string,
-  accessToken: string,
-  expiresAt: string,
-) {
-  const supabase = await createClient();
-  if (!supabase) return;
-  await supabase
-    .from("google_calendar_connections")
-    .update({
-      access_token: accessToken,
-      access_token_expires_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId);
-}
 
 export async function POST(req: NextRequest) {
   if (!isGoogleCalendarConfigured()) {
@@ -100,56 +35,60 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Dados incompletos." }, { status: 400 });
   }
 
-  const loaded = await loadHouseTokens();
-  if ("error" in loaded) {
+  const supabase = await createClient();
+  if (!supabase) {
+    return NextResponse.json({ ok: false, error: "Supabase não configurado." }, { status: 500 });
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Faça login." }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "pai_de_santo") {
+    return NextResponse.json({ ok: false, error: "Acesso não autorizado." }, { status: 403 });
+  }
+
+  if (body.action === "delete") {
+    const result = await deleteAppointmentGoogleEvent(supabase, user.id, {
+      appointment_id: body.appointment_id,
+      google_event_id: body.google_event_id,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.status },
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      deleted: result.deleted === true,
+      skipped: result.skipped === true,
+    });
+  }
+
+  const result = await upsertAppointmentGoogleEvent(supabase, user.id, {
+    appointment_id: body.appointment_id,
+    client_name: body.client_name,
+    scheduled_at: body.scheduled_at,
+    duration_minutes: body.duration_minutes,
+    google_event_id: body.google_event_id,
+    notes: body.notes,
+  });
+
+  if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: loaded.error },
-      { status: loaded.status },
+      { ok: false, error: result.error },
+      { status: result.status },
     );
   }
 
-  try {
-    if (body.action === "delete") {
-      if (!body.google_event_id) {
-        return NextResponse.json({ ok: true, skipped: true });
-      }
-      const result = await deleteGoogleEvent(loaded.tokens, body.google_event_id);
-      if (result.refreshed) {
-        await persistRefreshedToken(
-          loaded.userId,
-          result.accessToken,
-          result.expiresAt,
-        );
-      }
-      return NextResponse.json({ ok: true, deleted: true });
-    }
-
-    const result = await upsertGoogleEvent(loaded.tokens, {
-      summary: `Jogo / atendimento — ${body.client_name || "Cliente"}`,
-      description: [
-        `Agendamento OLÓMÌ TÚTÙ`,
-        body.client_name ? `Cliente: ${body.client_name}` : null,
-        body.notes ? `Obs: ${body.notes}` : null,
-        `ID: ${body.appointment_id}`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      startIso: body.scheduled_at,
-      durationMinutes: body.duration_minutes ?? 60,
-      eventId: body.google_event_id,
-    });
-
-    if (result.refreshed) {
-      await persistRefreshedToken(
-        loaded.userId,
-        result.accessToken,
-        result.expiresAt,
-      );
-    }
-
-    return NextResponse.json({ ok: true, google_event_id: result.eventId });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Erro ao sincronizar.";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
+  return NextResponse.json({ ok: true, google_event_id: result.google_event_id });
 }

@@ -4,14 +4,23 @@ import { isGoogleCalendarConfigured } from "@/lib/google/config";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
+function parseOAuthState(state: string): { uid?: string; n?: number } | null {
+  try {
+    const json = Buffer.from(state, "base64url").toString("utf8");
+    return JSON.parse(json) as { uid?: string; n?: number };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const origin = getAppOrigin() || req.nextUrl.origin;
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   const saved = req.cookies.get("gcal_oauth_state")?.value;
 
-  if (!isGoogleCalendarConfigured() || !code || !state || state !== saved) {
-    return NextResponse.redirect(new URL("/agenda?gcal=error", origin));
+  if (!isGoogleCalendarConfigured() || !code || !state) {
+    return NextResponse.redirect(new URL("/agenda?gcal=error&msg=oauth_incompleto", origin));
   }
 
   const supabase = await createClient();
@@ -20,6 +29,19 @@ export async function GET(req: NextRequest) {
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
   if (!user || !supabase) {
     return NextResponse.redirect(new URL("/entrar/pai_de_santo", origin));
+  }
+
+  // Cookie pode sumir no Safari/Chrome mobile; aceita state assinado com uid do Pai
+  const parsed = parseOAuthState(state);
+  const cookieOk = Boolean(saved && state === saved);
+  const stateOk =
+    parsed?.uid === user.id &&
+    typeof parsed.n === "number" &&
+    Date.now() - parsed.n < 15 * 60_000;
+  if (!cookieOk && !stateOk) {
+    return NextResponse.redirect(
+      new URL("/agenda?gcal=error&msg=sessao_oauth_expirada", origin),
+    );
   }
 
   const { data: profile } = await supabase

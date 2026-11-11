@@ -21,6 +21,7 @@ export function GoogleCalendarCard() {
   const [message, setMessage] = useState<string | null>(null);
 
   const canConnect = currentUser?.role === "pai_de_santo";
+  const configured = status?.configured === true;
 
   useEffect(() => {
     const gcal = search.get("gcal");
@@ -34,7 +35,13 @@ export function GoogleCalendarCard() {
       setMessage("Google não enviou refresh token. Desconecte o app no Google e tente de novo.");
     }
     if (gcal === "error") {
-      setMessage(search.get("msg") || "Falha ao conectar Google Calendar.");
+      const raw = search.get("msg") || "";
+      const friendly: Record<string, string> = {
+        oauth_incompleto: "Retorno do Google incompleto. Tente conectar de novo.",
+        sessao_oauth_expirada:
+          "Sessão do Google expirou no celular. Entre de novo como Pai e tente outra vez.",
+      };
+      setMessage(friendly[raw] || raw || "Falha ao conectar Google Calendar.");
     }
   }, [search]);
 
@@ -44,6 +51,13 @@ export function GoogleCalendarCard() {
       .then((j: Status) => setStatus(j))
       .catch(() => setStatus({ configured: false, connected: false }));
   }, []);
+
+  function connect() {
+    if (!configured || busy) return;
+    setBusy(true);
+    // Navegação top-level (evita <a><button>, que falha no celular)
+    window.location.assign("/api/google/connect");
+  }
 
   async function disconnect() {
     setBusy(true);
@@ -61,7 +75,8 @@ export function GoogleCalendarCard() {
     <Card>
       <CardTitle>Google Calendar</CardTitle>
       <p className="mt-1 text-sm text-navy/60">
-        Conecte a agenda do Pai: novos jogos/atendimentos do app vão para o Google.
+        Só o Pai conecta a agenda dele. Depois, todos os jogos confirmados (de qualquer visitante)
+        e os cancelamentos sincronizam com o Google.
       </p>
       {message ? <p className="mt-2 text-sm text-navy/80">{message}</p> : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -75,11 +90,13 @@ export function GoogleCalendarCard() {
             </Button>
           </>
         ) : (
-          <a href="/api/google/connect">
-            <Button variant="gold" disabled={status?.configured === false}>
-              Conectar Google Calendar
-            </Button>
-          </a>
+          <Button
+            variant="gold"
+            disabled={!configured || busy || status === null}
+            onClick={connect}
+          >
+            Conectar Google Calendar
+          </Button>
         )}
       </div>
       {status && !status.configured ? (

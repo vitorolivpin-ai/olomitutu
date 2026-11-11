@@ -126,6 +126,10 @@ import {
   remoteUploadJogoComprovante,
 } from "@/lib/jogo/remote-client";
 import { clearLocalPushFlags, notifyJogoPush } from "@/lib/push-client";
+import {
+  pushAppointmentToGoogle,
+  removeAppointmentFromGoogle,
+} from "@/lib/google/appointment-sync";
 import { formatAudioDuration } from "@/lib/chat";
 import {
   deleteLibraryItemRemote,
@@ -2669,6 +2673,40 @@ export function AppStoreProvider({
             }),
           }));
         }
+        if (input.decision === "aprovar") {
+          const stamp = nowIso();
+          commit((prev) => ({
+            ...prev,
+            notifications: [
+              {
+                id: uid("ntf"),
+                title: "Jogo confirmado",
+                body: `Código ${remote.appointment.ficha_code ?? "—"} confirmado. Sem dados sensíveis neste aviso.`,
+                type: "agenda" as const,
+                audience: ["pai_de_santo" as const],
+                related_id: remote.appointment.id,
+                read: false,
+                href: `/atendimentos/${remote.appointment.id}`,
+                created_at: stamp,
+              },
+              ...prev.notifications,
+            ],
+          }));
+          // Sync Google já roda no server; reforço client se o Pai estiver conectado no browser
+          const client = state.clients.find((c) => c.id === remote.appointment.client_id);
+          void pushAppointmentToGoogle(remote.appointment, client).then((eventId) => {
+            if (eventId) {
+              commit((prev) => ({
+                ...prev,
+                appointments: prev.appointments.map((a) =>
+                  a.id === remote.appointment.id ? { ...a, google_event_id: eventId } : a,
+                ),
+              }));
+            }
+          });
+        } else if (input.decision === "recusar") {
+          void removeAppointmentFromGoogle(remote.appointment);
+        }
         // Push remoto já dispara em /api/jogo/decidir; reforço client-side com token só no request
         if (input.decision === "aprovar" && remote.access_token) {
           void notifyJogoPush({
@@ -2845,9 +2883,24 @@ export function AppStoreProvider({
       if (localPush) {
         void notifyJogoPush(localPush);
       }
+      const decidedApt = result.ok ? result.appointment : null;
+      if (decidedApt && input.decision === "aprovar") {
+        const client = state.clients.find((c) => c.id === decidedApt.client_id);
+        void pushAppointmentToGoogle(decidedApt, client).then((eventId) => {
+          if (!eventId) return;
+          commit((prev) => ({
+            ...prev,
+            appointments: prev.appointments.map((a) =>
+              a.id === decidedApt.id ? { ...a, google_event_id: eventId } : a,
+            ),
+          }));
+        });
+      } else if (decidedApt && input.decision === "recusar") {
+        void removeAppointmentFromGoogle(decidedApt);
+      }
       return result;
     },
-    [commit, currentUser, mergeRemoteAppointmentCache],
+    [commit, currentUser, mergeRemoteAppointmentCache, state.clients],
   );
 
   const resolveJogoAccess: AppStore["resolveJogoAccess"] = useCallback(
