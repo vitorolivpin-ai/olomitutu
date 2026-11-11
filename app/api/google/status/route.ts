@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   if (!isGoogleCalendarConfigured()) {
-    return NextResponse.json({ configured: false, connected: false });
+    return NextResponse.json({
+      configured: false,
+      connected: false,
+      signed_in: false,
+    });
   }
 
   const supabase = await createClient();
@@ -13,7 +17,11 @@ export async function GET() {
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
 
   if (!user || !supabase) {
-    return NextResponse.json({ configured: true, connected: false });
+    return NextResponse.json({
+      configured: true,
+      connected: false,
+      signed_in: false,
+    });
   }
 
   const { data: profile } = await supabase
@@ -22,7 +30,11 @@ export async function GET() {
     .eq("id", user.id)
     .maybeSingle();
   if (profile?.role !== "pai_de_santo") {
-    return NextResponse.json({ configured: true, connected: false });
+    return NextResponse.json({
+      configured: true,
+      connected: false,
+      signed_in: true,
+    });
   }
 
   const { data: own } = await supabase
@@ -35,10 +47,15 @@ export async function GET() {
     return NextResponse.json({
       configured: true,
       connected: true,
+      signed_in: true,
       google_email: own.google_email,
       connected_at: own.connected_at,
     });
   }
 
-  return NextResponse.json({ configured: true, connected: false });
+  return NextResponse.json({
+    configured: true,
+    connected: false,
+    signed_in: true,
+  });
 }

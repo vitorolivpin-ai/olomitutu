@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
     data: { user },
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
   if (!user || !supabase) {
-    return NextResponse.redirect(new URL("/entrar/pai_de_santo", origin));
+    return NextResponse.redirect(
+      new URL("/agenda?gcal=error&msg=sessao_perdida_mobile", origin),
+    );
   }
 
   // Cookie pode sumir no Safari/Chrome mobile; aceita state assinado com uid do Pai

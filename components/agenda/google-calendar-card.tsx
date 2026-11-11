@@ -4,13 +4,26 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { isDemoOverrideActive } from "@/lib/demo-accounts";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/hooks/use-app-store";
 
 type Status = {
   configured: boolean;
   connected: boolean;
+  signed_in?: boolean;
   house?: boolean;
   google_email?: string | null;
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  oauth_incompleto: "Retorno do Google incompleto. Tente conectar de novo.",
+  sessao_oauth_expirada:
+    "Sessão do Google expirou no celular. Entre de novo como Pai e tente outra vez.",
+  precisa_login_real:
+    "Google Calendar não funciona com a conta demo. Entre com o e-mail real do Pai (Supabase) e conecte de novo.",
+  sessao_perdida_mobile:
+    "No celular a sessão caiu ao voltar do Google. Entre de novo como Pai (conta real) e toque em Conectar outra vez.",
 };
 
 export function GoogleCalendarCard() {
@@ -22,6 +35,7 @@ export function GoogleCalendarCard() {
 
   const canConnect = currentUser?.role === "pai_de_santo";
   const configured = status?.configured === true;
+  const needsRealLogin = status?.signed_in === false;
 
   useEffect(() => {
     const gcal = search.get("gcal");
@@ -36,12 +50,7 @@ export function GoogleCalendarCard() {
     }
     if (gcal === "error") {
       const raw = search.get("msg") || "";
-      const friendly: Record<string, string> = {
-        oauth_incompleto: "Retorno do Google incompleto. Tente conectar de novo.",
-        sessao_oauth_expirada:
-          "Sessão do Google expirou no celular. Entre de novo como Pai e tente outra vez.",
-      };
-      setMessage(friendly[raw] || raw || "Falha ao conectar Google Calendar.");
+      setMessage(ERROR_MESSAGES[raw] || raw || "Falha ao conectar Google Calendar.");
     }
   }, [search]);
 
@@ -49,12 +58,24 @@ export function GoogleCalendarCard() {
     void fetch("/api/google/status")
       .then((r) => r.json())
       .then((j: Status) => setStatus(j))
-      .catch(() => setStatus({ configured: false, connected: false }));
+      .catch(() => setStatus({ configured: false, connected: false, signed_in: false }));
   }, []);
 
-  function connect() {
+  async function connect() {
     if (!configured || busy) return;
     setBusy(true);
+    setMessage(null);
+
+    if (isDemoOverrideActive() || needsRealLogin) {
+      const supabase = createBrowserClient();
+      const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+      if (!data.session) {
+        setBusy(false);
+        setMessage(ERROR_MESSAGES.precisa_login_real);
+        return;
+      }
+    }
+
     // Navegação top-level (evita <a><button>, que falha no celular)
     window.location.assign("/api/google/connect");
   }
@@ -79,6 +100,11 @@ export function GoogleCalendarCard() {
         e os cancelamentos sincronizam com o Google.
       </p>
       {message ? <p className="mt-2 text-sm text-navy/80">{message}</p> : null}
+      {!message && configured && needsRealLogin ? (
+        <p className="mt-2 text-sm text-navy/80">
+          {ERROR_MESSAGES.precisa_login_real}
+        </p>
+      ) : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {status?.connected ? (
           <>
@@ -93,7 +119,7 @@ export function GoogleCalendarCard() {
           <Button
             variant="gold"
             disabled={!configured || busy || status === null}
-            onClick={connect}
+            onClick={() => void connect()}
           >
             Conectar Google Calendar
           </Button>

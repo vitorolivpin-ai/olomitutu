@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
 
   if (!user) {
-    return NextResponse.redirect(new URL("/entrar/pai_de_santo", origin));
+    // Conta demo (pai@…demo) não tem sessão Auth — Google precisa de login real.
+    return NextResponse.redirect(
+      new URL("/agenda?gcal=error&msg=precisa_login_real", origin),
+    );
   }
 
   const { data: profile } = await supabase!
