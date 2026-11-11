@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeGoogleCode, fetchGoogleEmail } from "@/lib/google/calendar";
 import { isGoogleCalendarConfigured } from "@/lib/google/config";
+import { verifyGoogleOAuthState } from "@/lib/google/oauth-state";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-
-function parseOAuthState(state: string): { uid?: string; n?: number } | null {
-  try {
-    const json = Buffer.from(state, "base64url").toString("utf8");
-    return JSON.parse(json) as { uid?: string; n?: number };
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest) {
   const origin = getAppOrigin() || req.nextUrl.origin;
@@ -20,36 +13,51 @@ export async function GET(req: NextRequest) {
   const saved = req.cookies.get("gcal_oauth_state")?.value;
 
   if (!isGoogleCalendarConfigured() || !code || !state) {
-    return NextResponse.redirect(new URL("/agenda?gcal=error&msg=oauth_incompleto", origin));
+    return NextResponse.redirect(
+      new URL("/agenda?gcal=error&msg=oauth_incompleto", origin),
+    );
   }
 
-  const supabase = await createClient();
+  const verified = verifyGoogleOAuthState(state);
+  const cookieOk = Boolean(saved && state === saved);
+
+  const supabaseUser = await createClient();
   const {
     data: { user },
-  } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
-  if (!user || !supabase) {
+  } = (await supabaseUser?.auth.getUser()) ?? { data: { user: null } };
+
+  // State assinado basta (celular perde cookie Auth). Cookie legado só vale com sessão.
+  let userId: string | null = null;
+  if (verified) {
+    if (user && user.id !== verified.uid) {
+      return NextResponse.redirect(
+        new URL("/agenda?gcal=error&msg=sessao_oauth_expirada", origin),
+      );
+    }
+    userId = verified.uid;
+  } else if (cookieOk && user) {
+    userId = user.id;
+  } else {
+    return NextResponse.redirect(
+      new URL(
+        `/agenda?gcal=error&msg=${user ? "sessao_oauth_expirada" : "sessao_perdida_mobile"}`,
+        origin,
+      ),
+    );
+  }
+
+  // Com sessão: usa o client do user. Sem sessão (mobile): service role.
+  const db = user && supabaseUser ? supabaseUser : createAdminClient();
+  if (!db) {
     return NextResponse.redirect(
       new URL("/agenda?gcal=error&msg=sessao_perdida_mobile", origin),
     );
   }
 
-  // Cookie pode sumir no Safari/Chrome mobile; aceita state assinado com uid do Pai
-  const parsed = parseOAuthState(state);
-  const cookieOk = Boolean(saved && state === saved);
-  const stateOk =
-    parsed?.uid === user.id &&
-    typeof parsed.n === "number" &&
-    Date.now() - parsed.n < 15 * 60_000;
-  if (!cookieOk && !stateOk) {
-    return NextResponse.redirect(
-      new URL("/agenda?gcal=error&msg=sessao_oauth_expirada", origin),
-    );
-  }
-
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
   if (profile?.role !== "pai_de_santo") {
     return NextResponse.redirect(new URL("/agenda?gcal=forbidden", origin));
@@ -59,11 +67,10 @@ export async function GET(req: NextRequest) {
     const tokens = await exchangeGoogleCode(code);
     let refreshToken = tokens.refresh_token ?? null;
     if (!refreshToken) {
-      // Reconsent às vezes não devolve refresh se já autorizado — mantém o anterior
-      const { data: existing } = await supabase
+      const { data: existing } = await db
         .from("google_calendar_connections")
         .select("refresh_token")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .maybeSingle();
       refreshToken = existing?.refresh_token ?? null;
     }
@@ -78,9 +85,9 @@ export async function GET(req: NextRequest) {
       Date.now() + (tokens.expires_in ?? 3600) * 1000,
     ).toISOString();
 
-    const { error } = await supabase.from("google_calendar_connections").upsert(
+    const { error } = await db.from("google_calendar_connections").upsert(
       {
-        user_id: user.id,
+        user_id: userId,
         refresh_token: refreshToken,
         access_token: tokens.access_token ?? null,
         access_token_expires_at: expiresAt,

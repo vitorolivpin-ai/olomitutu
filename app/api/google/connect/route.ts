@@ -4,6 +4,7 @@ import {
   getGoogleOAuthConfig,
   isGoogleCalendarConfigured,
 } from "@/lib/google/config";
+import { signGoogleOAuthState } from "@/lib/google/oauth-state";
 import { getAppOrigin } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,9 +12,7 @@ export async function GET(req: NextRequest) {
   const origin = getAppOrigin() || req.nextUrl.origin;
 
   if (!isGoogleCalendarConfigured()) {
-    return NextResponse.redirect(
-      new URL("/agenda?gcal=config", origin),
-    );
+    return NextResponse.redirect(new URL("/agenda?gcal=config", origin));
   }
 
   const supabase = await createClient();
@@ -22,10 +21,14 @@ export async function GET(req: NextRequest) {
   } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
 
   if (!user) {
-    // Conta demo (pai@…demo) não tem sessão Auth — Google precisa de login real.
-    return NextResponse.redirect(
-      new URL("/agenda?gcal=error&msg=precisa_login_real", origin),
+    // Conta demo não tem Auth — manda para login real e volta ao connect depois.
+    const login = new URL("/entrar/pai_de_santo", origin);
+    login.searchParams.set(
+      "erro",
+      "Para conectar o Google Calendar, entre com o e-mail real do Pai (não use a conta demo).",
     );
+    login.searchParams.set("next", "/api/google/connect");
+    return NextResponse.redirect(login);
   }
 
   const { data: profile } = await supabase!
@@ -39,10 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { clientId, redirectUri } = getGoogleOAuthConfig();
-  const state = Buffer.from(
-    JSON.stringify({ uid: user.id, n: Date.now() }),
-    "utf8",
-  ).toString("base64url");
+  const state = signGoogleOAuthState({ uid: user.id, n: Date.now() });
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);

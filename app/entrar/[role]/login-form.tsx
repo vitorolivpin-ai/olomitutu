@@ -30,12 +30,20 @@ import {
 type Props = {
   area: AreaSlug;
   initialError?: string | null;
+  /** Após Auth real, redireciona (ex.: /api/google/connect). Só paths relativos seguros. */
+  nextPath?: string | null;
 };
+
+function safeNextPath(next?: string | null) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  if (next.startsWith("/api/google/connect") || next.startsWith("/agenda")) return next;
+  return null;
+}
 
 /**
  * Login no browser — grava a sessão Auth e o perfil no store antes de abrir a área.
  */
-export function LoginForm({ area, initialError }: Props) {
+export function LoginForm({ area, initialError, nextPath }: Props) {
   const role = authRoleForArea(area);
   const { hydrateAuthProfile } = useAppStore();
   const [email, setEmail] = useState("");
@@ -238,7 +246,10 @@ export function LoginForm({ area, initialError }: Props) {
     writeViewAsArea(masterPai ? area : null);
     const mapped = actingProfileForArea(mapProfileRow(profile), masterPai ? area : null);
     hydrateAuthProfile(mapped);
-    window.location.assign(homePathForUser(mapped) || homePathForRole(mapped.role));
+    const afterLogin = safeNextPath(nextPath);
+    window.location.assign(
+      afterLogin || homePathForUser(mapped) || homePathForRole(mapped.role),
+    );
   }
 
   return (

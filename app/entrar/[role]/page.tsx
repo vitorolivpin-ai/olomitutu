@@ -16,7 +16,7 @@ import { areaNeedsApproval, isHouseSignupRole } from "@/lib/approvals";
 
 type Props = {
   params: Promise<{ role: string }>;
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; next?: string }>;
 };
 
 /**
@@ -24,7 +24,7 @@ type Props = {
  */
 export default async function EntrarAreaPage({ params, searchParams }: Props) {
   const { role } = await params;
-  const { erro } = await searchParams;
+  const { erro, next } = await searchParams;
   const authReal = isSupabaseConfigured();
 
   if (!isAreaRole(role)) {
@@ -64,7 +64,7 @@ export default async function EntrarAreaPage({ params, searchParams }: Props) {
 
       <div className="rounded-2xl border border-navy/10 bg-card p-5 shadow-soft">
         {authReal ? (
-          <LoginForm area={area} initialError={erro} />
+          <LoginForm area={area} initialError={erro} nextPath={next} />
         ) : (
           <form action="/api/entrar" method="post" className="space-y-4">
             <input type="hidden" name="role" value={area} />
