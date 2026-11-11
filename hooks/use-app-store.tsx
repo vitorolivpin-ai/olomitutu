@@ -2739,6 +2739,8 @@ export function AppStoreProvider({
             access_token?: string;
           }
         | null = null;
+      // Mutable box so TS doesn't treat assignments inside commit() as unreachable.
+      const decided = { apt: null as Appointment | null };
       commit((prev) => {
         const apt = prev.appointments.find((a) => a.id === input.appointment_id);
         const client = prev.clients.find((c) => c.id === apt?.client_id);
@@ -2797,6 +2799,7 @@ export function AppStoreProvider({
             access_token: token,
             email_event: "confirmado",
           };
+          decided.apt = updated;
           localPush = {
             event: "JOGO_CONFIRMADO",
             jogo_id: updated.id,
@@ -2868,6 +2871,7 @@ export function AppStoreProvider({
         );
         const updated = appointments.find((a) => a.id === apt.id)!;
         result = { ok: true, appointment: updated, email_event: "recusado" };
+        decided.apt = updated;
         localPush = { event: "JOGO_RECUSADO", jogo_id: updated.id };
         return {
           ...prev,
@@ -2883,20 +2887,20 @@ export function AppStoreProvider({
       if (localPush) {
         void notifyJogoPush(localPush);
       }
-      const decidedApt = result.ok ? result.appointment : null;
-      if (decidedApt && input.decision === "aprovar") {
-        const client = state.clients.find((c) => c.id === decidedApt.client_id);
-        void pushAppointmentToGoogle(decidedApt, client).then((eventId) => {
+      if (decided.apt && input.decision === "aprovar") {
+        const aptForGoogle = decided.apt;
+        const client = state.clients.find((c) => c.id === aptForGoogle.client_id);
+        void pushAppointmentToGoogle(aptForGoogle, client).then((eventId) => {
           if (!eventId) return;
           commit((prev) => ({
             ...prev,
             appointments: prev.appointments.map((a) =>
-              a.id === decidedApt.id ? { ...a, google_event_id: eventId } : a,
+              a.id === aptForGoogle.id ? { ...a, google_event_id: eventId } : a,
             ),
           }));
         });
-      } else if (decidedApt && input.decision === "recusar") {
-        void removeAppointmentFromGoogle(decidedApt);
+      } else if (decided.apt && input.decision === "recusar") {
+        void removeAppointmentFromGoogle(decided.apt);
       }
       return result;
     },
