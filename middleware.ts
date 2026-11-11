@@ -8,9 +8,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Todas as rotas exceto assets estáticos e imagens.
-     * Sessão Auth precisa ser renovada também em /entrar e /api.
+     * Rotas de página/API. Ignora estáticos, SW e health checks
+     * para reduzir invocações Edge (Hobby) e risco de 504.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
